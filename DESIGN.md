@@ -42,6 +42,11 @@ Semantic state colours, used only for verdicts and run states: ok
   accent outline), disabled; errors appear inline next to the action with
   `role="alert"` and a text lead, never an icon glyph; empty states name
   the next action.
+- **Flow before inventory.** Navigation is two groups: the numbered demo
+  flow (screen, data room, compute, memo, approvals) and Inspect (ledger,
+  capabilities, rules, CLI). The overview is one numbered path with one
+  primary action, never a card grid repeating the nav. Terminal
+  equivalents and archived results sit behind disclosures.
 - **Responsive is structural.** Below 54rem the sidebar collapses to a
   wrapping nav row with the strapline hidden, so the page task reaches
   the first viewport on a 390px phone.

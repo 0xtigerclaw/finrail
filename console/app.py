@@ -136,6 +136,19 @@ form.inline { display: inline; }
 blockquote { margin: .45rem 0; padding: .6rem .85rem; border-radius: .5rem;
              background: var(--paper); font-size: .92rem; }
 details.raw { margin-top: .8rem; }
+details.clieq { margin-top: 1.5rem; color: var(--ink-2); font-size: .92rem; }
+details.clieq summary { cursor: pointer; }
+.flowlist { list-style: none; margin: 1rem 0; padding: 0; }
+.flowlist li { display: flex; gap: .85rem; align-items: baseline;
+               padding: .7rem 0; border-bottom: 1px solid var(--line); }
+.flowlist li:last-child { border-bottom: none; }
+.flowlist .n { flex: none; display: inline-flex; align-items: center;
+               justify-content: center; width: 1.5rem; height: 1.5rem;
+               border-radius: 999px; background: var(--accent);
+               color: var(--accent-ink); font-weight: 700; font-size: .85rem;
+               transform: translateY(.3rem); }
+.flowlist .t { font-weight: 650; }
+.flowlist .d { color: var(--ink-2); }
 details.raw pre, pre.raw { background: #eef2f8; border-radius: .875rem; padding: 1rem;
              overflow-x: auto; white-space: pre-wrap; font-size: .84rem; }
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -161,12 +174,15 @@ footer { color: var(--ink-2); font-size: .84rem; margin-top: 2.5rem;
 """
 
 NAV = [
-    ("Work", [("home", "/", "Overview"), ("screen", "/screen", "Public-risk screen"),
-              ("dataroom", "/dataroom", "Data room"), ("compute", "/compute", "Compute"),
-              ("memo", "/memo", "IC memo"), ("approvals", "/approvals", "Approvals"),
-              ("runs", "/runs", "Runs & ledger")]),
-    ("System", [("capabilities", "/capabilities", "Capabilities"),
-                ("rules", "/rules", "Rules"), ("cli", "/cli", "CLI")]),
+    ("Demo flow", [("home", "/", "Overview"),
+                   ("screen", "/screen", "1 · Public-risk screen"),
+                   ("dataroom", "/dataroom", "2 · Data room"),
+                   ("compute", "/compute", "3 · Compute"),
+                   ("memo", "/memo", "4 · IC memo"),
+                   ("approvals", "/approvals", "5 · Approvals")]),
+    ("Inspect", [("runs", "/runs", "Runs & ledger"),
+                 ("capabilities", "/capabilities", "Capabilities"),
+                 ("rules", "/rules", "Rules"), ("cli", "/cli", "CLI")]),
 ]
 
 COPY_JS = """
@@ -203,12 +219,9 @@ def _page(title: str, body: str, active: str = "", lede: str = "") -> HTMLRespon
         "decision.</small></div>"
         f"{nav}</aside><main>"
         f"<div class='topbar'><span class='pill'>{_e(_engine_line())}</span>"
-        "<span class='pill'>one dispatcher · browser and CLI alike</span></div>"
+        "</div>"
         f"<h1>{_e(title)}</h1>{lede_html}{body}"
-        "<footer>Every page on this console dispatches through the same "
-        "capability path as <span class='mono'>finrail get</span> and "
-        "<span class='mono'>finrail do</span>. There is no privileged browser "
-        "path.</footer>"
+        "<footer>Same dispatcher as the CLI. No privileged browser path.</footer>"
         f"</main></div><script>{COPY_JS}</script></body></html>")
 
 
@@ -248,7 +261,8 @@ def _cli(cmd: str) -> str:
 
 
 def _cli_equiv(cmd: str) -> str:
-    return f"<h2>Same thing from the terminal</h2>{_cli(cmd)}"
+    return ("<details class='clieq'><summary>Same thing from the terminal"
+            f"</summary>{_cli(cmd)}</details>")
 
 
 def _raw(out) -> str:
@@ -305,48 +319,31 @@ def home():
     pending = len([r for r in tracker.recent(50) if tracker.awaiting(r)])
     runs = tracker.recent(25)
     body = (
-        "<div class='statstrip'>"
-        f"<div class='stat'><div class='v'>{len(caps)}</div>"
-        "<div class='l'>capabilities loaded, from live declarations</div></div>"
-        f"<div class='stat'><div class='v'>{len(finance)}</div>"
-        "<div class='l'>finance capabilities in four packs: screen, "
-        "dataroom, compute, memo</div></div>"
-        f"<div class='stat'><div class='v'>{pending}</div>"
-        "<div class='l'>proposals waiting for a person</div></div>"
-        f"<div class='stat'><div class='v'>{len(runs)}</div>"
-        "<div class='l'>recent runs in the ledger</div></div></div>"
-        "<h2>The demonstration path</h2><div class='steps'>"
-        "<div class='card step'><span class='n'>1</span><h3>"
-        "<a href='/screen'>Confirm, then screen</a></h3><p>A person confirms "
-        "the legal entity first. Then the deterministic evidence gate awards "
-        "each status. The model never chooses the entity and never awards "
-        "VERIFIED.</p></div>"
-        "<div class='card step'><span class='n'>2</span><h3>"
-        "<a href='/dataroom'>Try to plant a figure</a></h3><p>Search the "
-        "synthetic Meridian data room and try to draft the planted 24.5% "
-        "margin into a record. The claim check refuses it, on the "
-        "record.</p></div>"
-        "<div class='card step'><span class='n'>3</span><h3>"
-        "<a href='/compute'>Deterministic compute</a></h3><p>Margin, growth, "
-        "leverage, covenant headroom and cash conversion, computed by Python "
-        "from cited workbook cells.</p></div>"
-        "<div class='card step'><span class='n'>4</span><h3>"
-        "<a href='/memo'>Draft, then release</a></h3><p>An IC memo drafted "
-        "only from gated evidence, released through a hash-bound human "
-        "approval, and re-hashed after release.</p></div>"
-        "<div class='card step'><span class='n'>5</span><h3>"
-        "<a href='/runs'>Read the ledger</a></h3><p>Every model call, with "
-        "engine, model, usage and the full prompt, is a ledger record a "
-        "judged decision can be reconstructed from.</p></div></div>"
-        "<h2>Prefer the terminal?</h2>"
-        "<p>The harness is a CLI first. This console is a shell over the same "
-        "dispatcher, and the <a href='/cli'>CLI page</a> lists every command "
-        "from the live registry.</p>"
-        + _cli("finrail capabilities")
-        + _cli("finrail get finance.compute.metric metric=margin")
-        + _cli('finrail do finance.dataroom.propose "Draft a record entry '
-               'stating that Meridian achieved a 24.5% EBITDA margin in '
-               'FY2025"'))
+        f"<p><span class='num'>{len(caps)}</span> capabilities loaded · "
+        f"<span class='num'>{len(finance)}</span> finance · "
+        f"<span class='num'>{pending}</span> waiting for a person · "
+        f"<span class='num'>{len(runs)}</span> recent runs</p>"
+        "<p><a class='btn' href='/screen'>Start the demo: confirm the "
+        "entity</a></p>"
+        "<ol class='flowlist'>"
+        "<li><span class='n'>1</span><div><a class='t' href='/screen'>"
+        "Confirm, then screen</a><div class='d'>A person confirms the legal "
+        "entity; the evidence gate awards every status.</div></div></li>"
+        "<li><span class='n'>2</span><div><a class='t' href='/dataroom'>"
+        "Try to plant a figure</a><div class='d'>Draft the planted 24.5% "
+        "margin into a record; the claim check refuses it.</div></div></li>"
+        "<li><span class='n'>3</span><div><a class='t' href='/compute'>"
+        "Deterministic compute</a><div class='d'>Five metrics from cited "
+        "workbook cells, recomputed by Python.</div></div></li>"
+        "<li><span class='n'>4</span><div><a class='t' href='/memo'>"
+        "Draft, then release</a><div class='d'>A memo from gated evidence "
+        "only, released through a hash-bound approval.</div></div></li>"
+        "<li><span class='n'>5</span><div><a class='t' href='/runs'>"
+        "Read the ledger</a><div class='d'>Every judged call "
+        "reconstructable: prompt, answer, engine, usage.</div></div></li>"
+        "</ol>"
+        "<p>Prefer the terminal? The <a href='/cli'>CLI page</a> lists "
+        "every command from the live registry.</p>")
     return _page("Finrail", body, active="home",
                  lede="A finance-first agent harness where the model can "
                       "suggest evidence, but only code can award it trust, "
@@ -418,8 +415,8 @@ def _findings_html(fixture: dict) -> str:
             "<div class='card'><p>" + _badge(f.get("status"))
             + f" <span class='badge b-read'>{_e(cand.get('category', ''))}</span></p>"
             f"<h3>{_e(cand.get('claim', ''))}</h3>"
-            f"<p><strong>Assertions</strong></p><ul>{assertions}</ul>"
-            f"{evidence}</div>")
+            f"<details><summary>Assertions and evidence</summary>"
+            f"<ul>{assertions}</ul>{evidence}</details></div>")
     counts = result.get("status_counts") or {}
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
     return (f"<p>Status counts: <span class='num'>{_e(summary)}</span> · "
@@ -446,25 +443,23 @@ def screen_page():
         rows = ("<tr><td colspan='3'>No candidates answered. The archived "
                 "and fixture screens below remain available.</td></tr>")
     return _page("Public-risk screen",
-                 "<h2>Step 1: a person confirms the legal entity</h2>"
-                 "<p>The model never chooses the entity. Nothing is screened "
-                 "until a person confirms the exact company and registry "
-                 "number.</p>"
+                 "<h2>Confirm the entity, then run</h2>"
+                 "<p>The model never chooses the entity; a person confirms "
+                 "the exact company and registry number first.</p>"
                  f"<table><tr><th>company</th><th>number</th><th></th></tr>"
                  f"{rows}</table>"
-                 "<h2>Step 2: run the gated screen</h2>"
+                 "<p>Then run the gated screen for the confirmed entity:</p>"
                  "<form method='post' action='/screen/run'>"
                  "<input type='hidden' name='company_id' value='04123456'>"
                  "<button>Run screen for the confirmed entity</button></form>"
                  + _cli_equiv("finrail get finance.screen.candidates "
                               "company=Northwind")
                  + "<h2>Fixture screen, classified live by the gate</h2>"
-                 "<p>No credentials needed: the quotes below are validated "
-                 "verbatim against their sources and the statuses awarded by "
-                 "deterministic code at request time. One publisher per "
-                 "assertion can report a finding; it can never verify "
-                 "it.</p>" + _findings_html(fixture)
-                 + "<h2>Screens on record</h2>" + _result_block(archive),
+                 "<p>Classified live by the gate, no credentials needed. "
+                 "One publisher per assertion can report a finding; it can "
+                 "never verify it.</p>" + _findings_html(fixture)
+                 + "<details class='clieq'><summary>Screens on record</summary>"
+                 + _result_block(archive) + "</details>",
                  active="screen",
                  lede="Leadership, regulatory, cyber and distress screening "
                       "where escalation is deterministic even though "

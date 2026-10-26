@@ -23,7 +23,8 @@ def test_home_shows_counts_and_cli(client):
     page = client.get("/")
     assert page.status_code == 200
     assert "suggest evidence" in page.text
-    assert "finrail get finance.compute.metric" in page.text
+    assert "Start the demo" in page.text
+    assert "/cli" in page.text
 
 
 def test_cli_page_generated_from_registry(client):
