@@ -1,0 +1,26 @@
+# NOTE: no trailing comments on pattern lines. `gen/   # generated` matches a directory
+# literally named "gen/   # generated" and silently protects nothing — which once left
+# OAuth client secrets unignored.
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated config and credential caches, if a state dir is ever placed in the tree.
+gen/
+cache/
+runs/
+sessions/
+secrets.json
+*.pem
+.env
+.env.*
+
+.DS_Store
+
+# Build artefact from `uv run`; the project pins nothing and has no dependencies.
+uv.lock
+

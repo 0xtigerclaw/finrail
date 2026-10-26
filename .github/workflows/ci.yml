@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev,console]"
+      - name: Offline test suite (no provider calls, no credentials)
+        run: pytest -q
+      - name: Capability smoke from a clean state
+        env:
+          FINRAIL_STATE: ${{ runner.temp }}/state
+          FINRAIL_HOME: ${{ runner.temp }}/home
+        run: |
+          finrail capabilities | grep -q "finance.screen.run"
+          finrail get finance.compute.metric metric=margin | grep -q "0.159751"
