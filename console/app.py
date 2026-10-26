@@ -321,9 +321,8 @@ def _run_block(out: dict, approvals_link: bool = True) -> str:
             f"<span class='mono'>{_e(out.get('capability', ''))}</span> · run "
             f"<span class='mono'>{_e(out.get('id', ''))}</span></p>")
     if status == "pending" and approvals_link:
-        body += ("<p>This proposal now waits for a person. Review and act on "
-                 "it on the <a href='/approvals'>Approvals</a> page, or from "
-                 "the terminal:</p>"
+        body += ("<p>Waits for a person. Approve on the "
+                 "<a href='/approvals'>Approvals</a> page, or:</p>"
                  + _cli(f"finrail approve {out.get('id', '<id>')}"))
     proposal = out.get("proposal")
     if proposal:
@@ -361,30 +360,25 @@ def home():
         "entity</a></p>"
         "<ol class='flowlist'>"
         "<li><span class='n'>1</span><div><a class='t' href='/screen'>"
-        "Confirm, then screen</a><div class='d'>A person confirms the legal "
-        "entity; the evidence gate awards every status.</div></div></li>"
+        "Confirm, then screen</a><div class='d'>Person confirms entity. "
+        "Gate awards statuses.</div></div></li>"
         "<li><span class='n'>2</span><div><a class='t' href='/dataroom'>"
-        "Try to plant a figure</a><div class='d'>Draft the planted 24.5% "
-        "margin into a record; the claim check refuses it.</div></div></li>"
+        "Try to plant a figure</a><div class='d'>The planted 24.5% margin, "
+        "refused by the claim check.</div></div></li>"
         "<li><span class='n'>3</span><div><a class='t' href='/compute'>"
         "Deterministic compute</a><div class='d'>Five metrics from cited "
-        "workbook cells, recomputed by Python.</div></div></li>"
+        "cells, recomputed by Python.</div></div></li>"
         "<li><span class='n'>4</span><div><a class='t' href='/memo'>"
-        "Draft, then release</a><div class='d'>A memo from gated evidence "
-        "only, released through a hash-bound approval.</div></div></li>"
+        "Draft, then release</a><div class='d'>Gated evidence only. "
+        "Hash-bound release.</div></div></li>"
         "<li><span class='n'>5</span><div><a class='t' href='/runs'>"
-        "Read the ledger</a><div class='d'>Every judged call "
-        "reconstructable: prompt, answer, engine, usage.</div></div></li>"
+        "Read the ledger</a><div class='d'>Every judged call, "
+        "reconstructable.</div></div></li>"
         "</ol>"
-        "<p>Prefer the terminal? The <a href='/cli'>CLI page</a> lists "
-        "every command from the live registry.</p>")
+        "<p>Prefer the terminal? See the <a href='/cli'>CLI page</a>.</p>")
     return _page("Finrail", body, active="home",
-                 lede="A finance-first agent harness where the model can "
-                      "suggest evidence, but only code can award it trust, "
-                      "and only a human can release a decision. Every figure "
-                      "stated here is either carried verbatim by a cited "
-                      "source or computed deterministically from cited "
-                      "workbook cells.")
+                 lede="The model can suggest evidence. Only code awards trust, "
+                      "and only a person releases a decision.")
 
 
 @app.get("/capabilities", response_class=HTMLResponse)
@@ -395,15 +389,13 @@ def capabilities():
         f"<td>{_badge(c.kind)}</td><td>{_e(c.description)}</td></tr>"
         for c in sorted(registry.commands().values(), key=lambda c: c.name))
     return _page("Capabilities",
-                 "<p>What exists, read from the registry at request time. "
-                 "The same list is one terminal command:</p>"
+                 ""
                  + _cli("finrail capabilities")
                  + f"<table><tr><th>capability</th><th>pack</th><th>kind</th>"
                    f"<th>description</th></tr>{rows}</table>",
                  active="capabilities",
                  lede="Reads run immediately. Planned and judged capabilities "
-                      "propose first and execute only under their declared "
-                      "approval rules.")
+                      "propose first.")
 
 
 @app.get("/rules", response_class=HTMLResponse)
@@ -419,9 +411,8 @@ def rules():
                  f"<td>{_e(r.get('verified_by') or '')}</td>"
                  f"<td>{_e(r.get('reason') or '')}</td></tr>")
     return _page("Rules, rendered from the declarations",
-                 "<p>There is one declaration site per capability, its class "
-                 "attributes. This page renders from those declarations, so "
-                 "the documentation cannot drift from the enforcement.</p>"
+                 "<p>One declaration site per capability. Rendered from it, so "
+                 "docs cannot drift from enforcement.</p>"
                  + _cli("finrail rules")
                  + f"<table><tr><th>capability</th><th>rules</th>"
                    "<th>verified by</th><th>why</th></tr>" + rows + "</table>",
@@ -453,8 +444,8 @@ def _findings_html(fixture: dict) -> str:
             f"<ul>{assertions}</ul>{evidence}</details></div>")
     counts = result.get("status_counts") or {}
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
-    return (f"<p>Status counts: <span class='num'>{_e(summary)}</span> · "
-            f"quotes discarded as unverifiable: "
+    return (f"<p><span class='num'>{_e(summary)}</span> · discarded "
+            f"quotes: "
             f"<span class='num'>{_e(result.get('quotes_discarded', 0))}</span></p>"
             + "<div class='steps'>" + cards + "</div>")
 
@@ -478,26 +469,24 @@ def screen_page():
                 "and fixture screens below remain available.</td></tr>")
     return _page("Public-risk screen",
                  "<h2>Confirm the entity, then run</h2>"
-                 "<p>The model never chooses the entity; a person confirms "
-                 "the exact company and registry number first.</p>"
+                 "<p>A person confirms first. The model never chooses the "
+                 "entity.</p>"
                  f"<table><tr><th>company</th><th>number</th><th></th></tr>"
                  f"{rows}</table>"
-                 "<p>Then run the gated screen for the confirmed entity:</p>"
+                 ""
                  "<form method='post' action='/screen/run'>"
                  "<input type='hidden' name='company_id' value='04123456'>"
                  "<button>Run screen for the confirmed entity</button></form>"
                  + _cli_equiv("finrail get finance.screen.candidates "
                               "company=Northwind")
-                 + "<h2>Fixture screen, classified live by the gate</h2>"
-                 "<p>Classified live by the gate, no credentials needed. "
-                 "One publisher per assertion can report a finding; it can "
-                 "never verify it.</p>" + _findings_html(fixture)
+                 + "<h2>Fixture screen</h2>"
+                 "<p>Classified live, no credentials needed. One publisher "
+                 "can report; it can never verify.</p>" + _findings_html(fixture)
                  + "<details class='clieq'><summary>Screens on record</summary>"
                  + _result_block(archive) + "</details>",
                  active="screen",
-                 lede="Leadership, regulatory, cyber and distress screening "
-                      "where escalation is deterministic even though "
-                      "discovery is not.")
+                 lede="Leadership, regulatory, cyber and distress screening. "
+                      "Deterministic escalation.")
 
 
 @app.post("/screen/entity")
@@ -557,10 +546,9 @@ def dataroom_page(q: str = "", doc: str = ""):
              "<a href='?doc=board-2026-03'>board-2026-03</a> · "
              "<a href='?doc=draft-note'>draft-note</a> "
              "(unverified draft, planted)</p>"
-             "<h2>Draft a record entry (judged, claim-checked)</h2>"
-             "<p>Ask for a true figure and it is drafted for approval. Ask "
-             "for the planted 24.5% margin and the claim check refuses it "
-             "before any approval exists.</p>"
+             "<h2>Draft a record entry</h2>"
+             "<p>Ask for the planted 24.5% margin: the claim check "
+             "refuses it.</p>"
              "<form method='post' action='/dataroom/propose'>"
              "<label for='task'>Drafting task</label>"
              "<input type='text' id='task' name='task' placeholder='e.g. "
@@ -571,9 +559,8 @@ def dataroom_page(q: str = "", doc: str = ""):
                           'FY2025"'))
     return _page("Data room: Meridian Components (synthetic)", body,
                  active="dataroom",
-                 lede="Search and judged drafting over a private data room "
-                      "where every figure must be carried by the document it "
-                      "cites, and an unverified draft can carry nothing.")
+                 lede="Every figure must be carried by the document it cites. "
+                      "An unverified draft carries nothing.")
 
 
 @app.post("/dataroom/propose")
@@ -608,13 +595,11 @@ def compute_page(metric: str = ""):
                 f"<p class='lbl'>{_e(result.get('workbook'))}</p></div>")
         else:
             body += _result_block(out)
-    body += ("<p>Arithmetic is Python, from the cited workbook cells, and is "
-             "recomputed independently before it is reported. The model may "
-             "select a metric; it never does the maths.</p>"
+    body += ("<p>Python does the arithmetic from the cited cells. The "
+             "model never does the maths.</p>"
              + _cli_equiv("finrail get finance.compute.metric metric=margin"))
     return _page("Deterministic compute", body, active="compute",
-                 lede="Five metrics a credit or IC discussion actually "
-                      "needs, each traceable to the cells it came from.")
+                 lede="Five metrics, each traceable to its workbook cells.")
 
 
 @app.get("/memo", response_class=HTMLResponse)
@@ -624,22 +609,19 @@ def memo_page():
             "<input type='text' id='task' name='task' value='Draft an IC "
             "memo for Meridian Components from the data room documents'> "
             "<button>Draft memo</button></form>"
-            "<p>The draft may state only figures carried by cited sources; "
-            "anything else is listed as a gap. A figure the sources do not "
-            "carry is refused outright.</p>"
+            "<p>Only figures carried by cited sources. Everything else "
+            "is a gap.</p>"
             "<h2>Release a drafted memo</h2>"
             "<form method='post' action='/memo/release'>"
             "<label for='memo_id'>Memo run id (from the draft)</label>"
             "<input type='text' id='memo_id' name='memo_id' "
             "placeholder='memo run id'> <button>Propose release</button></form>"
-            "<p>Release is a separate proposal: the full memo text and its "
-            "hash are what a person approves, and after release the artefact "
-            "is re-read and re-hashed.</p>"
+            "<p>Release approves the full text and its hash.</p>"
             + _cli_equiv('finrail do finance.memo.draft "Draft an IC memo '
                          'for Meridian Components"'))
     return _page("IC memo", body, active="memo",
-                 lede="Drafting from gated evidence only, and release as a "
-                      "human decision bound to the exact text approved.")
+                 lede="Gated evidence only. Release bound to the exact "
+                      "approved text.")
 
 
 @app.post("/memo/draft")
@@ -661,16 +643,13 @@ def approvals():
     if not pending:
         body = ("<div class='empty'><p>Nothing is waiting for approval.</p>"
                 "<p>Draft a record in the <a href='/dataroom'>data room</a> "
-                "or a memo on the <a href='/memo'>IC memo</a> page and its "
-                "proposal will appear here, in full, before anything "
-                "executes.</p></div>")
+                "or a memo on the <a href='/memo'>IC memo</a> page; its "
+                "proposal appears here.</p></div>")
     else:
-        body = ("<div class='notice'>Approval executes only from the "
-                "operator's own terminal or chat door, never from a process "
-                "an agent started. In this public deployment an approval "
-                "attempted here is therefore expected to be refused; the "
-                "proposal remains pending and unexecuted. From the terminal: "
-                "<span class='mono'>finrail approve &lt;id&gt;</span></div>")
+        body = ("<div class='notice'>Approvals execute only from the "
+                "operator's terminal: <span class='mono'>finrail approve "
+                "&lt;id&gt;</span>. Attempts here are refused by design; "
+                "the proposal stays pending.</div>")
         for rec in pending:
             cap = registry.command(rec["capability"])
             try:
@@ -690,8 +669,7 @@ def approvals():
                      "will not execute.')\">"
                      "<button class='danger'>Drop</button></form></div>")
     return _page("Approvals", body, active="approvals",
-                 lede="The full proposal is what a person approves, never a "
-                      "summary. Nothing here executes on a model's say-so.")
+                 lede="A person approves the full proposal, never a summary.")
 
 
 @app.post("/approvals/{rid}/approve")
@@ -699,10 +677,8 @@ def approve(rid: str):
     result = dispatch_core.approve_safely(rid, actor="console")
     if not result.get("approved"):
         result = {**result, "note": (result.get("note") or "") +
-                  " | In this public deployment that refusal is expected: "
-                  "approval executes only from the operator's own terminal "
-                  "or chat door, never from a process an agent started. "
-                  "The proposal above remains pending and unexecuted."}
+                  " | Expected here: approval executes only from the "
+                  "operator's terminal. The proposal remains pending."}
         return _page("Approval result",
                      f"<div class='alert' role='alert'>{_e(result['note'])}</div>"
                      + _raw(result), active="approvals")
@@ -723,8 +699,7 @@ def runs():
         f"<td>{_e(r.get('verdict') or '')}</td></tr>"
         for r in tracker.recent(25))
     if not rows:
-        rows = ("<tr><td colspan='4'>No runs yet. Draft something in the "
-                "data room and it will appear here.</td></tr>")
+        rows = "<tr><td colspan='4'>No runs yet.</td></tr>"
     ledger = state() / "events" / "_ledger.jsonl"
     calls = ""
     if ledger.exists():
@@ -752,13 +727,11 @@ def runs():
                  f"<table><tr><th>run</th><th>status</th><th>capability</th>"
                  f"<th>verdict</th></tr>{rows}</table>"
                  "<h2>Latest model calls (model_call events)</h2>"
-                 "<p>Each event carries the full prompt, the answer, the "
-                 "engine, the model and the usage, so a judged call is "
-                 "reconstructable from the ledger alone.</p>" + calls
+                 "<p>Full prompt, answer, engine, model, usage. "
+                 "Reconstructable from the ledger alone.</p>" + calls
                  + _cli_equiv("finrail runs"),
                  active="runs",
-                 lede="What was proposed, what happened, and the evidence "
-                      "trail behind every judged call.")
+                 lede="Proposals, outcomes, and the evidence trail.")
 
 
 @app.get("/cli", response_class=HTMLResponse)
@@ -776,10 +749,10 @@ def cli_page():
         + _cli("finrail get finance.compute.metric metric=margin")
         + _cli('finrail do finance.dataroom.propose "State the FY2025 revenue"')
         + _cli('finrail ask "what is the leverage on Meridian?"')
-        + "<p><span class='mono'>get</span> runs a read immediately. "
-          "<span class='mono'>do</span> proposes an action and stops for its "
-          "declared approval. <span class='mono'>ask</span> resolves plain "
-          "language into one exact command; it resolves, it does not act.</p>"
+        + "<p><span class='mono'>get</span> reads now. "
+          "<span class='mono'>do</span> proposes, then stops for approval. "
+          "<span class='mono'>ask</span> resolves language into one "
+          "command; it does not act.</p>"
         "<h2>Lifecycle</h2>"
         + _cli("finrail capabilities")
         + _cli("finrail rules")
@@ -794,12 +767,11 @@ def cli_page():
         + _cli("FINRAIL_ENGINE=nebius NEBIUS_API_KEY=… finrail capabilities")
         + _cli("FINRAIL_ENGINE=meta FINRAIL_ENGINE_BASE_URL=… "
                "FINRAIL_ENGINE_API_KEY=… FINRAIL_MODEL=… finrail capabilities")
-        + "<p>There is no silent fallback: a down or rejecting engine fails "
-          "the run under a canonical error code rather than quietly "
-          "answering from another provider.</p>")
+        + "<p>No silent fallback: a failing engine fails the run with a "
+          "canonical error code.</p>")
     return _page("Command line", body, active="cli",
-                 lede="Finrail is a CLI first. Everything this console does "
-                      "is available, with the same rules, from a terminal.")
+                 lede="CLI first. The console is a shell over the same "
+                      "dispatcher.")
 
 
 def main():
