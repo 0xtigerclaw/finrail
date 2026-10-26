@@ -353,14 +353,31 @@ def _run_block(out: dict, approvals_link: bool = True) -> str:
     """A proposed or finished run, shown as its status and proposal."""
     if out.get("error"):
         return f"<div class='alert' role='alert'>Failed: {_e(out['error'])}</div>"
+    # A background run returns at spawn, still pending, with a worker doing
+    # the work. Follow the record briefly so the page shows the outcome;
+    # a proposal waiting on a person has no worker and is not followed.
+    if (out.get("status") == "pending"
+            and (out.get("worker_pid") or out.get("background"))):
+        import time
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            rec = tracker.load(out.get("id", "")) or out
+            if rec.get("status") in ("done", "failed"):
+                out = rec
+                break
+            time.sleep(0.4)
     status = out.get("status", "")
     body = (f"<div class='card'><p>{_badge(status)} "
             f"<span class='mono'>{_e(out.get('capability', ''))}</span> · run "
             f"<span class='mono'>{_e(out.get('id', ''))}</span></p>")
     if status == "pending" and approvals_link:
-        body += ("<p>Waits for a person. Approve on the "
-                 "<a href='/approvals'>Approvals</a> page, or:</p>"
-                 + _cli(f"finrail approve {out.get('id', '<id>')}"))
+        if out.get("worker_pid") or out.get("background"):
+            body += ("<p>Running in the background. Follow it on the "
+                     "<a href='/runs'>Runs &amp; ledger</a> page.</p>")
+        else:
+            body += ("<p>Waits for a person. Approve on the "
+                     "<a href='/approvals'>Approvals</a> page, or:</p>"
+                     + _cli(f"finrail approve {out.get('id', '<id>')}"))
     proposal = out.get("proposal")
     if proposal:
         body += ("<h3>Proposal</h3><pre class='raw'>"
