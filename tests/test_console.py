@@ -59,3 +59,13 @@ def test_approvals_empty_state_has_next_action(client):
     assert page.status_code == 200
     assert "Nothing is waiting" in page.text
     assert "/dataroom" in page.text
+
+
+def test_demo_seed_makes_screen_run_completable(client, monkeypatch):
+    monkeypatch.setenv("FINRAIL_DEMO_ENTITY", "04123456")
+    page = client.get("/screen")
+    assert "Entity on record" in page.text
+    assert "operator (public demo seed)" in page.text
+    run = client.post("/screen/run", data={"company_id": "04123456"})
+    assert run.status_code == 200
+    assert "done" in run.text

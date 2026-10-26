@@ -3,11 +3,15 @@
 Everything here is offline and deterministic. The judged capabilities
 (dataroom.propose, memo.draft) are tested at their validate/execute/verify
 surface with hand-written proposals, which is exactly the surface the
-dispatcher enforces after a model fills the schema.
+dispatcher enforces after a model fills the schema. The live screen path
+is tested against a recorded local Tavily stub and a stubbed model call:
+no provider is contacted.
 """
 
 import json
 import pathlib
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
@@ -188,3 +192,88 @@ def test_memo_release_binds_to_hash():
     assert ok, detail
     released = pathlib.Path(result["released"])
     assert released.read_text() == proposal["full_text"]
+
+
+# ── live screen (recorded Tavily stub, stubbed model) ───────────────────────
+
+_LIVE_PAGES = [
+    {"title": "CFO departs", "url": "https://www.reuters.com/cfo-departs",
+     "content": "Northwind Components said its chief financial officer "
+                "has resigned with immediate effect."},
+    {"title": "CFO exit", "url": "https://www.bbc.com/cfo-exit",
+     "content": "The chief financial officer of Northwind Components "
+                "has resigned, the company confirmed."},
+]
+
+
+class _TavilyStub(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        body = json.dumps({"results": _LIVE_PAGES}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def _live_model(**kwargs):
+    return {"candidates": [
+        {"category": "leadership", "claim": "CFO resigned",
+         "assertions": ["The CFO has resigned"],
+         "evidence": [
+             {"url": "https://www.reuters.com/cfo-departs",
+              "quote": "its chief financial officer has resigned with "
+                       "immediate effect",
+              "supports_assertions": [0], "contradicts_assertions": []},
+             {"url": "https://www.bbc.com/cfo-exit",
+              "quote": "The chief financial officer of Northwind "
+                       "Components has resigned",
+              "supports_assertions": [0], "contradicts_assertions": []}]},
+        {"category": "distress", "claim": "Insolvency filing",
+         "assertions": ["The company has filed for insolvency"],
+         "evidence": [
+             {"url": "https://www.reuters.com/cfo-departs",
+              "quote": "a quote the fetched page does not carry",
+              "supports_assertions": [0], "contradicts_assertions": []},
+             {"url": "https://unseen.example/never-fetched",
+              "quote": "its chief financial officer has resigned with "
+                       "immediate effect",
+              "supports_assertions": [0], "contradicts_assertions": []}]},
+    ]}
+
+
+def test_live_screen_gate_decides(monkeypatch, tmp_path):
+    server = HTTPServer(("127.0.0.1", 0), _TavilyStub)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("FINRAIL_TAVILY_BASE_URL",
+                       f"http://127.0.0.1:{port}")
+    import finrail.core.llm as llm_mod
+    monkeypatch.setattr(llm_mod, "call", _live_model)
+    entity = ScreenEntity()
+    entity.execute(entity.plan(company="Northwind Components",
+                               company_id="04123456"))
+    run = ScreenRun()
+    result = run.execute(run.plan())
+    assert result["source"] == "tavily-live"
+    assert result["status_counts"] == {"verified": 1, "rejected": 1}
+    assert result["quotes_discarded"] == 1
+    ok, detail = run.verify(run.plan(), result)
+    assert ok, detail
+
+
+def test_live_screen_provider_down_fails_loudly(monkeypatch):
+    from finrail.core.errors import OpFailed
+
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("FINRAIL_TAVILY_BASE_URL", "http://127.0.0.1:9")
+    entity = ScreenEntity()
+    entity.execute(entity.plan(company="Northwind Components",
+                               company_id="04123456"))
+    with pytest.raises(OpFailed, match="PROVIDER_UNAVAILABLE"):
+        ScreenRun().execute(ScreenRun().plan())

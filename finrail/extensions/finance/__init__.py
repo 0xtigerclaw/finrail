@@ -30,6 +30,7 @@ from finrail.core.settings import SettingSpec, state
 from finrail.plugin import Plugin
 
 from . import gate as evidence_gate
+from . import research
 
 NAME = "finance"
 DESCRIPTION = "Finance-first packs: gated screening, data room, deterministic compute, memo release."
@@ -149,11 +150,85 @@ class ScreenEntity(Plugin):
         return (ok, f"entity record re-read: {saved}")
 
 
+def _classify(candidates: list) -> tuple:
+    findings, discarded = [], 0
+    for candidate in candidates:
+        validated, dropped = evidence_gate.validate_evidence(
+            candidate, candidate.get("evidence", []))
+        discarded += dropped
+        findings.append(evidence_gate.classify(candidate, validated))
+    counts = {}
+    for finding in findings:
+        counts[finding["status"]] = counts.get(finding["status"], 0) + 1
+    return findings, counts, discarded
+
+
+_SCREEN_SYSTEM = (
+    "You screen public sources for acquisition risk across four "
+    "categories: leadership, regulatory, cyber, distress. From the "
+    "sources in context, propose at most two candidates per category. "
+    "Each candidate: category, claim (one sentence), assertions (one to "
+    "three short factual statements), and evidence. Each evidence item "
+    "names a source url copied exactly from the context, a quote copied "
+    "verbatim from that source's text, and the assertion indices it "
+    "supports or contradicts. Quote only text that appears in the "
+    "sources; a quote that is not verbatim will be discarded and the "
+    "finding downgraded. Omit a category with no support.")
+
+
+def _live_candidates(company: str, pages: list) -> list:
+    """Ask the model to propose candidates from fetched pages, then join
+    every evidence item back to the page actually fetched: the content,
+    publisher and tier a quote is checked against come from the fetch,
+    never from the model."""
+    from finrail.core import llm
+    context = {"sources": "\n\n".join(
+        f"[{p['category']}] {p['url']}\n{p['content']}" for p in pages)}
+    out = llm.call(system=_SCREEN_SYSTEM,
+                   prompt=f"Screen {company} for acquisition risk.",
+                   context=context, schema=None,
+                   capability="finance.screen.run", wants=["candidates"])
+    by_url = {p["url"]: p for p in pages}
+    candidates = []
+    for cand in out.get("candidates") or []:
+        if cand.get("category") not in research.CATEGORIES:
+            continue
+        assertions = [str(a) for a in cand.get("assertions") or []][:3]
+        if not assertions:
+            continue
+
+        def indices(values):
+            return sorted({i for i in values or []
+                           if isinstance(i, int) and 0 <= i < len(assertions)})
+        evidence = []
+        for item in cand.get("evidence") or []:
+            page = by_url.get(item.get("url") or "")
+            if page is None:
+                continue
+            evidence.append({
+                "publisher": page["publisher"],
+                "source_tier": page["source_tier"],
+                "quote": str(item.get("quote") or ""),
+                "content": page["content"],
+                "supports_assertions":
+                    indices(item.get("supports_assertions")),
+                "contradicts_assertions":
+                    indices(item.get("contradicts_assertions"))})
+        candidates.append({"category": cand["category"],
+                           "claim": str(cand.get("claim") or ""),
+                           "assertions": assertions,
+                           "evidence": evidence})
+    return candidates
+
+
 class ScreenRun(Plugin):
     name = "finance.screen.run"
-    description = ("Run the public-risk screen for the confirmed entity. The "
-                   "deterministic gate is the sole authority for VERIFIED; "
-                   "the result is typed and saved to the finance store.")
+    description = ("Run the public-risk screen for the confirmed entity. With "
+                   "TAVILY_API_KEY configured, evidence is retrieved live "
+                   "and proposed by the model; without it, the bundled "
+                   "fixture is classified. Either way the deterministic "
+                   "gate is the sole authority for VERIFIED; the result "
+                   "is typed and saved to the finance store.")
     background = True
     confirm = False
     autonomous = True
@@ -176,33 +251,40 @@ class ScreenRun(Plugin):
                 "company_id": entity["company_id"]}
 
     def execute(self, p) -> dict:
-        room = _room()
-        screen = None
-        for key, candidate_screen in room["screens"].items():
-            if candidate_screen["company_id"] == p["company_id"]:
-                screen = candidate_screen
-                break
-        if screen is None:
-            return {"error": "no fixture or archived screen for this entity; "
-                             "live retrieval is not part of this build yet"}
-        findings, discarded = [], 0
-        for candidate in screen["candidates"]:
-            validated, dropped = evidence_gate.validate_evidence(
-                candidate, candidate.get("evidence", []))
-            discarded += dropped
-            findings.append(evidence_gate.classify(candidate, validated))
-        counts = {}
-        for finding in findings:
-            counts[finding["status"]] = counts.get(finding["status"], 0) + 1
-        result = {"company": screen["company"],
-                  "company_id": screen["company_id"],
-                  "findings": findings, "status_counts": counts,
-                  "quotes_discarded": discarded}
+        if research.configured():
+            pages = research.search(p["company"])
+            findings, counts, discarded = _classify(
+                _live_candidates(p["company"], pages))
+            result = {"company": p["company"],
+                      "company_id": p["company_id"],
+                      "source": "tavily-live",
+                      "pages_retrieved": len(pages),
+                      "findings": findings, "status_counts": counts,
+                      "quotes_discarded": discarded}
+        else:
+            room = _room()
+            screen = None
+            for candidate_screen in room["screens"].values():
+                if candidate_screen["company_id"] == p["company_id"]:
+                    screen = candidate_screen
+                    break
+            if screen is None:
+                return {"error": "no fixture screen for this entity and "
+                                 "TAVILY_API_KEY is not configured for "
+                                 "live retrieval"}
+            findings, counts, discarded = _classify(screen["candidates"])
+            result = {"company": screen["company"],
+                      "company_id": screen["company_id"],
+                      "source": "fixture",
+                      "findings": findings, "status_counts": counts,
+                      "quotes_discarded": discarded}
         out = _root() / "screens"
         out.mkdir(exist_ok=True)
         path = out / f"{p['company_id']}.json"
         path.write_text(json.dumps(result, indent=2))
-        return {"company": result["company"], "company_id": p["company_id"],
+        return {"company": result["company"],
+                "company_id": p["company_id"],
+                "source": result["source"],
                 "status_counts": counts, "quotes_discarded": discarded,
                 "record": str(path)}
 
@@ -229,15 +311,7 @@ class ScreenFixture(Plugin):
         room = _room()
         for screen in room["screens"].values():
             if screen["company_id"] == company_id:
-                findings, discarded = [], 0
-                for candidate in screen["candidates"]:
-                    validated, dropped = evidence_gate.validate_evidence(
-                        candidate, candidate.get("evidence", []))
-                    discarded += dropped
-                    findings.append(evidence_gate.classify(candidate, validated))
-                counts = {}
-                for finding in findings:
-                    counts[finding["status"]] = counts.get(finding["status"], 0) + 1
+                findings, counts, discarded = _classify(screen["candidates"])
                 return {"company": screen["company"], "company_id": company_id,
                         "status_counts": counts,
                         "quotes_discarded": discarded,

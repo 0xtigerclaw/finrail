@@ -30,6 +30,43 @@ from finrail.core.settings import state
 
 app = FastAPI(title="Finrail")
 
+
+def _seed_demo_entity() -> None:
+    """Public-demo affordance, operator-declared: when FINRAIL_DEMO_ENTITY
+    names a company_id, pre-write the confirmed-entity record so the demo's
+    screen run can execute. This replaces no approval: the operator made
+    the confirmation when they set the variable, and the record says so.
+    Unset, nothing is seeded and the normal confirm-then-run flow applies.
+    """
+    company_id = os.environ.get("FINRAIL_DEMO_ENTITY") or ""
+    if not company_id:
+        return
+    from finrail.extensions.finance import _entity_candidates, _root
+    path = _root() / "entity.json"
+    if path.exists():
+        return
+    match = [c for c in _entity_candidates("")
+             if c["company_id"] == company_id]
+    if not match:
+        return
+    path.write_text(json.dumps(
+        {"company": match[0]["company"], "company_id": company_id,
+         "confirmed_by": "operator (public demo seed)"}, indent=2))
+
+
+def _entity_record() -> dict:
+    from finrail.extensions.finance import _root
+    path = _root() / "entity.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except ValueError:
+        return {}
+
+
+_seed_demo_entity()
+
 CSS = """
 :root {
   --ink: #12263f; --ink-2: #54657d; --paper: #f7f9fc; --card: #ffffff;
@@ -452,6 +489,7 @@ def _findings_html(fixture: dict) -> str:
 
 @app.get("/screen", response_class=HTMLResponse)
 def screen_page():
+    _seed_demo_entity()
     candidates = _dispatch("finance.screen.candidates",
                            {"company": "Northwind"})
     fixture = _dispatch("finance.screen.fixture", {"company_id": "04123456"})
@@ -467,10 +505,21 @@ def screen_page():
     if not rows:
         rows = ("<tr><td colspan='3'>No candidates answered. The archived "
                 "and fixture screens below remain available.</td></tr>")
+    entity = _entity_record()
+    on_record = ""
+    if entity:
+        on_record = (f"<p>Entity on record: <strong>"
+                     f"{_e(entity.get('company', ''))}</strong> "
+                     f"(<span class='mono'>{_e(entity.get('company_id', ''))}"
+                     f"</span>)"
+                     + (f" · {_e(entity['confirmed_by'])}"
+                        if entity.get("confirmed_by") else "")
+                     + ".</p>")
     return _page("Public-risk screen",
                  "<h2>Confirm the entity, then run</h2>"
                  "<p>A person confirms first. The model never chooses the "
                  "entity.</p>"
+                 f"{on_record}"
                  f"<table><tr><th>company</th><th>number</th><th></th></tr>"
                  f"{rows}</table>"
                  ""

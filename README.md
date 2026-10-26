@@ -51,6 +51,8 @@ Every model call goes through one entry point (`finrail/core/llm.py`). The engin
 
 There is no silent fallback: if the configured engine is down or rejects a call, the run fails under a canonical error code (`PROVIDER_UNAVAILABLE`, `SCHEMA_INVALID`, `EMPTY_RESPONSE`, `TIMEOUT`, `CONTEXT_WINDOW_EXCEEDED`) instead of quietly answering from another provider. Tool-using and session calls are refused on the HTTP engines (`ENGINE_UNSUPPORTED`); the judged surface is what the seam serves.
 
+`finance.screen.run` retrieves its evidence live when `TAVILY_API_KEY` is in the environment: Tavily searches the public web across the four risk categories, the model proposes findings from the fetched pages, and the deterministic gate awards every status (a failed retrieval fails the run). Without the key, the run classifies the bundled fixture screen and says so in its result record. Tavily does discovery only; it is never evidence.
+
 Every judged call is written to the run ledger as a `model_call` event carrying the full prompt, the answer, the engine, the model and the token usage, so a judged finance call is reconstructable from the ledger alone.
 
 ## Web console
@@ -69,13 +71,13 @@ What was built: a deterministic capability dispatcher with rules declared once i
 
 ## Evaluation
 
-The repository's own test suite runs fully offline and makes no provider calls: 18 tests covering the evidence gate (including a fabricated quote being discarded rather than repaired, and a single-publisher finding held at REPORTED rather than VERIFIED), the claim check, hand-verified compute arithmetic, the confirmed-entity screen flow, the hash-bound memo release, and the engine seam against a recorded local stub (including refusal of tool calls and failure under canonical error codes). The planted-failure fixture is a regression test, not a demo trick: it must be refused on every configured engine.
+The repository's own test suite runs fully offline and makes no provider calls: 27 tests covering the evidence gate (including a fabricated quote being discarded rather than repaired, and a single-publisher finding held at REPORTED rather than VERIFIED), the claim check, hand-verified compute arithmetic, the confirmed-entity screen flow, the live screen path against a recorded retrieval stub (two independent publishers verify; a fabricated quote is rejected; a down provider fails loudly), the hash-bound memo release, and the engine seam against a recorded local stub (including refusal of tool calls and failure under canonical error codes). The planted-failure fixture is a regression test, not a demo trick: it must be refused on every configured engine.
 
 ## Honest limitations
 
 - Manually started agents running inside a person's own login session share that person's session scope. This is disclosed rather than papered over; closing it is roadmap work.
 - In-process capability code, like any in-process plugin system, is not OS-sandboxed. Per-pack filesystem roots are declared, and the wording here claims no more than that.
-- The demo data room is one synthetic target and one archived fixture screen; live retrieval breadth is the screen pack's roadmap, not this submission's claim.
+- The demo data room is one synthetic target. Live screening runs against the public web for any confirmed entity when a Tavily key is configured; source breadth on long-tail private companies is what it is, and the gate reports absence rather than inventing coverage.
 - The demonstration deployment keeps state on one instance's disk. That is a demo property, stated here rather than discovered by a judge.
 
 ## Licence
