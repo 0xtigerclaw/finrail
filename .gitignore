@@ -24,3 +24,5 @@ secrets.json
 # Build artefact from `uv run`; the project pins nothing and has no dependencies.
 uv.lock
 
+.impeccable/review/
+.impeccable/mocks/

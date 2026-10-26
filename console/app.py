@@ -32,88 +32,111 @@ app = FastAPI(title="Finrail")
 
 CSS = """
 :root {
-  --ink: #16202e; --ink-2: #47536a; --paper: #f7f8fa; --card: #ffffff;
-  --line: #dde3ec; --accent: #0c6b5c; --accent-ink: #ffffff;
-  --side: #101a29; --side-ink: #c3cede; --side-dim: #7e8ca3;
-  --ok: #146c43; --ok-bg: #e6f4ec; --warn: #8a5a00; --warn-bg: #fdf3e0;
-  --bad: #a02c2c; --bad-bg: #fdecec; --info: #1f4e79; --info-bg: #e8f0f8;
+  --ink: #12263f; --ink-2: #54657d; --paper: #f7f9fc; --card: #ffffff;
+  --line: #dfe6ef; --accent: #1b4b8f; --accent-hover: #143a70;
+  --accent-ink: #ffffff; --side: #eef2f8; --side-ink: #33465e;
+  --side-dim: #54657d; --code: #0e1a2c;
+  --ok: #146c43; --ok-bg: #e7f4ec; --warn: #8a5a00; --warn-bg: #fdf3e0;
+  --bad: #a02c2c; --bad-bg: #fdecec; --info: #1f4e79; --info-bg: #e9f1f9;
+  --shadow: 0 1px 2px rgba(18, 38, 63, .05), 0 1px 3px rgba(18, 38, 63, .07);
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
 * { box-sizing: border-box; }
+::selection { background: #c9dcf5; }
 body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
        background: var(--paper); color: var(--ink); }
-a { color: var(--accent); }
-h1 { font-size: 1.55rem; text-wrap: balance; margin: 0 0 .35rem; }
-h2 { font-size: 1.08rem; margin: 1.6rem 0 .6rem; text-wrap: balance; }
-h3 { font-size: .98rem; margin: 1.1rem 0 .45rem; }
+a { color: var(--accent); text-underline-offset: 3px; }
+h1 { font-size: 1.5rem; font-weight: 650; text-wrap: balance; margin: 0 0 .4rem; }
+h2 { font-size: 1.05rem; font-weight: 650; margin: 1.7rem 0 .55rem; text-wrap: balance; }
+h3 { font-size: .97rem; font-weight: 650; margin: 1.05rem 0 .4rem; }
 p { line-height: 1.55; text-wrap: pretty; }
 .lede { color: var(--ink-2); max-width: 46rem; margin-top: 0; }
 .layout { display: grid; grid-template-columns: 15.5rem 1fr; min-height: 100dvh; }
-aside { background: var(--side); color: var(--side-ink); padding: 1.2rem 1rem;
-        position: sticky; top: 0; height: 100dvh; overflow-y: auto; }
-.brand { color: #fff; font-weight: 700; font-size: 1.15rem; letter-spacing: 0; }
+aside { background: var(--side); color: var(--side-ink); padding: 1.25rem 1rem;
+        position: sticky; top: 0; height: 100dvh; overflow-y: auto;
+        scrollbar-width: thin; scrollbar-color: #b9c7da transparent; }
+.brand { color: var(--ink); font-weight: 700; font-size: 1.12rem; }
 .brand small { display: block; color: var(--side-dim); font-weight: 400;
                font-size: .78rem; margin-top: .3rem; line-height: 1.45; }
 .navgroup { margin-top: 1.4rem; }
 .navgroup > span { display: block; color: var(--side-dim); font-size: .7rem;
                    text-transform: uppercase; margin-bottom: .4rem; }
 aside nav a { display: block; color: var(--side-ink); text-decoration: none;
-              padding: .42rem .55rem; border-radius: .375rem; font-size: .92rem; }
-aside nav a:hover { background: #1b2940; color: #fff; }
-aside nav a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
-aside nav a:focus-visible, button:focus-visible, input:focus-visible,
-a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-main { padding: 1.6rem 2rem 3rem; max-width: 72rem; width: 100%; }
+              padding: .44rem .6rem; border-radius: .5rem; font-size: .92rem; }
+aside nav a:hover { background: #e2eaf5; color: var(--ink); }
+aside nav a[aria-current="page"] { background: var(--card); color: var(--accent);
+              font-weight: 650; box-shadow: var(--shadow); }
+a:focus-visible, button:focus-visible, input:focus-visible,
+textarea:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; }
+.term button:focus-visible { outline-color: #9db9dd; }
+main { padding: 1.7rem 2.1rem 3rem; max-width: 72rem; width: 100%; }
 .topbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
-          margin-bottom: 1.2rem; }
+          margin-bottom: 1.25rem; }
 .pill { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem;
-        border: 1px solid var(--line); background: var(--card);
-        border-radius: 999px; padding: .28rem .7rem; color: var(--ink-2); }
+        background: var(--card); box-shadow: var(--shadow);
+        border-radius: 999px; padding: .3rem .75rem; color: var(--ink-2); }
 .num { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); font-size: .86em; }
+.statstrip { display: flex; flex-wrap: wrap; gap: 0; background: var(--card);
+             border-radius: .875rem; box-shadow: var(--shadow);
+             padding: 1rem 1.2rem; margin: 1rem 0; }
+.statstrip .stat { padding: 0 1.4rem 0 0; margin-right: 1.4rem; }
+.statstrip .stat + .stat { border-left: 1px solid var(--line); padding-left: 1.4rem; }
+.statstrip .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.statstrip .l { color: var(--ink-2); font-size: .83rem; max-width: 13rem; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
          gap: .8rem; margin: 1rem 0; }
-.card { background: var(--card); border: 1px solid var(--line);
-        border-radius: .5rem; padding: 1rem 1.1rem; }
+.card { background: var(--card); border-radius: .875rem;
+        box-shadow: var(--shadow); padding: 1.05rem 1.15rem; }
 .card .big { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .card .lbl { color: var(--ink-2); font-size: .85rem; margin-top: .2rem; }
-table { border-collapse: collapse; width: 100%; background: var(--card); }
-td, th { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left;
-         vertical-align: top; font-size: .92rem; }
-th { background: #eef1f6; font-weight: 600; }
-button, .btn { display: inline-block; padding: .45rem .95rem; border-radius: .375rem;
+table { border-collapse: collapse; width: 100%; background: var(--card);
+        border-radius: .875rem; overflow: hidden; box-shadow: var(--shadow); }
+td, th { border-bottom: 1px solid var(--line); padding: .5rem .65rem;
+         text-align: left; vertical-align: top; font-size: .92rem; }
+tr:last-child td { border-bottom: none; }
+th { background: #f2f6fb; font-weight: 600; color: var(--ink-2); font-size: .83rem; }
+button, .btn { display: inline-block; padding: .48rem 1rem; border-radius: .5rem;
        border: 1px solid var(--accent); background: var(--accent);
        color: var(--accent-ink); font-size: .92rem; cursor: pointer;
-       text-decoration: none; }
+       text-decoration: none; box-shadow: var(--shadow);
+       transition: background-color 150ms ease-out; }
+button:hover, .btn:hover { background: var(--accent-hover); }
 button.ghost, .btn.ghost { background: var(--card); color: var(--accent); }
+button.ghost:hover, .btn.ghost:hover { background: #eef3fa; }
 button.danger { background: var(--card); color: var(--bad); border-color: var(--bad); }
-input[type=text], textarea { width: 34rem; max-width: 100%; padding: .48rem .6rem;
-       border: 1px solid var(--line); border-radius: .375rem; font-size: .95rem;
-       background: var(--card); color: var(--ink); }
+button.danger:hover { background: var(--bad-bg); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+input[type=text], textarea { width: 34rem; max-width: 100%; padding: .5rem .65rem;
+       border: 1px solid #c3d0e0; border-radius: .5rem; font-size: .95rem;
+       background: var(--card); color: var(--ink); caret-color: var(--accent); }
+input[type=text]:focus { border-color: var(--accent); }
 label { display: block; font-size: .85rem; color: var(--ink-2); margin: .7rem 0 .3rem; }
 form.inline { display: inline; }
-.badge { display: inline-block; font-size: .74rem; font-weight: 700;
-         padding: .14rem .55rem; border-radius: 999px; text-transform: uppercase; }
+.badge { display: inline-block; font-size: .82rem; font-weight: 700;
+         padding: .3rem .7rem; border-radius: 999px; text-transform: uppercase; }
 .b-verified, .b-done { background: var(--ok-bg); color: var(--ok); }
 .b-reported, .b-pending, .b-running { background: var(--warn-bg); color: var(--warn); }
 .b-rejected, .b-failed, .b-contradicted { background: var(--bad-bg); color: var(--bad); }
 .b-partial, .b-conflicting, .b-unresolved { background: var(--info-bg); color: var(--info); }
-.b-read, .b-planned, .b-judged, .b-auto { background: #eef1f6; color: var(--ink-2); }
-.alert { border: 1px solid var(--bad); background: var(--bad-bg); color: var(--bad);
-         border-radius: .5rem; padding: .8rem 1rem; margin: 1rem 0; }
-.notice { border: 1px solid var(--line); background: var(--info-bg); color: var(--info);
-          border-radius: .5rem; padding: .8rem 1rem; margin: 1rem 0; }
-.term { background: var(--side); color: #dbe4f2; border-radius: .5rem;
+.b-read, .b-planned, .b-judged, .b-auto { background: #eef2f8; color: var(--ink-2); }
+.alert { background: var(--bad-bg); color: var(--bad);
+         border-radius: .875rem; padding: .85rem 1.05rem; margin: 1rem 0; }
+.notice { background: var(--info-bg); color: var(--info);
+          border-radius: .875rem; padding: .85rem 1.05rem; margin: 1rem 0; }
+.term { background: var(--code); color: #dbe4f2; border-radius: .875rem;
         padding: .9rem 1rem; font-family: var(--mono); font-size: .86rem;
         overflow-x: auto; margin: .8rem 0; }
 .term .cmd { white-space: nowrap; }
 .term .cmd::before { content: "$ "; color: #6ee7c8; }
 .term button { float: right; background: #1b2940; border-color: #33507e;
-               color: var(--side-ink); padding: .2rem .6rem; font-size: .78rem; }
-blockquote { margin: .4rem 0; padding: .5rem .8rem; border-left: 3px solid var(--accent);
+               color: #c3cede; padding: .2rem .6rem; font-size: .78rem; box-shadow: none; }
+.term button:hover { background: #24365a; }
+blockquote { margin: .45rem 0; padding: .6rem .85rem; border-radius: .5rem;
              background: var(--paper); font-size: .92rem; }
 details.raw { margin-top: .8rem; }
-details.raw pre, pre.raw { background: #eef1f6; border-radius: .5rem; padding: 1rem;
+details.raw pre, pre.raw { background: #eef2f8; border-radius: .875rem; padding: 1rem;
              overflow-x: auto; white-space: pre-wrap; font-size: .84rem; }
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
          gap: .8rem; }
@@ -121,14 +144,19 @@ details.raw pre, pre.raw { background: #eef1f6; border-radius: .5rem; padding: 1
            width: 1.6rem; height: 1.6rem; border-radius: 999px;
            background: var(--accent); color: var(--accent-ink);
            font-weight: 700; font-size: .9rem; margin-bottom: .5rem; }
-.empty { border: 1px dashed var(--line); border-radius: .5rem; padding: 1.4rem;
+.empty { border: 1px dashed #c3d0e0; border-radius: .875rem; padding: 1.4rem;
          background: var(--card); color: var(--ink-2); }
 footer { color: var(--ink-2); font-size: .84rem; margin-top: 2.5rem;
          border-top: 1px solid var(--line); padding-top: 1rem; }
 @media (max-width: 54rem) {
   .layout { grid-template-columns: 1fr; }
-  aside { position: static; height: auto; }
-  main { padding: 1.2rem 1rem 2.5rem; }
+  aside { position: static; height: auto; padding: .9rem 1rem .6rem; }
+  .brand small { display: none; }
+  .navgroup { margin-top: .7rem; }
+  .navgroup > span { display: none; }
+  aside nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+  aside nav a { padding: .35rem .6rem; background: #e2eaf5; }
+  main { padding: 1.1rem 1rem 2.5rem; }
 }
 """
 
@@ -230,7 +258,7 @@ def _raw(out) -> str:
 
 def _result_block(out: dict) -> str:
     if out.get("error"):
-        return f"<div class='alert' role='alert'>✗ {_e(out['error'])}</div>"
+        return f"<div class='alert' role='alert'>Failed: {_e(out['error'])}</div>"
     body = out.get("result") if out.get("result") is not None else out
     return ("<pre class='raw'>"
             + _e(json.dumps(body, indent=2, default=str)) + "</pre>")
@@ -239,7 +267,7 @@ def _result_block(out: dict) -> str:
 def _run_block(out: dict, approvals_link: bool = True) -> str:
     """A proposed or finished run, shown as its status and proposal."""
     if out.get("error"):
-        return f"<div class='alert' role='alert'>✗ {_e(out['error'])}</div>"
+        return f"<div class='alert' role='alert'>Failed: {_e(out['error'])}</div>"
     status = out.get("status", "")
     body = (f"<div class='card'><p>{_badge(status)} "
             f"<span class='mono'>{_e(out.get('capability', ''))}</span> · run "
@@ -277,16 +305,16 @@ def home():
     pending = len([r for r in tracker.recent(50) if tracker.awaiting(r)])
     runs = tracker.recent(25)
     body = (
-        "<div class='cards'>"
-        f"<div class='card'><div class='big num'>{len(caps)}</div>"
-        "<div class='lbl'>capabilities loaded, from live declarations</div></div>"
-        f"<div class='card'><div class='big num'>{len(finance)}</div>"
-        "<div class='lbl'>finance capabilities in four packs: screen, "
+        "<div class='statstrip'>"
+        f"<div class='stat'><div class='v'>{len(caps)}</div>"
+        "<div class='l'>capabilities loaded, from live declarations</div></div>"
+        f"<div class='stat'><div class='v'>{len(finance)}</div>"
+        "<div class='l'>finance capabilities in four packs: screen, "
         "dataroom, compute, memo</div></div>"
-        f"<div class='card'><div class='big num'>{pending}</div>"
-        "<div class='lbl'>proposals waiting for a person</div></div>"
-        f"<div class='card'><div class='big num'>{len(runs)}</div>"
-        "<div class='lbl'>recent runs in the ledger</div></div></div>"
+        f"<div class='stat'><div class='v'>{pending}</div>"
+        "<div class='l'>proposals waiting for a person</div></div>"
+        f"<div class='stat'><div class='v'>{len(runs)}</div>"
+        "<div class='l'>recent runs in the ledger</div></div></div>"
         "<h2>The demonstration path</h2><div class='steps'>"
         "<div class='card step'><span class='n'>1</span><h3>"
         "<a href='/screen'>Confirm, then screen</a></h3><p>A person confirms "
