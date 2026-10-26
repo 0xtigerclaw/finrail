@@ -59,7 +59,7 @@ Every judged call is written to the run ledger as a `model_call` event carrying 
 finrail-console   # http://127.0.0.1:8000
 ```
 
-Pages for Home, Capabilities, Rules, Screen, Data room, Compute, Memo, Approvals, and Runs and ledger, each dispatching through the normal capability path. There is no privileged browser path: approvals from the console pass the same caller rule as the CLI, so a console started by an agent cannot approve the agent's runs, and the page says so.
+Pages for Overview, Screen, Data room, Compute, Memo, Approvals, Runs and ledger, Capabilities, Rules, and a CLI page generated from the live registry, each dispatching through the normal capability path. Every workflow page also shows the exact `finrail` command that does the same thing from a terminal: the harness is a CLI first, and the console is a shell over the same dispatcher. There is no privileged browser path: approvals from the console pass the same caller rule as the CLI, so a console started by an agent cannot approve the agent's runs, and the page says so.
 
 ## A new, standalone project
 
