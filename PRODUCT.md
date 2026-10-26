@@ -52,5 +52,6 @@ trust, and only a human can release a decision.
 
 - Reviewers arrive without credentials; read paths must work with none.
 - The console is a demonstration surface; the CLI is the product surface.
-- Dark OLED theme (26 Oct 2026): near-black ground, green signal accent,
-  replacing the light theme the owner first picked the same day.
+- Light theme chosen by the owner (structured choice, 26 Oct 2026):
+  modern fintech light, Mercury/Stripe-class calm. A dark OLED variant
+  was built and rejected by the owner on 27 Oct; light is shipped.
