@@ -1,0 +1,491 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T00:26:53.437673+00:00",
+  "title": "Design System: Finrail",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "tonalRamp": [
+          "oklch(15% 0.0014 258.32)",
+          "oklch(27% 0.0029 258.32)",
+          "oklch(38% 0.0039 258.32)",
+          "oklch(50% 0.0045 258.32)",
+          "oklch(61% 0.0045 258.32)",
+          "oklch(73% 0.0036 258.32)",
+          "oklch(85% 0.0023 258.32)",
+          "oklch(95% 0.0007 258.32)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(27% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(50% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(73% 0.0000 89.88)",
+          "oklch(85% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Quiet Slate",
+        "tonalRamp": [
+          "oklch(15% 0.0009 264.54)",
+          "oklch(27% 0.0019 264.54)",
+          "oklch(38% 0.0024 264.54)",
+          "oklch(50% 0.0029 264.54)",
+          "oklch(61% 0.0029 264.54)",
+          "oklch(73% 0.0023 264.54)",
+          "oklch(85% 0.0014 264.54)",
+          "oklch(95% 0.0004 264.54)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Deep Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0169 256.33)",
+          "oklch(27% 0.0366 256.33)",
+          "oklch(38% 0.0478 256.33)",
+          "oklch(50% 0.0563 256.33)",
+          "oklch(61% 0.0563 256.33)",
+          "oklch(73% 0.0450 256.33)",
+          "oklch(85% 0.0281 256.33)",
+          "oklch(95% 0.0084 256.33)"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Reading Slate",
+        "tonalRamp": [
+          "oklch(15% 0.0130 258.35)",
+          "oklch(27% 0.0282 258.35)",
+          "oklch(38% 0.0369 258.35)",
+          "oklch(50% 0.0434 258.35)",
+          "oklch(61% 0.0434 258.35)",
+          "oklch(73% 0.0347 258.35)",
+          "oklch(85% 0.0217 258.35)",
+          "oklch(95% 0.0065 258.35)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Metadata Slate",
+        "tonalRamp": [
+          "oklch(15% 0.0118 256.40)",
+          "oklch(27% 0.0255 256.40)",
+          "oklch(38% 0.0334 256.40)",
+          "oklch(50% 0.0393 256.40)",
+          "oklch(61% 0.0393 256.40)",
+          "oklch(73% 0.0314 256.40)",
+          "oklch(85% 0.0196 256.40)",
+          "oklch(95% 0.0059 256.40)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Fine Rule",
+        "tonalRamp": [
+          "oklch(15% 0.0038 255.51)",
+          "oklch(27% 0.0082 255.51)",
+          "oklch(38% 0.0107 255.51)",
+          "oklch(50% 0.0126 255.51)",
+          "oklch(61% 0.0126 255.51)",
+          "oklch(73% 0.0101 255.51)",
+          "oklch(85% 0.0063 255.51)",
+          "oklch(95% 0.0019 255.51)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Field Rule",
+        "tonalRamp": [
+          "oklch(15% 0.0063 254.93)",
+          "oklch(27% 0.0136 254.93)",
+          "oklch(38% 0.0178 254.93)",
+          "oklch(50% 0.0210 254.93)",
+          "oklch(61% 0.0210 254.93)",
+          "oklch(73% 0.0168 254.93)",
+          "oklch(85% 0.0105 254.93)",
+          "oklch(95% 0.0031 254.93)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Investment Navy",
+        "tonalRamp": [
+          "oklch(15% 0.0308 255.11)",
+          "oklch(27% 0.0667 255.11)",
+          "oklch(38% 0.0872 255.11)",
+          "oklch(50% 0.1026 255.11)",
+          "oklch(61% 0.1026 255.11)",
+          "oklch(73% 0.0821 255.11)",
+          "oklch(85% 0.0513 255.11)",
+          "oklch(95% 0.0154 255.11)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Deep Investment Navy",
+        "tonalRamp": [
+          "oklch(15% 0.0271 255.42)",
+          "oklch(27% 0.0587 255.42)",
+          "oklch(38% 0.0768 255.42)",
+          "oklch(50% 0.0903 255.42)",
+          "oklch(61% 0.0903 255.42)",
+          "oklch(73% 0.0723 255.42)",
+          "oklch(85% 0.0452 255.42)",
+          "oklch(95% 0.0136 255.42)"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Soft Investment Navy",
+        "tonalRamp": [
+          "oklch(15% 0.0038 255.51)",
+          "oklch(27% 0.0081 255.51)",
+          "oklch(38% 0.0107 255.51)",
+          "oklch(50% 0.0125 255.51)",
+          "oklch(61% 0.0125 255.51)",
+          "oklch(73% 0.0100 255.51)",
+          "oklch(85% 0.0063 255.51)",
+          "oklch(95% 0.0019 255.51)"
+        ]
+      },
+      "success": {
+        "role": "semantic",
+        "displayName": "Success",
+        "tonalRamp": [
+          "oklch(15% 0.0270 156.22)",
+          "oklch(27% 0.0584 156.22)",
+          "oklch(38% 0.0764 156.22)",
+          "oklch(50% 0.0899 156.22)",
+          "oklch(61% 0.0899 156.22)",
+          "oklch(73% 0.0719 156.22)",
+          "oklch(85% 0.0449 156.22)",
+          "oklch(95% 0.0135 156.22)"
+        ]
+      },
+      "success-bg": {
+        "role": "semantic",
+        "displayName": "Success Bg",
+        "tonalRamp": [
+          "oklch(15% 0.0042 155.59)",
+          "oklch(27% 0.0091 155.59)",
+          "oklch(38% 0.0119 155.59)",
+          "oklch(50% 0.0141 155.59)",
+          "oklch(61% 0.0141 155.59)",
+          "oklch(73% 0.0112 155.59)",
+          "oklch(85% 0.0070 155.59)",
+          "oklch(95% 0.0021 155.59)"
+        ]
+      },
+      "warning": {
+        "role": "semantic",
+        "displayName": "Warning",
+        "tonalRamp": [
+          "oklch(15% 0.0285 76.17)",
+          "oklch(27% 0.0617 76.17)",
+          "oklch(38% 0.0807 76.17)",
+          "oklch(50% 0.0950 76.17)",
+          "oklch(61% 0.0950 76.17)",
+          "oklch(73% 0.0760 76.17)",
+          "oklch(85% 0.0475 76.17)",
+          "oklch(95% 0.0142 76.17)"
+        ]
+      },
+      "warning-bg": {
+        "role": "semantic",
+        "displayName": "Warning Bg",
+        "tonalRamp": [
+          "oklch(15% 0.0080 85.66)",
+          "oklch(27% 0.0174 85.66)",
+          "oklch(38% 0.0228 85.66)",
+          "oklch(50% 0.0268 85.66)",
+          "oklch(61% 0.0268 85.66)",
+          "oklch(73% 0.0215 85.66)",
+          "oklch(85% 0.0134 85.66)",
+          "oklch(95% 0.0040 85.66)"
+        ]
+      },
+      "danger": {
+        "role": "semantic",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(15% 0.0360 24.33)",
+          "oklch(27% 0.0780 24.33)",
+          "oklch(38% 0.1020 24.33)",
+          "oklch(50% 0.1200 24.33)",
+          "oklch(61% 0.1200 24.33)",
+          "oklch(73% 0.0960 24.33)",
+          "oklch(85% 0.0600 24.33)",
+          "oklch(95% 0.0180 24.33)"
+        ]
+      },
+      "danger-bg": {
+        "role": "semantic",
+        "displayName": "Danger Bg",
+        "tonalRamp": [
+          "oklch(15% 0.0046 17.42)",
+          "oklch(27% 0.0099 17.42)",
+          "oklch(38% 0.0129 17.42)",
+          "oklch(50% 0.0152 17.42)",
+          "oklch(61% 0.0152 17.42)",
+          "oklch(73% 0.0121 17.42)",
+          "oklch(85% 0.0076 17.42)",
+          "oklch(95% 0.0023 17.42)"
+        ]
+      },
+      "info": {
+        "role": "semantic",
+        "displayName": "Info",
+        "tonalRamp": [
+          "oklch(15% 0.0289 250.77)",
+          "oklch(27% 0.0626 250.77)",
+          "oklch(38% 0.0819 250.77)",
+          "oklch(50% 0.0964 250.77)",
+          "oklch(61% 0.0964 250.77)",
+          "oklch(73% 0.0771 250.77)",
+          "oklch(85% 0.0482 250.77)",
+          "oklch(95% 0.0145 250.77)"
+        ]
+      },
+      "info-bg": {
+        "role": "semantic",
+        "displayName": "Info Bg",
+        "tonalRamp": [
+          "oklch(15% 0.0043 254.61)",
+          "oklch(27% 0.0093 254.61)",
+          "oklch(38% 0.0121 254.61)",
+          "oklch(50% 0.0142 254.61)",
+          "oklch(61% 0.0142 254.61)",
+          "oklch(73% 0.0114 254.61)",
+          "oklch(85% 0.0071 254.61)",
+          "oklch(95% 0.0021 254.61)"
+        ]
+      },
+      "code": {
+        "role": "neutral",
+        "displayName": "Terminal Navy",
+        "tonalRamp": [
+          "oklch(15% 0.0134 256.93)",
+          "oklch(27% 0.0290 256.93)",
+          "oklch(38% 0.0379 256.93)",
+          "oklch(50% 0.0446 256.93)",
+          "oklch(61% 0.0446 256.93)",
+          "oklch(73% 0.0356 256.93)",
+          "oklch(85% 0.0223 256.93)",
+          "oklch(95% 0.0067 256.93)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page headings; inherits the body stack."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default interface and evidence reading."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Forms and actions."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Exact IDs, hashes, raw values and terminal commands."
+      },
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "Financial results with readable units."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "navigation",
+        "value": "background-color 160ms ease-out, color 160ms ease-out",
+        "purpose": "Sidebar hover and current-route treatment."
+      },
+      {
+        "name": "control",
+        "value": "background-color 150ms ease-out, border-color 150ms ease-out",
+        "purpose": "Button states; fields and disclosure arrows also use 150ms."
+      },
+      {
+        "name": "drawer",
+        "value": "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Mobile navigation reveal."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition-duration: 0.01ms; animation-duration: 0.01ms; animation-iteration-count: 1",
+        "purpose": "Respect prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1200px"
+      },
+      {
+        "name": "stack-content",
+        "value": "1100px"
+      },
+      {
+        "name": "narrow-sidebar",
+        "value": "1000px"
+      },
+      {
+        "name": "mobile-drawer",
+        "value": "760px"
+      },
+      {
+        "name": "small-phone",
+        "value": "390px"
+      },
+      {
+        "name": "narrow-phone",
+        "value": "360px"
+      }
+    ],
+    "focus": [
+      {
+        "name": "default",
+        "value": "2px solid var(--accent); outline-offset: 3px",
+        "purpose": "Visible keyboard focus."
+      },
+      {
+        "name": "terminal",
+        "value": "outline-color: #bdd8fa",
+        "purpose": "Light focus outline in dark command wells."
+      }
+    ],
+    "tonalRampNote": "Eight-step OKLCH display aids synthesized from source colors; these ramps do not introduce production CSS tokens."
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact primary action with visible keyboard focus.",
+      "html": "<button class=\"ds-btn-primary\">Prepare proposal</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:9px 14px;border:1px solid transparent;border-radius:7px;font:550 12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background-color 150ms ease-out,border-color 150ms ease-out;color:var(--surface);background:var(--accent);border-color:transparent;}.ds-btn-primary:hover{color:var(--surface);background:var(--accent-hover);}.ds-btn-primary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}.ds-btn-primary:disabled{opacity:.5;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-btn-primary{transition:none;}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Compact secondary action with visible keyboard focus.",
+      "html": "<button class=\"ds-btn-secondary\">Prepare proposal</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:9px 14px;border:1px solid transparent;border-radius:7px;font:550 12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background-color 150ms ease-out,border-color 150ms ease-out;color:var(--ink-secondary);background:var(--surface);border-color:var(--line-strong);}.ds-btn-secondary:hover{color:var(--ink);background:#f1f5fa;border-color:#b8c6d8;}.ds-btn-secondary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}.ds-btn-secondary:disabled{opacity:.5;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-btn-secondary{transition:none;}}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Compact danger action with visible keyboard focus.",
+      "html": "<button class=\"ds-btn-danger\">Prepare proposal</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:9px 14px;border:1px solid transparent;border-radius:7px;font:550 12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;transition:background-color 150ms ease-out,border-color 150ms ease-out;color:var(--danger);background:var(--surface);border-color:#e9caca;}.ds-btn-danger:hover{background:var(--danger-bg);border-color:#d7aaaa;}.ds-btn-danger:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}.ds-btn-danger:disabled{opacity:.5;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-btn-danger{transition:none;}}"
+    },
+    {
+      "name": "Drafting Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled input with nearby explanatory hint.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-task\">Drafting task</label><input class=\"ds-field\" id=\"ds-task\" placeholder=\"Summarize revenue and cite the source\" aria-describedby=\"ds-hint\"><p class=\"ds-hint\" id=\"ds-hint\">Review the source before submitting.</p>",
+      "css": ".ds-field-label{display:block;margin:0 0 7px;color:var(--ink);font:550 12px/1.55 sans-serif}.ds-field{width:100%;min-height:40px;padding:10px 12px;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:7px;font:13px/1.5 sans-serif;caret-color:var(--accent)}.ds-field:hover{border-color:#a9b8cc}.ds-field:focus{border-color:var(--accent)}.ds-field:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}.ds-field[aria-invalid=true]{border-color:var(--danger)}.ds-hint{margin:7px 0 0;color:var(--ink-secondary);font:11px/1.65 sans-serif}"
+    },
+    {
+      "name": "Current Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-current",
+      "description": "Current workspace route in the compact sidebar.",
+      "html": "<nav aria-label=\"Workspace\"><a class=\"ds-nav\" href=\"#memo\" aria-current=\"page\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 3h8l5 5v13H6zM14 3v6h5M9 13h7M9 17h5\"/></svg><span>IC memos</span></a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:10px;min-height:39px;padding:8px 11px;border-radius:7px;color:var(--accent);background:var(--accent-soft);font:600 13px/1.4 sans-serif;text-decoration:none;transition:background-color 160ms ease-out}.ds-nav:hover{color:var(--ink);background:#edf1f6}.ds-nav:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}@media(prefers-reduced-motion:reduce){.ds-nav{transition:none}}"
+    },
+    {
+      "name": "Verified Verdict",
+      "kind": "chip",
+      "refersTo": "badge-verified",
+      "description": "Text-bearing deterministic verification state.",
+      "html": "<span class=\"ds-verdict\">Verified</span>",
+      "css": ".ds-verdict{display:inline-flex;align-items:center;padding:3px 7px;border-radius:4px;color:var(--success);background:var(--success-bg);font:650 10px/1.55 sans-serif;white-space:nowrap}"
+    },
+    {
+      "name": "Reading Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat bordered container with a compact section header.",
+      "html": "<section class=\"ds-panel\"><div class=\"ds-panel-head\">Source evidence</div><div class=\"ds-panel-body\">Read the source. Trace the figure.</div></section>",
+      "css": ".ds-panel{overflow:hidden;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px}.ds-panel-head{padding:19px 22px;border-bottom:1px solid var(--line);font:650 14px/1.55 sans-serif}.ds-panel-body{padding:22px;color:var(--ink-secondary);font:13px/1.85 sans-serif}"
+    },
+    {
+      "name": "Cited Financial Result",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Readable financial value with exact source reference and raw value.",
+      "html": "<section class=\"ds-metric\"><h2>Financial result</h2><div class=\"ds-metric-value\">\u2014</div><p>Calculated from cited workbook cells</p><p class=\"ds-metric-source\">Source: <a href=\"#workbook\">workbook cells</a> \u00b7 Raw value retained</p></section>",
+      "css": ".ds-metric{padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-secondary);font:12px/1.75 sans-serif}.ds-metric h2{margin:0;color:var(--ink-secondary);font:500 14px/1.55 sans-serif}.ds-metric-value{margin:10px 0 14px;color:var(--ink);font:650 42px/1.15 sans-serif;letter-spacing:-.035em;font-variant-numeric:tabular-nums}.ds-metric-source a{color:var(--accent);text-decoration:underline}.ds-metric-source a:hover{color:var(--accent-hover)}.ds-metric-source a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}"
+    },
+    {
+      "name": "Source-linked Memo",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Reading section with explicit synthetic provenance and source link.",
+      "html": "<article class=\"ds-memo\"><p class=\"ds-memo-provenance\">Illustrative demo record \u00b7 Manually prepared from synthetic sources</p><h3>Investment assessment</h3><p>Review the financial case alongside the supporting source and open diligence.</p><p class=\"ds-memo-source\">Sources: <a href=\"#source\">source document</a></p></article>",
+      "css": ".ds-memo{padding:22px;border:1px solid var(--line);border-radius:12px;color:var(--ink-secondary);background:var(--surface);font:14px/1.8 sans-serif}.ds-memo h3{color:var(--ink);font:650 15px/1.4 sans-serif}.ds-memo p{max-width:72ch}.ds-memo-provenance{color:var(--ink-muted);font:11px/1.5 sans-serif}.ds-memo-source{font:11px/1.65 sans-serif}.ds-memo a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}.ds-memo a:hover{color:var(--accent-hover)}.ds-memo a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Evidence-first investment workspace",
+    "overview": "Finrail uses the owner-confirmed modern fintech light direction: paper and slate neutrals, navy actions, compact financial reading surfaces, and restrained semantic verdict colors. The owner selected light on 26 October 2026 and rejected a dark OLED transformation on 27 October; preserve this light world.\n\nThe system is recorded from the implemented console in code-led mode, without a visual comp. The normative asset source is `console/static/app.css`; `console/static/app.js` supplies progressive interaction, `console/views.py` supplies shared presentation, and `console/app.py` composes server-rendered routes. The surface brief records the confirmed investment-workspace hierarchy; this document records reusable visual behavior.",
+    "keyCharacteristics": [
+      "Quiet, light surfaces with navy selection and actions.",
+      "Compact tables, tabular figures, and readable evidence prose.",
+      "Verification, synthetic provenance, and human authority visible in context.",
+      "Borders and tonal layers rather than decorative elevation."
+    ],
+    "rules": [
+      {
+        "name": "The Accent Discipline Rule",
+        "body": "Use navy for actions, links and selection; use semantic colors to communicate recorded state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Exact Reference Rule",
+        "body": "Keep exact IDs, source references and complete approval hashes readable even when the friendly financial view leads.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Surface Rule",
+        "body": "Use tonal separation and fine borders for ordinary panels; do not restore the obsolete shadow-only card treatment.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the owner-pinned light palette and restrained navy action family.",
+      "Do keep company identity, synthetic provenance and evidence labels adjacent to the financial content they qualify.",
+      "Do use tabular numerals, readable financial units and exact source references together.",
+      "Do retain labelled controls, visible focus, inline recovery and keyboard-operable disclosures.",
+      "Do keep complete proposals and hashes available before a controlled decision."
+    ],
+    "donts": [
+      "Don't revive the rejected dark application theme or obsolete wrapping mobile navigation.",
+      "Don't style illustrative synthetic records as proof of a live model call.",
+      "Don't turn decorative shadows, oversized heroes or charts without evidence into the system's identity.",
+      "Don't replace drawn icons with emoji or truncate the only readable copy of a hash or artifact ID."
+    ]
+  }
+}

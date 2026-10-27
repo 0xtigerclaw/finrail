@@ -68,4 +68,24 @@ def test_demo_seed_makes_screen_run_completable(client, monkeypatch):
     assert "operator (public demo seed)" in page.text
     run = client.post("/screen/run", data={"company_id": "04123456"})
     assert run.status_code == 200
-    assert "done" in run.text
+
+    # Submission starts one background run. Follow its read-only detail page;
+    # polling must never replay the POST or start a second screen.
+    import re
+    import time
+
+    link = re.search(r"(?:data-refresh-url|href)=['\"](/runs/[0-9a-f]+)['\"]", run.text)
+    assert link, "The submitted workflow must link to its real run"
+    deadline = time.monotonic() + 5
+    while True:
+        outcome = client.get(link.group(1))
+        assert outcome.status_code == 200
+        if "Completed" in outcome.text or "Failed" in outcome.text:
+            break
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    assert "Completed" in outcome.text
+    assert "fixture" in outcome.text.lower()
+    assert "reported" in outcome.text.lower()
+    assert "rejected" in outcome.text.lower()
