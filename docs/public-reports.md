@@ -17,7 +17,7 @@ Fiscal quarters and quarter-end dates remain explicit; they are not aligned cale
 - Ten indexed files: four original PDFs and six source-preserving text extractions.
   NVIDIA's original HTML is privately archived and used for exact source-cell checks.
   Anthropic's S-1 adds one archived HTML original (not indexed) and one indexed
-  extraction under its own prefix `2026-10-29-anthropic/` once the operator step below is run.
+  extraction under its own prefix `2026-10-29-anthropic/`: eleven files in all.
 - PDF extracts preserve physical page markers. HTML extracts preserve table/row order
   and repeat headers across row groups. This is deterministic preprocessing followed
   by Google's default text/PDF parsing, **not Document AI Layout Parser**.
@@ -102,13 +102,22 @@ annualised, not a forecast, not advice. It refuses without a completed revenue r
 S-1 leaves the post-offering share count blank, so a share price cannot be converted to
 a valuation from the filing; only a valuation is accepted.
 
-### Operator ingestion (not yet run)
+### Operator ingestion (run 29 October 2026)
 
-The runtime identity cannot import, so the owner runs this with their own account. The
+The runtime identity cannot import, so the owner ran this with their own account. The
 bundle directory holds `sources.json` and `raw/ANTH-S1-2026.html`; the script verifies
 the SHA-256 above, archives the original and the extraction under the new prefix, and
 starts one managed import of the extraction only. `--only` keeps the ten existing
 objects and RAG files untouched.
+
+What was bound, each checked live against the corpus and bucket before it was written:
+original object generation 1793315658409051; extraction object generation
+1793315665962762 (1,616,757 bytes, SHA-256 `73f23da1…`, byte-identical to a local
+regeneration); import operation 4239049377311621120, one file imported; RAG file
+`5820050344834778841`, ACTIVE, whose only URI is the extraction. The corpus check then
+reconciles 11 of 11. A live search on compute commitments returned six excerpts, all
+from the S-1 file; a live `revenue` run returned $16,286m, read from table 109 under
+the six-month 2026 column and reconciled to the revenue note's total.
 
 ```sh
 python3 scripts/ingest_public_reports.py "<bundle dir>" \
@@ -129,9 +138,13 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: petrosoft-220
 ```
 
 Only the file ID whose URI matches is written into `rag_file_ids` for `ANTH-S1-2026` in
-`reports.json`, with the object generations from `anthropic-ingest.json`. Until then the
-catalog lists the S-1 with no RAG file IDs: search and analysis refuse with "not indexed",
-and the Filings card says so.
+`reports.json`, with the object generations from `anthropic-ingest.json`. A source with
+no RAG file IDs is listed but refuses search and analysis with "not indexed", and the
+Filings card says so.
+
+When running the CLI from a checkout other than the one installed in the virtualenv,
+set `PYTHONPATH` to that checkout: the background worker starts with `-P` and would
+otherwise import the installed copy.
 
 ## Runtime and CLI
 

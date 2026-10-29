@@ -200,9 +200,11 @@
       "indexed_uris": [
         "gs://finrail-reports-petrosoft-2202/2026-10-29-anthropic/parsed/ANTH-S1-2026.txt"
       ],
-      "rag_file_ids": [],
-      "object_generation": "",
-      "parsed_object_generation": ""
+      "rag_file_ids": [
+        "5820050344834778841"
+      ],
+      "object_generation": "1793315658409051",
+      "parsed_object_generation": "1793315665962762"
     }
   ]
 }

@@ -83,7 +83,8 @@ def test_catalog_entry_is_the_edgar_primary_document():
     assert item["sha256"] == "2fa24ae7704dbb535d096ee7459b765fe899ac9118762e738183a94473c9905a"
     assert item["url"].startswith("https://www.sec.gov/Archives/edgar/data/0002130357/000162828026067168/")
     assert item["edgar_accession"] == "0001628280-26-067168"
-    assert item["rag_file_ids"] == [] and item["indexed_uris"] == [f"gs://{item['bucket']}/{item['parsed_object']}"]
+    assert item["rag_file_ids"] == ["5820050344834778841"] and item["indexed_uris"] == [f"gs://{item['bucket']}/{item['parsed_object']}"]
+    assert item["object_generation"] and item["parsed_object_generation"]
     assert item["object"].startswith("2026-10-29-anthropic/") and len(r.catalog()) == 7
 
 

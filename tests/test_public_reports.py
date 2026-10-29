@@ -160,7 +160,7 @@ def test_console_catalog_disabled_when_unconfigured(tmp_path, monkeypatch):
         assert page.status_code == 200
         assert 'Live corpus check unavailable' in page.text and 'not confirmed' in page.text
         assert page.text.count("class='filing'") == 7 and 'NVDA-Q2-FY2027.txt' in page.text
-        assert 'ANTH-S1-2026' in page.text and 'not yet ingested' in page.text
+        assert 'ANTH-S1-2026.txt' in page.text and 'Revenue not yet checked' in page.text
         assert 'Run a check directly' not in page.text and "type='submit'" not in page.text
         assert 'All companies and figures are synthetic' not in page.text
         invalid = client.post('/reports/analyze', data={'report_id': 'ASML-Q2-2026'})
