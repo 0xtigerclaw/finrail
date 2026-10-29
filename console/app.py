@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import hashlib
 import json
 import os
 import re
@@ -21,6 +22,9 @@ from .views import (e as _e, badge as _badge, icon, panel, empty, table,
 
 app = FastAPI(title="Finrail")
 app.mount("/assets", StaticFiles(directory=Path(__file__).parent / "static"), name="assets")
+_ASSET_VERSION = hashlib.sha256(b''.join(
+    (Path(__file__).parent / 'static' / name).read_bytes()
+    for name in ('app.css', 'app.js'))).hexdigest()[:12]
 _POSTS = {"count": 0}
 
 def _seed_demo_entity() -> None:
@@ -171,7 +175,7 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<meta name='theme-color' content='#f7f8fb'>"
         f"<title>{_e(title)} · Finrail</title>"
-        "<link rel='stylesheet' href='/assets/app.css?v=2'><script src='/assets/app.js?v=2' defer></script>"
+        f"<link rel='stylesheet' href='/assets/app.css?v={_ASSET_VERSION}'><script src='/assets/app.js?v={_ASSET_VERSION}' defer></script>"
         "</head><body><a class='skip-link' href='#main-content'>Skip to main content</a>"
         "<div class='workspace-shell'><aside class='sidebar' id='workspace-nav' aria-label='Workspace navigation'>"
         f"<button type='button' class='nav-close btn-icon' data-nav-close aria-label='Close navigation'>{icon('close')}</button><a class='brand' href='/' aria-label='Finrail workspace'><span class='brand-mark'>{BRAND_MARK}</span>"
