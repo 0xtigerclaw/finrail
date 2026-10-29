@@ -21,8 +21,11 @@ Fiscal quarters and quarter-end dates remain explicit; they are not aligned cale
 - The corpus contains no curated fact store, calculation outputs or benchmark answers.
 
 The runtime identity has `storage.objectViewer` on this bucket only and the project
-custom role `finrailReportReader` containing `aiplatform.ragCorpora.get/query` and
-`aiplatform.ragFiles.get/list`. It has no report import, object write or corpus delete
+custom role `finrailReportReader` containing `aiplatform.ragCorpora.get/query`,
+`aiplatform.ragFiles.get/list` and `aiplatform.endpoints.predict` for query embeddings.
+The last permission was confirmed necessary by a runtime-identity diagnostic; Google
+requires it on the configured `text-embedding-005` model as well as corpus access.
+It has no report import, object write or corpus delete
 permission. The Google RAG service agent has bucket read access. Existing model and
 search credentials remain Secret Manager bindings.
 
