@@ -121,7 +121,7 @@ def _engine_line() -> str:
     return f"engine: {eng} · model: {model} · endpoint: {host}"
 
 NAV = [
-    ('Workspace', [('home', '/', 'Overview'), ('screen', '/screen', 'Screening'),
+    ('Workspace', [('home', '/', 'Overview'), ('reports', '/reports', 'Public reports'), ('screen', '/screen', 'Screening'),
                    ('dataroom', '/dataroom', 'Data room'), ('compute', '/compute', 'Analysis'),
                    ('memo', '/memo', 'IC memos'), ('approvals', '/approvals', 'Approvals')]),
     ('System', [('runs', '/runs', 'Activity & ledger'), ('capabilities', '/capabilities', 'Capabilities'),
@@ -129,7 +129,10 @@ NAV = [
 ]
 NAMES = {'finance.screen.run': 'Public-risk screen', 'finance.screen.entity': 'Entity confirmation',
          'finance.dataroom.propose': 'Data-room record', 'finance.memo.draft': 'IC memo draft',
-         'finance.memo.release': 'Memo release', 'finance.compute.metric': 'Financial analysis'}
+         'finance.memo.release': 'Memo release', 'finance.compute.metric': 'Financial analysis',
+         'finance.reports.search': 'Published-report search', 'finance.reports.analyze': 'Source-checked free cash flow'}
+
+ICONS['reports'] = ICONS['dataroom']
 
 
 def _status(rec: dict) -> tuple[str, str]:
@@ -174,7 +177,7 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
         f"<button type='button' class='nav-close btn-icon' data-nav-close aria-label='Close navigation'>{icon('close')}</button><a class='brand' href='/' aria-label='Finrail workspace'><span class='brand-mark'>{BRAND_MARK}</span>"
         "<span class='brand-wordmark'>Finrail<span class='brand-caption'>Investment workspace</span></span></a>"
         f"<div class='workspace-context'><span class='context-icon'>{icon('building')}</span>"
-        "<span class='context-copy'><strong>Demo workspace</strong><span>Synthetic companies</span></span></div>"
+        "<span class='context-copy'><strong>Demo workspace</strong><span>Public reports &amp; synthetic cases</span></span></div>"
         f"<nav aria-label='Main navigation'>{nav}</nav>"
         "<div class='sidebar-footer'><details class='environment'><summary>Environment details</summary>"
         f"<p>{_e(_engine_line())}</p><a href='/rules'>View governance rules</a></details>"
@@ -183,12 +186,12 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
         "<div class='app-column'><header class='topbar'>"
         f"<button type='button' class='nav-toggle btn-icon' data-nav-toggle aria-controls='workspace-nav' aria-expanded='false' aria-label='Open navigation'>{icon('menu')}</button>"
         f"<div class='breadcrumb'><span>{section}</span>{icon('chevron',14)}<strong>{_e(title)}</strong></div>"
-        f"<div class='topbar-right'><span class='demo-chip'>Synthetic demo</span><span class='provider-label'>{_e(configured)}</span>"
+        f"<div class='topbar-right'><span class='demo-chip'>{'Public reports' if active == 'reports' else 'Demo workspace'}</span><span class='provider-label'>{_e(configured)}</span>"
         "<span class='avatar' aria-hidden='true'>F</span></div></header>"
         f"<main class='app-main' id='main-content' tabindex='-1'><div class='page-header'>"
         f"<div><h1 class='page-title'>{_e(title)}</h1>{subtitle}</div><div class='page-actions'>{actions}</div></div>"
         f"{body}<details class='demo-notice'><summary>{icon('info',16)}About this demo</summary>"
-        f"<p>{_e(allowance)}All companies and figures are synthetic. This is a shared demo; records reset when the instance restarts. "
+        f"<p>{_e(allowance)}Public reports use published issuer disclosures. Meridian and Northwind workflows use labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
         "Approvals execute only from the operator’s terminal. No browser action can release a decision.</p></details>"
         "<footer class='workspace-footer'>Evidence before answers. Human authority before action.</footer></main></div></div>"
         "<div id='ui-status' class='sr-only' role='status' aria-live='polite' aria-atomic='true'></div></body></html>",
@@ -214,6 +217,8 @@ def _result_block(out: dict) -> str:
 
 def _run_block(out: dict, approvals_link: bool = True) -> str:
     if out.get('error'):
+        if out.get('capability', '').startswith('finance.reports.'):
+            return _error(out['error'], '/reports', 'Return to reports')
         return _error(out['error'])
     status, label = _status(out)
     rid = str(out.get('id') or '')
@@ -239,7 +244,10 @@ def _run_block(out: dict, approvals_link: bool = True) -> str:
     value = out.get('result')
     if value is not None:
         result += '<h3>Result</h3>'
-        if isinstance(value, dict) and 'findings' in value:
+        if out.get('capability', '').startswith('finance.reports.') and isinstance(value, dict):
+            from .reports import result_html
+            result += result_html(value)
+        elif isinstance(value, dict) and 'findings' in value:
             result += _findings_html(value)
         else:
             result += fields(value) if isinstance(value, dict) else f"<pre class='raw'>{_e(value)}</pre>"
@@ -283,12 +291,44 @@ def home():
     guide = ("<ol class='guide-list'><li><a href='/screen'>Confirm, then screen</a><p>Inspect evidence and gate verdicts for Northwind.</p></li>"
              "<li><a href='/dataroom'>Try to plant a figure</a><p>Watch the 24.5% margin claim get blocked.</p></li>"
              "<li><a href='/compute'>Verify the numbers</a><p>Five metrics calculated from cited workbook cells.</p></li></ol>")
-    body = ("<div class='content-grid'><div class='primary-column'>" + companies + recent + "</div><div class='secondary-column'>"
+    report_intro = panel('Work with published reports', '<p>Explore six quarterly reports from NVIDIA, Nebius and ASML. Reconstruct NVIDIA free cash flow with retrieved evidence and checked source cells.</p><a class="btn" href="/reports">Open public reports</a>')
+    body = (report_intro + "<div class='content-grid'><div class='primary-column'>" + companies + recent + "</div><div class='secondary-column'>"
             + panel('Review queue', review) + panel('Start the demo', guide) + '</div></div>'
             + "<div class='trust-strip'><div class='trust-step'>" + icon('file') + "<div><strong>Model proposes</strong><span>Source-backed drafts</span></div></div>"
             + "<div class='trust-step'>" + icon('shield') + "<div><strong>Code verifies</strong><span>Evidence and arithmetic checks</span></div></div>"
             + "<div class='trust-step'>" + icon('check') + "<div><strong>Operator releases</strong><span>Approval bound to the full proposal</span></div></div></div>")
     return _page('Workspace overview', body, 'home', 'The model can suggest evidence. Only code awards trust, and only a person releases a decision.', '<a class="btn" href="/dataroom">Open data room</a>')
+
+
+@app.get('/reports', response_class=HTMLResponse)
+def reports_page(run: str = ''):
+    from .reports import workspace
+    body = ''
+    if run:
+        rec = _load_run(run)
+        if rec and rec.get('capability', '').startswith('finance.reports.'):
+            body += _run_block(rec)
+        else:
+            body += _error('This report run is unavailable. It may have reset with the demo instance.', '/reports', 'Return to reports')
+    body += workspace(bool(os.environ.get('FINRAIL_RAG_CORPUS')))
+    return _page('Public reports', body, 'reports', 'Real issuer disclosures. Retrieved evidence. Numbers checked against the original report.')
+
+
+@app.post('/reports/search', response_class=HTMLResponse)
+def report_search(report_id: str = Form(''), query: str = Form('')):
+    return _report_action('finance.reports.search', {'report_id': report_id, 'query': query})
+
+
+@app.post('/reports/analyze', response_class=HTMLResponse)
+def report_analyze(report_id: str = Form(''), definition: str = Form('issuer_fcf')):
+    return _report_action('finance.reports.analyze', {'report_id': report_id, 'definition': definition})
+
+
+def _report_action(name: str, payload: dict):
+    out = _dispatch(name, payload)
+    if out.get('id'):
+        return RedirectResponse('/reports?run=' + quote(out['id'], safe=''), status_code=303)
+    return _page('Report request needs attention', _error(out.get('error', 'The report action failed.'), '/reports', 'Return to reports'), 'reports', status_code=400)
 
 
 def _findings_html(fixture: dict) -> str:
