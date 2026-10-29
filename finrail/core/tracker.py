@@ -40,6 +40,7 @@ entitled to write it, and the only one whose view of it is true.
 import contextlib
 import contextvars
 import datetime
+import hashlib
 import json
 import re
 import pathlib
@@ -204,6 +205,15 @@ def caller() -> str:
         return ""
 
 
+def proposal_digest(proposal) -> str:
+    """SHA-256 of a proposal exactly as it would execute: canonical JSON, keys sorted.
+
+    Taken when the run is saved, checked when it is approved and again before a
+    worker executes it, so what a person approved is what runs (`dispatch_core`)."""
+    return hashlib.sha256(json.dumps(proposal, sort_keys=True,
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
 def save(capability: str, task, proposal, status: str = PENDING,
          errors: list = None, kind: str = "", source: str = "cli",
          actor: str = "") -> dict:
@@ -227,7 +237,8 @@ def save(capability: str, task, proposal, status: str = PENDING,
     rid = uuid.uuid4().hex[:8]
     from . import agents as _agents
     rec = {"id": rid, "capability": capability, "kind": kind, "task": task,
-           "proposal": proposal, "status": status, "errors": list(errors or []),
+           "proposal": proposal, "proposal_sha256": proposal_digest(proposal),
+           "status": status, "errors": list(errors or []),
            "result": None, "source": source, "created": _now(),
            # Which agent did this. One ledger for the whole install is only readable if
            # every row says whose action it was.

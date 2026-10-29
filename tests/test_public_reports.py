@@ -155,8 +155,9 @@ def test_console_catalog_disabled_when_unconfigured(tmp_path, monkeypatch):
     with TestClient(app) as client:
         page = client.get('/reports')
         assert page.status_code == 200
-        assert '6 public reports' in page.text and 'managed' in page.text.lower()
-        assert page.text.count("type='submit' disabled") == 2
+        assert 'Live corpus check unavailable' in page.text and 'not confirmed' in page.text
+        assert page.text.count("class='filing'") == 6 and 'NVDA-Q2-FY2027.txt' in page.text
+        assert 'Run a check directly' not in page.text and "type='submit'" not in page.text
         assert 'All companies and figures are synthetic' not in page.text
         invalid = client.post('/reports/analyze', data={'report_id': 'ASML-Q2-2026'})
         assert invalid.status_code == 400 and 'NVIDIA' in invalid.text

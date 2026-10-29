@@ -243,4 +243,15 @@
   window.addEventListener("pagehide", () => {
     if (refreshTimer !== null) clearTimeout(refreshTimer);
   });
+
+  // Ask: Enter sends, Shift+Enter adds a line, as in any chat.
+  const composer = document.querySelector(".composer textarea");
+  if (composer) {
+    composer.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && composer.value.trim().length >= 3) {
+        event.preventDefault();
+        composer.form.requestSubmit();
+      }
+    });
+  }
 })();

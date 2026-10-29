@@ -610,7 +610,10 @@ def _render_run(rec: dict) -> str:
         tail = f"\ncheck: finrail view {rec['id']}"
     elif rec["status"] == tracker.PENDING:
         body = _full_preview(cap, rec["proposal"])
-        tail = (f"\n\napprove: finrail approve {rec['id']}"
+        # The hash of the proposal shown above rides on the approve command, so the
+        # approval holds only for this proposal (dispatch_core._approvable_digest).
+        ref = f"{rec['id']}@{tracker.proposal_digest(rec['proposal'])[:12]}"
+        tail = (f"\n\napprove: finrail approve {ref}"
                 f"\ndiscard: finrail drop {rec['id']}")
         if cap.reason:
             tail += f"\n(why approval: {cap.reason})"

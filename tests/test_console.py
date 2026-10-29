@@ -19,12 +19,19 @@ def client():
     return TestClient(app)
 
 
-def test_home_shows_counts_and_cli(client):
+def test_home_is_the_ask_door(client):
     page = client.get("/")
     assert page.status_code == 200
-    assert "suggest evidence" in page.text
-    assert "Start the demo" in page.text
+    assert "Only checked code answers it" in page.text
+    assert "DeepSeek Harness" in page.text
+    assert "What was NVIDIA" in page.text
     assert "/cli" in page.text
+
+
+def test_proof_page_offers_a_live_run_on_a_fresh_instance(client):
+    page = client.get("/proof")
+    assert "Every plugin declares its trust rules" in page.text
+    assert "Run the proof live" in page.text
 
 
 def test_cli_page_generated_from_registry(client):
@@ -58,7 +65,7 @@ def test_approvals_empty_state_has_next_action(client):
     page = client.get("/approvals")
     assert page.status_code == 200
     assert "Nothing is waiting" in page.text
-    assert "/dataroom" in page.text
+    assert "Open Ask" in page.text
 
 
 def test_demo_seed_makes_screen_run_completable(client, monkeypatch):

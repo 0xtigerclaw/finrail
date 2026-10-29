@@ -105,7 +105,7 @@ def client(isolated_console):
         yield instance
 
 
-ROUTES = ("/", "/screen", "/dataroom", "/compute", "/memo", "/approvals",
+ROUTES = ("/", "/reports", "/proof", "/screen", "/approvals",
           "/runs", "/capabilities", "/rules", "/cli")
 
 
@@ -239,23 +239,28 @@ def test_pending_approval_is_inspectable_but_not_offered_as_browser_execution(cl
                     and "disabled" not in button.attrs)
 
 
-def test_console_approval_route_keeps_the_authority_check(client, isolated_console, monkeypatch):
-    from finrail.core import tracker
+def test_console_approval_route_never_approves(client, isolated_console, monkeypatch):
+    """The route runs in the console server, so the caller rule would judge the server,
+    not whoever sent the request. It refuses without asking that rule anything."""
+    from finrail.core import caller, tracker
     record = _pending_release()
     calls = []
-
-    def refused(rid, actor=""):
-        calls.append((rid, actor))
-        return {"id": rid, "approved": False, "status": "pending",
-                "note": "Approval requires the operator's terminal."}
-
-    monkeypatch.setattr(isolated_console.dispatch_core, "approve_safely", refused)
+    monkeypatch.setattr(caller, "approval_refusal", lambda: "")      # a terminal-started server
+    monkeypatch.setattr(isolated_console.dispatch_core, "approve_safely",
+                        lambda *a, **k: calls.append(a) or {"approved": True})
     response = client.post(f"/approvals/{record['id']}/approve")
-    assert response.status_code in {200, 403}
+    assert response.status_code == 403
     assert response.headers["content-type"].startswith("text/html")
-    assert calls == [(record["id"], "console")]
+    assert calls == []
     assert tracker.load(record["id"])["status"] == tracker.PENDING
     assert "operator" in response.text.lower() and "terminal" in response.text.lower()
+
+
+def test_approvals_page_prints_a_hash_bound_approve_command(client):
+    from finrail.core import tracker
+    record = _pending_release()
+    ref = f"{record['id']}@{tracker.proposal_digest(record['proposal'])[:12]}"
+    assert f"finrail approve {ref}" in _words(_HTML(client.get("/approvals").text).root)
 
 
 def test_real_runs_link_to_read_only_detail(client, isolated_console, monkeypatch):

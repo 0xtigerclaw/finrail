@@ -306,6 +306,14 @@ class ScreenFixture(Plugin):
                    "this is what a judge can verify without credentials.")
     read_only = True
     confirm = False
+    ask = ("Public-risk screening of Northwind Components: leadership, regulatory, "
+           "cyber, financial distress")
+    ask_label = "Northwind risk screen"
+    steps = (
+        {"name": "Evidence gate", "by": "Kernel", "kind": "check", "where": "gate.py, _classify()",
+         "rule": "One publisher can report; only independent verbatim sources verify. "
+                 "A quote not verbatim in its source is discarded. The model never awards a status."},
+    )
 
     def run(self, company_id: str = "04123456"):
         room = _room()
@@ -405,6 +413,15 @@ class DataroomPropose(Plugin):
             "figure": {"type": "string"},
             "source_doc": {"type": "string"}},
         "required": ["title", "claim", "figure", "source_doc"]})
+
+    steps = (
+        {"name": "Draft", "by": "NVIDIA Nemotron", "kind": "model", "where": "judged call: DataroomPropose.system + schema",
+         "rule": "Drafts a record citing data-room documents. A draft is a proposal, never a record."},
+        {"name": "Claim check", "by": "Kernel", "kind": "check", "where": "DataroomPropose.validate()",
+         "rule": "Every figure must be carried by a checked source it cites. An unverified draft carries none."},
+        {"name": "Approve", "by": "A person", "kind": "approve", "where": "dispatch_core approval rule",
+         "rule": "confirm=True. Only the operator's terminal can release it; no browser can."},
+    )
 
     def context(self, task: str, params: dict = None) -> dict:
         room = _room()
@@ -523,6 +540,12 @@ class ComputeMetric(Plugin):
     read_only = True
     confirm = False
     verified_by = "an independent second computation over the cited cells"
+    steps = (
+        {"name": "Compute", "by": "Kernel", "kind": "code", "where": "_metric()",
+         "rule": "Python computes the metric from cited workbook cells. No model is involved."},
+        {"name": "Recompute", "by": "Kernel", "kind": "check", "where": "ComputeMetric.run()",
+         "rule": "A second, independent computation must match, or nothing is reported."},
+    )
 
     def run(self, metric: str = ""):
         if metric not in _METRICS:
@@ -705,6 +728,11 @@ class MemoRelease(Plugin):
                 f"{p['full_text']}")
 
     def execute(self, p) -> dict:
+        # Recomputed, not carried: a stored hash only checks itself.
+        if hashlib.sha256(p["full_text"].encode()).hexdigest() != p["sha256"]:
+            raise ContractViolation(
+                f"memo {p['memo_id']}: its text does not match the hash it was proposed "
+                f"with. Nothing was released.")
         folder = _root() / "released"
         folder.mkdir(exist_ok=True)
         path = folder / f"{p['memo_id']}.md"
@@ -720,10 +748,12 @@ class MemoRelease(Plugin):
         return (ok, f"released artefact re-read; hash match: {ok}")
 
 
-from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze
+from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord
+from .ask import FinanceRoute
+from .claims import WebClaims
 
 COMMANDS = [ScreenCandidates, ScreenEntity, ScreenRun, ScreenFixture,
             ScreenArchive,
             DataroomSearch, DataroomRecord, DataroomPropose,
             ComputeMetric, ComputeScenario, MemoDraft, MemoRelease,
-            ReportCatalog, ReportSearch, ReportAnalyze]
+            ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, WebClaims, FinanceRoute]

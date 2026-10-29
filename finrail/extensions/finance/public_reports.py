@@ -306,6 +306,15 @@ class ReportSearch(Plugin):
     description = "Search one selected real issuer report using Google managed RAG."
     autonomous = True
     confirm = False
+    verified_by = "every excerpt's source must be one of the selected report's indexed files"
+    ask = "What a Nebius, NVIDIA or ASML report says about another topic: guidance, capex, revenue, liquidity, risks"
+    ask_label = "Search a filing"
+    steps = (
+        {"name": "Retrieve", "by": "Google Vertex RAG", "kind": "retrieve", "where": "retrieve()",
+         "rule": "Searches only the selected report's files."},
+        {"name": "Allowlist", "by": "Kernel", "kind": "check", "where": "retrieve()",
+         "rule": "Every excerpt must come from this report's files. Search never certifies a number."},
+    )
 
     def plan(self, report_id: str, query: str):
         report(report_id)
@@ -323,6 +332,24 @@ class ReportAnalyze(Plugin):
     autonomous = True
     confirm = False
     background = True
+    reason = ("it reads public filings and writes only its own result; every model "
+              "input is checked against the archived source before any arithmetic")
+    verified_by = ("the total is recomputed in Decimal from hash-checked source cells "
+                   "and must equal the issuer-reported FCF, or no answer is issued")
+    ask = "NVIDIA free cash flow (FCF) or cash generation, for one quarter or compared across quarters"
+    ask_label = "NVIDIA free cash flow"
+    steps = (
+        {"name": "Retrieve", "by": "Google Vertex RAG", "kind": "retrieve", "where": "retrieve()",
+         "rule": "Searches only this filing's indexed files. A source outside the allowlist refuses the run."},
+        {"name": "Propose", "by": "NVIDIA Nemotron", "kind": "model", "where": "check_and_compute(), input contract",
+         "rule": "Picks row IDs and values. May not write a quote or do arithmetic."},
+        {"name": "Bind", "by": "Kernel", "kind": "code", "where": "retrieved_rows()",
+         "rule": "Code attaches the exact retrieved text for each row ID the model picked."},
+        {"name": "Check", "by": "Kernel", "kind": "check", "where": "source_cells(), check_and_compute()",
+         "rule": "File SHA-256, quarter column, USD millions and the exact archived cell must all match."},
+        {"name": "Compute", "by": "Kernel", "kind": "code", "where": "check_and_compute()",
+         "rule": "Decimal arithmetic in code. The total must equal NVIDIA's reported FCF, or no answer."},
+    )
 
     def plan(self, report_id: str, definition: str = "issuer_fcf"):
         item = report(report_id)
@@ -345,3 +372,193 @@ class ReportAnalyze(Plugin):
             capability=self.name, wants=["report_id", "period_end", "currency", "unit", "definition", "inputs"], timeout=180)
         cells = source_cells(item, archived(item))
         return check_and_compute(item, definition, candidate, found, cells)
+
+
+ATTACKS = {
+    "other_column": "Swap in a figure from another column of the same row",
+    "invented_row": "Cite a row ID that retrieval never returned",
+    "drop_input": "Leave out principal payments",
+}
+_CELL_KEYS = ("row", "row_number", "html_cell", "column", "source_row", "value", "table")
+
+
+def replay(value: dict, attack: str = "") -> dict:
+    """Run the same checker again on a recorded result, offline.
+
+    The recorded run carries the retrieved evidence and the archived cells it was
+    checked against. Rebuild the model's proposal from it, optionally alter one input
+    the way a wrong model would, and let `check_and_compute` decide. The page never
+    decides whether an attack fails; the checker does.
+    """
+    item = report(value["report_id"])
+    cells = {i["metric"]: {k: i[k] for k in _CELL_KEYS if k in i} for i in value["inputs"]}
+    cells["reported_fcf"] = {"value": value["reported_fcf"]}
+    inputs = [{"metric": i["metric"], "value": i["amount"], "row_id": i["row_id"]} for i in value["inputs"]]
+    candidate = {"report_id": value["report_id"], "period_end": value["period_end"], "currency": "USD",
+                 "unit": "million", "definition": value["definition"], "inputs": inputs}
+    if attack == "other_column":
+        first, quote = inputs[0], value["inputs"][0]["quote"]
+        others = [n.replace(",", "") for n in re.findall(r"(?<![\w.])\d[\d,]*(?:\.\d+)?", quote)
+                  if Decimal(n.replace(",", "")) != Decimal(first["value"])]
+        if not others:
+            raise ContractViolation("The recorded row has no other column to swap in.")
+        first["value"] = others[0]
+    elif attack == "invented_row":
+        inputs[0]["row_id"] = "E99:L999"
+    elif attack == "drop_input":
+        candidate["inputs"] = [i for i in inputs if i["metric"] != "principal_payments"]
+    try:
+        out = check_and_compute(item, value["definition"], candidate, value["retrieval"], cells)
+    except ContractViolation as exc:
+        return {"attack": attack, "refused": True, "refused_by": "check_and_compute", "reason": str(exc)}
+    return {"attack": attack, "refused": False, "amount": out["amount"]}
+
+
+class ReportChallenge(Plugin):
+    name = "finance.reports.challenge"
+    description = "Replay the source checks on a recorded FCF run, with one model input tampered; the checker decides."
+    read_only = True
+    confirm = False
+    verified_by = "the untampered replay must reproduce the recorded amount first"
+
+    def run(self, run_id: str = "", attack: str = ""):
+        from finrail.core import tracker
+        if attack not in ATTACKS:
+            raise ContractViolation(f"attack must be one of {', '.join(ATTACKS)}")
+        rec = tracker.load(run_id)
+        value = rec.get("result") if isinstance(rec, dict) else None
+        if rec.get("capability") != ReportAnalyze.name or rec.get("status") != "done" or not isinstance(value, dict):
+            raise ContractViolation("Choose a completed source-checked FCF run.")
+        baseline = replay(value)
+        if baseline["refused"] or baseline["amount"] != value["amount"]:
+            raise OpFailed("The untampered replay did not reproduce the recorded amount; no challenge was run.")
+        return {**replay(value, attack), "run_id": run_id, "label": ATTACKS[attack],
+                "recorded_amount": value["amount"]}
+
+
+def corpus_status() -> dict:
+    """The live corpus, reconciled against the catalog: every catalogued file ID must be
+    present and ACTIVE, and the corpus may hold nothing the catalog does not list."""
+    corpus = os.environ.get("FINRAIL_RAG_CORPUS", "")
+    if not re.fullmatch(r"projects/[\w-]+/locations/us-central1/ragCorpora/\d+", corpus):
+        raise NotConfigured("Finrail's managed report corpus is not configured.")
+    base = "https://us-central1-aiplatform.googleapis.com/v1beta1/" + corpus
+    info = google(base)
+    files = google(base + "/ragFiles?pageSize=100").get("ragFiles", [])
+    live = {f["name"].rsplit("/", 1)[-1]: f for f in files}
+    owner = {fid: item["source_id"] for item in catalog() for fid in item.get("rag_file_ids") or []}
+    rows = [{"file_id": fid, "name": f.get("displayName", ""), "state": (f.get("fileStatus") or {}).get("state", ""),
+             "indexed_at": f.get("createTime", ""), "report_id": owner.get(fid, "")} for fid, f in live.items()]
+    missing = sorted(fid for fid in owner if fid not in live or (live[fid].get("fileStatus") or {}).get("state") != "ACTIVE")
+    extra = sorted(fid for fid in live if fid not in owner)
+    embedding = ((info.get("ragEmbeddingModelConfig") or {}).get("vertexPredictionEndpoint") or {}).get("endpoint", "")
+    return {"corpus": info.get("displayName", ""), "description": info.get("description", ""),
+            "state": (info.get("corpusStatus") or {}).get("state", ""), "embedding": embedding.rsplit("/", 1)[-1],
+            "files": sorted(rows, key=lambda r: r["report_id"] + r["name"]), "catalogued": len(owner),
+            "missing": missing, "extra": extra, "reconciled": not missing and not extra}
+
+
+class ReportCorpus(Plugin):
+    name = "finance.reports.corpus"
+    description = "List the live RAG corpus and reconcile it file by file against the report catalog."
+    read_only = True
+    confirm = False
+    verified_by = "every catalogued file ID is present and ACTIVE, and the corpus holds nothing else"
+    steps = (
+        {"name": "List", "by": "Google Vertex RAG", "kind": "retrieve", "where": "corpus_status()",
+         "rule": "Reads the corpus and its files live, with the runtime identity's read-only role."},
+        {"name": "Reconcile", "by": "Kernel", "kind": "check", "where": "corpus_status()",
+         "rule": "Every catalogued file must be indexed and ACTIVE; anything uncatalogued is reported, not hidden."},
+    )
+
+    def run(self):
+        return corpus_status()
+
+
+def stated_millions(text: str):
+    """The figure as typed, in USD millions (see claims.stated_figure)."""
+    from .claims import stated_figure
+    found = stated_figure(text)
+    return found[0] if found else None
+
+
+def checked_fcf(report_id: str):
+    """The newest completed, source-checked issuer-definition FCF run for this report."""
+    from finrail.core import tracker
+    for rec in tracker.recent(100):
+        result = rec.get("result") if isinstance(rec.get("result"), dict) else {}
+        if (rec.get("capability") == ReportAnalyze.name and rec.get("status") == "done"
+                and result.get("report_id") == report_id and result.get("definition") == "issuer_fcf"):
+            return rec
+    return None
+
+
+class ReportRecord(Plugin):
+    name = "finance.reports.record"
+    description = ("Record a stated NVIDIA cash-flow figure. Jev reads which line and quarter it is "
+                   "about; it must equal that line of a source-checked run; a person releases it.")
+    confirm = True
+    reason = "a recorded figure becomes something other people act on, so a person releases it"
+    verified_by = "the written record is re-read and its figure compared to the checked run"
+    ask = ("Put a stated NVIDIA cash-flow figure (free cash flow, operating cash flow, capex) into the record, "
+           "or test whether a stated NVIDIA figure is right")
+    ask_label = "Record a figure"
+    steps = (
+        {"name": "Read figure", "by": "Kernel", "kind": "code", "where": "claims.stated_figure()",
+         "rule": "Code reads the figure exactly as typed. No model touches it."},
+        {"name": "Read claim", "by": "Jev (TypeSafe)", "kind": "model", "where": "claims.read()",
+         "rule": "Picks which cash-flow line and quarter the sentence is about. Cannot write a number. Below the bar, nothing is decided."},
+        {"name": "Claim check", "by": "Kernel", "kind": "check", "where": "ReportRecord.validate(), claims.judge()",
+         "rule": "The figure must equal that line of a completed source-checked run, to the precision typed."},
+        {"name": "Approve", "by": "A person", "kind": "approve", "where": "dispatch_core approval rule",
+         "rule": "confirm=True. Only the operator's terminal can release it; no browser can."},
+    )
+
+    def plan(self, report_id: str, statement: str):
+        from .claims import LABELS, read, stated_figure
+        item = report(report_id)
+        if item["company"] != "NVIDIA":
+            raise ContractViolation(f"claim check refused: only NVIDIA cash flow has source-checked figures; "
+                                    f"{item['company']} figures can be searched, not recorded.")
+        found = stated_figure(statement)
+        if found is None:
+            raise ContractViolation("State the figure to record, for example $21,341m.")
+        reading = read([statement], context=report_id, capability=self.name)
+        r = reading["readings"][0]
+        if not r["sure"] or r["line"] == "none":
+            what = "which cash-flow line" if r["line"] == "none" or (r["line_conf"] or 0) < 75 else "which quarter"
+            raise ContractViolation(f"claim check refused: could not tell {what} this figure is about "
+                                    f"(Jev: {LABELS[r['line']]}, {r['line_conf']}% sure). Nothing was recorded.")
+        if r["quarter"] == "other":
+            raise ContractViolation("claim check refused: the figure is not for a quarter Finrail has checked. Nothing was recorded.")
+        return {"report_id": r["quarter"], "period": report(r["quarter"])["report_period"], "line": r["line"],
+                "line_label": LABELS[r["line"]], "stated_usd_millions": str(found[0]), "tolerance": str(found[1]),
+                "statement": statement.strip()[:300], "reader": reading["reader"], "jev_event": reading.get("event", 0),
+                "line_conf": r["line_conf"], "quarter_conf": r["quarter_conf"]}
+
+    def validate(self, proposal: dict) -> list:
+        from .claims import judge
+        rec = checked_fcf(proposal.get("report_id", ""))
+        if not rec:
+            return [f"claim check refused: there is no source-checked cash flow for {proposal.get('period')} yet. "
+                    "Ask for its free cash flow first; nothing was recorded."]
+        out = judge(Decimal(proposal["stated_usd_millions"]), Decimal(proposal.get("tolerance") or 0), proposal["line"], rec)
+        if out["verdict"] == "matches":
+            return []
+        return [f"claim check refused: {out['detail']} Checked in run {rec['id']}."]
+
+    def execute(self, p) -> dict:
+        from finrail.core.settings import state
+        path = state() / "records" / f"{p['report_id']}-{p['line']}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(p, indent=2))
+        return {"recorded": str(path), **p}
+
+    def verify(self, proposal, result):
+        from pathlib import Path
+        try:
+            again = json.loads(Path(result["recorded"]).read_text())
+        except (OSError, ValueError, KeyError):
+            return (False, "the record could not be re-read")
+        ok = again.get("stated_usd_millions") == proposal.get("stated_usd_millions")
+        return (ok, f"record re-read; figure matches: {ok}")

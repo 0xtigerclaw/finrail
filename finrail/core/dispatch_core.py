@@ -285,6 +285,25 @@ def _spawn(rid: str) -> dict:
                           background=True)
 
 
+def _refuse_unapproved(rid: str, rec: dict) -> None:
+    """A run that waits on a person reaches a worker only through `approve`.
+
+    `finrail _job <id>` is a public command, and it used to check only that the run was
+    pending: a run nobody had approved executed when anything named it to a worker
+    (review, 29 Oct: a refused `approve` followed by `_job` deleted the secret anyway).
+    Now the worker asks for the verdict `_approve` records, and for the hash of the
+    proposal that was approved, so a proposal edited after approval does not run."""
+    if rec.get("verdict") not in ("approved", "asked"):
+        raise NeedsPerson(rid, rec["capability"], "not approved yet, and a worker does "
+                          "not execute a run that waits on a person")
+    now = tracker.proposal_digest(rec.get("proposal"))
+    if now != rec.get("approved_sha256"):
+        raise ContractViolation(
+            f"run {rid}: its proposal changed after it was approved (approved sha256 "
+            f"{str(rec.get('approved_sha256') or 'none')[:12]}, now {now[:12]}). Nothing "
+            f"was executed. To see it: finrail view {rid}")
+
+
 def run_job(rid: str) -> dict:
     """The detached worker's entry point."""
     with _claim_lock(rid):
@@ -294,8 +313,10 @@ def run_job(rid: str) -> dict:
                 f"run {rid} is {rec['status']}"
                 + (" and claimed by a worker" if rec.get("worker_claimed") else "")
                 + ", not pending — refusing to run it twice")
+        cap = registry.command(rec["capability"])
+        if getattr(cap, "confirm", False):
+            _refuse_unapproved(rid, rec)
         tracker.update(rid, worker_claimed=os.getpid())
-    cap = registry.command(rec["capability"])
     # ITS OWN RUN, for a question its gate asks (core/scope.settle files one under
     # FINRAIL_RUN). A worker starts with the environment of whoever spawned it, and
     # that named the spawner's run: the turn that sent this to the background, over
@@ -528,9 +549,13 @@ def approve(rid: str, actor: str = "", verdict: str = "approved",
     second reads it and is told the run is already approved.
 
     `verdict` is what is recorded; `detach` runs it in a detached worker, as `dispatch`
-    does for a call that asked not to wait. Both for a person's own call (`dispatch`)."""
+    does for a call that asked not to wait. Both for a person's own call (`dispatch`).
+
+    `rid` may be `<id>@<sha256 prefix>`, the form the console and `finrail view` print
+    beside a proposal: the approval then holds only for the proposal that was reviewed."""
+    rid, _, expect = str(rid).partition("@")
     with _claim_lock(rid):
-        go = _approve(rid, actor, verdict)
+        go = _approve(rid, actor, verdict, expect)
     if not go.get("_claimed"):
         return go
     cap, rec = go["cap"], go["rec"]
@@ -539,7 +564,8 @@ def approve(rid: str, actor: str = "", verdict: str = "approved",
     return _execute(rid, cap, rec["proposal"])
 
 
-def _approve(rid: str, actor: str = "", verdict: str = "approved") -> dict:
+def _approve(rid: str, actor: str = "", verdict: str = "approved",
+             expect: str = "") -> dict:
     """Make this run approved. Idempotent, on purpose.
 
     `actor` is WHO approved, when that is knowable — an operator's pubkey arriving over a
@@ -609,8 +635,34 @@ def _approve(rid: str, actor: str = "", verdict: str = "approved") -> dict:
     # A human looked at this and said yes. Worth distinguishing from an autonomous run:
     # the proposal was judged good, which is evidence in the other direction from a drop.
     # A person's own call says `asked`: they asked for it, and did not judge a proposal.
-    tracker.update(rid, verdict=verdict, **({"approved_by": actor} if actor else {}))
+    digest = _approvable_digest(rid, rec, expect)
+    tracker.update(rid, verdict=verdict, approved_sha256=digest,
+                   **({"approved_by": actor} if actor else {}))
     return {"_claimed": True, "cap": cap, "rec": rec}
+
+
+def _approvable_digest(rid: str, rec: dict, expect: str) -> str:
+    """The hash of the proposal being approved, refused when it is not the one proposed
+    or not the one the person reviewed.
+
+    The proposal lives in a file the whole install can write, and approval went by run
+    id alone: an edit between `/view` and `/approve` was approved and executed as if it
+    had been read (review, 29 Oct). The hash taken at save catches an edit that did not
+    also rewrite the hash; `expect`, the prefix the reviewer saw, catches one that did."""
+    now = tracker.proposal_digest(rec.get("proposal"))
+    saved = rec.get("proposal_sha256")
+    if saved and now != saved:
+        raise ContractViolation(
+            f"run {rid}: its proposal changed after it was proposed (sha256 {saved[:12]} "
+            f"then, {now[:12]} now). Nothing was approved. To see it: finrail view {rid}")
+    if expect:
+        expect = expect.strip().lower()
+        if len(expect) < 8 or not now.startswith(expect):
+            raise ContractViolation(
+                f"run {rid}: this is not the proposal you reviewed (you approved sha256 "
+                f"{expect}, it is {now[:12]}). Nothing was approved. To see it: "
+                f"finrail view {rid}")
+    return now
 
 
 def approve_safely(rid: str, actor: str = "") -> dict:
@@ -636,6 +688,7 @@ def approve_safely(rid: str, actor: str = "") -> dict:
         # The RECORD, not just the message: a run that failed while executing has already
         # written its status and its errors, and they say more about what happened than
         # the exception this caller happens to be holding.
+        rid = str(rid).partition("@")[0]
         try:
             rec = tracker.load(rid)
         except Exception:                                        # noqa: BLE001

@@ -124,17 +124,17 @@ def _engine_line() -> str:
     host = _base.split("//")[-1].split("/")[0] if _base else "(not configured)"
     return f"engine: {eng} · model: {model} · endpoint: {host}"
 
-NAV = [
-    ('Workspace', [('home', '/', 'Overview'), ('reports', '/reports', 'Public reports'), ('screen', '/screen', 'Screening'),
-                   ('dataroom', '/dataroom', 'Data room'), ('compute', '/compute', 'Analysis'),
-                   ('memo', '/memo', 'IC memos'), ('approvals', '/approvals', 'Approvals')]),
-    ('System', [('runs', '/runs', 'Activity & ledger'), ('capabilities', '/capabilities', 'Capabilities'),
-                ('rules', '/rules', 'Governance rules'), ('cli', '/cli', 'Command reference')]),
-]
+PRIMARY = [('home', '/', 'Ask'), ('reports', '/reports', 'Filings'), ('proof', '/proof', 'Proof'), ('runs', '/runs', 'Ledger'),
+           ('rules', '/rules', 'Rules')]
+MORE = [('approvals', '/approvals', 'Approvals'), ('screen', '/screen', 'Screening (synthetic)'),
+        ('capabilities', '/capabilities', 'Capabilities'), ('cli', '/cli', 'Command reference')]
 NAMES = {'finance.screen.run': 'Public-risk screen', 'finance.screen.entity': 'Entity confirmation',
          'finance.dataroom.propose': 'Data-room record', 'finance.memo.draft': 'IC memo draft',
          'finance.memo.release': 'Memo release', 'finance.compute.metric': 'Financial analysis',
-         'finance.reports.search': 'Published-report search', 'finance.reports.analyze': 'Source-checked free cash flow'}
+         'finance.reports.search': 'Published-report search', 'finance.reports.analyze': 'Source-checked free cash flow',
+         'finance.reports.record': 'Record a figure', 'finance.reports.webclaims': 'Web claims checked',
+         'finance.reports.challenge': 'Proof challenge', 'finance.reports.corpus': 'Corpus check',
+         'finance.screen.fixture': 'Public-risk screen (synthetic)', 'finance.ask.route': 'Question routed'}
 
 ICONS['reports'] = ICONS['dataroom']
 
@@ -152,52 +152,58 @@ def _pending() -> list[dict]:
     return [record for record in tracker.recent(50) if tracker.awaiting(record)]
 
 
-def _page(title: str, body: str, active: str = '', lede: str = '', actions: str = '', status_code: int = 200) -> HTMLResponse:
+def _nav_link(key: str, href: str, label: str, active: str, pending: int) -> str:
+    selected = key == active
+    count = f"<span class='nav-count'>{pending}</span>" if key == 'approvals' and pending else ''
+    return (f"<a class='nav-link{' is-active' if selected else ''}' href='{href}'"
+            + (" aria-current='page'" if selected else '') + f"><span>{label}</span>{count}</a>")
+
+
+def _engine_short() -> str:
+    eng = llm.engine()
+    if eng == 'claude-cli':
+        return 'Local development engine'
+    _base, _key, model = llm._http_config()
+    name = (model or 'model not set').split('/')[-1]
+    return f"NVIDIA Nemotron on {eng.title()}" if 'nemotron' in name else f"{name} on {eng.title()}"
+
+
+def _page(title: str, body: str, active: str = '', lede: str = '', actions: str = '', status_code: int = 200,
+          header: bool = True) -> HTMLResponse:
     pending = len(_pending())
-    nav = ''
-    for group, items in NAV:
-        links = ''
-        for key, href, label in items:
-            selected = key == active
-            count = f"<span class='nav-count'>{pending}</span>" if key == 'approvals' and pending else ''
-            links += (f"<a class='nav-link{' is-active' if selected else ''}' href='{href}'"
-                      + (" aria-current='page'" if selected else '')
-                      + f"><span class='nav-icon'>{ICONS.get(key, '')}</span><span>{label}</span>{count}</a>")
-        nav += f"<div class='nav-group'><p class='nav-label'>{group}</p>{links}</div>"
-    section = 'System' if active in ('runs', 'capabilities', 'rules', 'cli') else 'Workspace'
+    primary = ''.join(_nav_link(k, h, l, active, pending) for k, h, l in PRIMARY)
+    more_active = any(k == active for k, _h, _l in MORE)
+    more = ''.join(_nav_link(k, h, l, active, pending) for k, h, l in MORE)
+    nav = (primary + f"<details class='nav-more'><summary class='nav-link{' is-active' if more_active else ''}'>"
+           f"{'More: ' + _e(dict((k, l) for k, _h, l in MORE)[active]) if more_active else 'More'}</summary>"
+           f"<div class='nav-menu'><p class='nav-label'>Approvals and system</p>{more}</div></details>")
     limit = max(0, int(os.environ.get('FINRAIL_DEMO_POST_LIMIT') or 0))
     allowance = (f"{max(0, limit - _POSTS['count'])} of {limit} demo actions remaining on this instance. " if limit else '')
     subtitle = f"<p class='page-lede'>{_e(lede)}</p>" if lede else ''
-    engine = llm.engine()
-    configured = 'Local development' if engine == 'claude-cli' else f"{engine.title()} configured"
+    page_header = (f"<div class='page-header'><div><h1 class='page-title'>{_e(title)}</h1>{subtitle}</div>"
+                   f"<div class='page-actions'>{actions}</div></div>") if header else ''
     return HTMLResponse(
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<meta name='theme-color' content='#f7f8fb'>"
+        "<meta name='theme-color' content='#f6f8fb'>"
         f"<title>{_e(title)} · Finrail</title>"
+        "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+        "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap'>"
         f"<link rel='stylesheet' href='/assets/app.css?v={_ASSET_VERSION}'><script src='/assets/app.js?v={_ASSET_VERSION}' defer></script>"
         "</head><body><a class='skip-link' href='#main-content'>Skip to main content</a>"
-        "<div class='workspace-shell'><aside class='sidebar' id='workspace-nav' aria-label='Workspace navigation'>"
-        f"<button type='button' class='nav-close btn-icon' data-nav-close aria-label='Close navigation'>{icon('close')}</button><a class='brand' href='/' aria-label='Finrail workspace'><span class='brand-mark'>{BRAND_MARK}</span>"
-        "<span class='brand-wordmark'>Finrail<span class='brand-caption'>Investment workspace</span></span></a>"
-        f"<div class='workspace-context'><span class='context-icon'>{icon('building')}</span>"
-        "<span class='context-copy'><strong>Demo workspace</strong><span>Public reports &amp; synthetic cases</span></span></div>"
-        f"<nav aria-label='Main navigation'>{nav}</nav>"
-        "<div class='sidebar-footer'><details class='environment'><summary>Environment details</summary>"
-        f"<p>{_e(_engine_line())}</p><a href='/rules'>View governance rules</a></details>"
-        "<span class='brand-caption'>Model proposes. Code verifies.</span></div></aside>"
-        "<button type='button' class='nav-backdrop' data-nav-backdrop tabindex='-1' aria-label='Close navigation' hidden></button>"
-        "<div class='app-column'><header class='topbar'>"
+        "<div class='workspace-shell'><header class='masthead'>"
         f"<button type='button' class='nav-toggle btn-icon' data-nav-toggle aria-controls='workspace-nav' aria-expanded='false' aria-label='Open navigation'>{icon('menu')}</button>"
-        f"<div class='breadcrumb'><span>{section}</span>{icon('chevron',14)}<strong>{_e(title)}</strong></div>"
-        f"<div class='topbar-right'><span class='demo-chip'>{'Public reports' if active == 'reports' else 'Demo workspace'}</span><span class='provider-label'>{_e(configured)}</span>"
-        "<span class='avatar' aria-hidden='true'>F</span></div></header>"
-        f"<main class='app-main' id='main-content' tabindex='-1'><div class='page-header'>"
-        f"<div><h1 class='page-title'>{_e(title)}</h1>{subtitle}</div><div class='page-actions'>{actions}</div></div>"
+        f"<a class='brand' href='/' aria-label='Finrail proof'><span class='brand-mark'>{BRAND_MARK}</span><span class='brand-wordmark'>Finrail</span></a>"
+        "<aside class='sidebar' id='workspace-nav' aria-label='Workspace navigation'>"
+        f"<button type='button' class='nav-close btn-icon' data-nav-close aria-label='Close navigation'>{icon('close')}</button>"
+        f"<nav aria-label='Main navigation'>{nav}</nav></aside>"
+        f"<span class='provider-label' title='{_e(_engine_line())}'>{_e(_engine_short())}</span></header>"
+        "<button type='button' class='nav-backdrop' data-nav-backdrop tabindex='-1' aria-label='Close navigation' hidden></button>"
+        f"<main class='app-main' id='main-content' tabindex='-1'>{page_header}"
         f"{body}<details class='demo-notice'><summary>{icon('info',16)}About this demo</summary>"
-        f"<p>{_e(allowance)}Public reports use published issuer disclosures. Meridian and Northwind workflows use labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
+        f"<p>{_e(allowance)}Filings are published NVIDIA, Nebius and ASML disclosures. Only the Northwind screening fixture is labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
         "Approvals execute only from the operator’s terminal. No browser action can release a decision.</p></details>"
-        "<footer class='workspace-footer'>Evidence before answers. Human authority before action.</footer></main></div></div>"
+        "<footer class='workspace-footer'>Evidence before answers. Human authority before action.</footer></main></div>"
         "<div id='ui-status' class='sr-only' role='status' aria-live='polite' aria-atomic='true'></div></body></html>",
         status_code=status_code)
 
@@ -212,6 +218,24 @@ def _error(message: str, back: str = '/dataroom', label: str = 'Return to data r
             f"<p class='error-detail'>{_e(message)}</p><a class='btn btn-secondary' href='{_e(back)}'>{_e(label)}</a></div></section>")
 
 
+def _refusal(message: str, back: str = '/reports', label: str = 'Return to reports') -> str:
+    return (f"<section class='outcome outcome-refused' role='alert'><div class='outcome-header'>{icon('shield',24)}"
+            f"<div><h2>Not verified. No answer issued.</h2><p>The proof chain stopped at a check. Retrieval alone never certifies a number, and no fallback answer was calculated from unchecked evidence.</p></div></div><div class='outcome-body'>"
+            f"<p class='error-detail'>{_e(message)}</p><a class='btn btn-secondary' href='{_e(back)}'>{_e(label)}</a></div></section>")
+
+
+def _check_refused(out: dict) -> bool:
+    """A check said no (ContractViolation), as opposed to a service that failed. Only
+    the first is a refusal by the proof chain; an outage must not be told as one."""
+    return any(str(item).startswith('ContractViolation') for item in out.get('errors') or [])
+
+
+def _approve_ref(rid: str, proposal) -> str:
+    """`<id>@<hash>` for the proposal on screen: the operator's approval then holds only
+    for what this page showed them (dispatch_core._approvable_digest)."""
+    return f"{rid}@{tracker.proposal_digest(proposal)[:12]}" if proposal is not None else rid
+
+
 def _result_block(out: dict) -> str:
     if out.get('error'):
         return _error(out['error'])
@@ -220,11 +244,12 @@ def _result_block(out: dict) -> str:
 
 
 def _run_block(out: dict, approvals_link: bool = True) -> str:
+    reports = out.get('capability', '').startswith('finance.reports.')
     if out.get('error'):
-        if out.get('capability', '').startswith('finance.reports.'):
-            return _error(out['error'], '/reports', 'Return to reports')
-        return _error(out['error'])
+        return _error(out['error'], '/reports', 'Return to reports') if reports else _error(out['error'])
     status, label = _status(out)
+    if status == 'failed' and reports and _check_refused(out):
+        return _refusal(' '.join(str(item).removeprefix('ContractViolation: ') for item in out['errors']))
     rid = str(out.get('id') or '')
     title = {'done': 'Work completed', 'running': 'Work is in progress', 'pending': 'Operator approval required', 'failed': 'This run needs attention'}.get(status, 'Run outcome')
     refresh = f" data-run-refresh data-refresh-url='/runs/{_e(rid)}'" if status == 'running' and rid else ''
@@ -239,7 +264,7 @@ def _run_block(out: dict, approvals_link: bool = True) -> str:
     if status == 'running':
         result += "<p role='status'>The worker is processing this request. This page checks its GET status; your submission will not be replayed.</p>"
     elif status == 'pending' and approvals_link:
-        result += "<p>Review the full proposal below. Approval executes only from the operator’s terminal.</p>" + _cli(f'finrail approve {rid}')
+        result += "<p>Review the full proposal below. Approval executes only from the operator’s terminal.</p>" + _cli(f"finrail approve {_approve_ref(rid, out.get('proposal'))}")
     if out.get('errors'):
         result += "<div class='alert' role='alert'>" + '<br>'.join(_e(item) for item in out['errors']) + '</div>'
     proposal = out.get('proposal')
@@ -273,40 +298,70 @@ def _run_rows(records: list[dict]) -> str:
     return rows
 
 
+def _model_call(rid: str) -> dict | None:
+    calls = [event for event in _read_events('model_call')
+             if event.get('run') == rid or (event.get('data') or {}).get('run') == rid]
+    return calls[0] if calls else None
+
+
+def _proof_body(run: str = '', outcome: dict | None = None) -> str:
+    from . import proof
+    rec = proof.latest(run)
+    body = proof.hero()
+    if rec and rec.get('status') == 'done' and isinstance(rec.get('result'), dict):
+        call = _model_call(rec['id'])
+        body += proof.workpaper(rec, call)
+        body += "<div class='proof-grid'>" + proof.rail(rec, call) + proof.declaration() + "</div>"
+        body += proof.challenge(rec, outcome)
+    elif rec and _status(rec)[0] == 'running':
+        body += proof.empty('running', rec['id'])
+    elif rec:
+        body += _run_block(rec, approvals_link=False) + proof.empty()
+    else:
+        body += proof.empty()
+    return body + proof.other_rails()
+
+
 @app.get('/', response_class=HTMLResponse)
-def home():
-    from finrail.extensions.finance import _room
-    room = _room()
-    records = tracker.recent(6)
-    pending = _pending()
-    company_rows = (
-        "<tr><td><div class='company-cell'><span class='company-avatar'>MC</span><div>"
-        "<a class='company-name' href='/dataroom'>Meridian Components</a><span class='company-meta'>Precision components · Synthetic</span></div></div></td>"
-        f"<td>Data room<span class='company-meta'>{len(room['documents'])} source documents</span></td>"
-        f"<td>{_badge('checked','Source-backed analysis')}</td><td><a class='inline-action' href='/dataroom'>Open workspace{icon('arrow',16)}</a></td></tr>"
-        "<tr><td><div class='company-cell'><span class='company-avatar'>NC</span><div>"
-        "<a class='company-name' href='/screen'>Northwind Components</a><span class='company-meta'>Public-risk fixture · Synthetic</span></div></div></td>"
-        "<td>Risk screening<span class='company-meta'>Leadership, regulatory, cyber, distress</span></td>"
-        f"<td>{_badge('info','Evidence review')}</td><td><a class='inline-action' href='/screen'>Review screen{icon('arrow',16)}</a></td></tr>")
-    companies = panel('Company workspaces', table(['Company', 'Evidence', 'Workflow', ''], company_rows, 'Synthetic company workspaces'), '<span class="panel-meta">2 synthetic datasets</span>')
-    recent = panel('Recent work', table(['Activity', 'Status', 'Created', ''], _run_rows(records), 'Recent work') if records else empty('Your workspace is ready', 'Screen a company, inspect the data room, or calculate a metric. Your work will appear here.', '<a class="btn btn-secondary" href="/dataroom">Explore the data room</a>', 'activity'), '<a class="inline-action" href="/runs">View activity</a>')
-    review = (f"<p class='review-summary'><strong>{len(pending)}</strong> proposal{'s' if len(pending)!=1 else ''} waiting for an operator.</p>"
-              '<a class="btn btn-secondary" href="/approvals">Open review queue</a>') if pending else empty('No approvals waiting', 'Draft a record or memo to prepare a proposal for operator review.', '<a class="inline-action" href="/memo">Draft an IC memo</a>', 'shield')
-    guide = ("<ol class='guide-list'><li><a href='/screen'>Confirm, then screen</a><p>Inspect evidence and gate verdicts for Northwind.</p></li>"
-             "<li><a href='/dataroom'>Try to plant a figure</a><p>Watch the 24.5% margin claim get blocked.</p></li>"
-             "<li><a href='/compute'>Verify the numbers</a><p>Five metrics calculated from cited workbook cells.</p></li></ol>")
-    report_intro = panel('Work with published reports', '<p>Explore six quarterly reports from NVIDIA, Nebius and ASML. Reconstruct NVIDIA free cash flow with retrieved evidence and checked source cells.</p><a class="btn" href="/reports">Open public reports</a>')
-    body = (report_intro + "<div class='content-grid'><div class='primary-column'>" + companies + recent + "</div><div class='secondary-column'>"
-            + panel('Review queue', review) + panel('Start the demo', guide) + '</div></div>'
-            + "<div class='trust-strip'><div class='trust-step'>" + icon('file') + "<div><strong>Model proposes</strong><span>Source-backed drafts</span></div></div>"
-            + "<div class='trust-step'>" + icon('shield') + "<div><strong>Code verifies</strong><span>Evidence and arithmetic checks</span></div></div>"
-            + "<div class='trust-step'>" + icon('check') + "<div><strong>Operator releases</strong><span>Approval bound to the full proposal</span></div></div></div>")
-    return _page('Workspace overview', body, 'home', 'The model can suggest evidence. Only code awards trust, and only a person releases a decision.', '<a class="btn" href="/dataroom">Open data room</a>')
+def home(chat: str = '', t: int | None = None, q: str = ''):
+    from . import chat as conversation
+    return _page('Ask', conversation.page(chat or conversation.new_id(), conversation.load(chat), _engine_short(), t, q[:300]), 'home', header=False)
+
+
+@app.post('/ask')
+def ask(question: str = Form(''), chat: str = Form(''), force: str = Form('')):
+    from . import chat as conversation
+    cid = chat if re.fullmatch(r'[a-f0-9]{10}', chat or '') else conversation.new_id()
+    turns = conversation.load(cid)
+    if len(question.strip()) >= 3:
+        turns.append(conversation.answer(_dispatch, question.strip()[:1500], turns, force))
+        conversation.save(cid, turns[-30:])
+    return RedirectResponse(f'/?chat={cid}#latest', status_code=303)
+
+
+@app.get('/proof', response_class=HTMLResponse)
+def proof_page(run: str = ''):
+    return _page('Proof', _proof_body(run if _load_run(run) else ''), 'proof', header=False)
+
+
+@app.post('/proof/run')
+def proof_run():
+    out = _dispatch('finance.reports.analyze', {'report_id': 'NVDA-Q2-FY2027', 'definition': 'issuer_fcf'})
+    if out.get('id'):
+        return RedirectResponse('/proof?run=' + quote(out['id'], safe=''), status_code=303)
+    from . import proof
+    return _page('Proof', proof.hero() + proof.empty(error=out.get('error', 'The proof run could not start.')), 'proof', header=False, status_code=400)
+
+
+@app.post('/proof/challenge', response_class=HTMLResponse)
+def proof_challenge(run_id: str = Form(''), attack: str = Form('')):
+    run_id = run_id if _load_run(run_id) else ''
+    outcome = _dispatch('finance.reports.challenge', {'run_id': run_id, 'attack': attack}) if run_id else None
+    return _page('Proof', _proof_body(run_id, outcome), 'proof', header=False)
 
 
 @app.get('/reports', response_class=HTMLResponse)
 def reports_page(run: str = ''):
-    from .reports import workspace
     body = ''
     if run:
         rec = _load_run(run)
@@ -314,8 +369,11 @@ def reports_page(run: str = ''):
             body += _run_block(rec)
         else:
             body += _error('This report run is unavailable. It may have reset with the demo instance.', '/reports', 'Return to reports')
-    body += workspace(bool(os.environ.get('FINRAIL_RAG_CORPUS')))
-    return _page('Public reports', body, 'reports', 'Real issuer disclosures. Retrieved evidence. Numbers checked against the original report.')
+    configured = bool(os.environ.get('FINRAIL_RAG_CORPUS'))
+    from .reports import filings
+    corpus = _dispatch('finance.reports.corpus') if configured else {'error': 'the managed corpus is not configured on this instance.'}
+    body += filings(configured, corpus)
+    return _page('Filings', body, 'reports', 'Six real quarterly filings from NVIDIA, Nebius and ASML: what was archived, what was indexed, and what has been checked.')
 
 
 @app.post('/reports/search', response_class=HTMLResponse)
@@ -563,7 +621,7 @@ def approvals():
               "Review the full proposal here. Approval executes only from the operator’s terminal; the browser cannot release a decision.</span></div>")
     body = notice
     if not pending:
-        body += panel('Review queue',empty('Nothing is waiting for approval','Draft a record in the data room or an IC memo. Proposals requiring approval will appear here.','<a class="btn btn-secondary" href="/dataroom">Explore the data room</a>','shield'))
+        body += panel('Review queue',empty('Nothing is waiting for approval','Ask to record a checked NVIDIA figure. A proposal that passes the claim check waits here for a person.','<a class="btn btn-secondary" href="/">Open Ask</a>','shield'))
     for rec in pending:
         rid = str(rec['id'])
         cap = registry.command(rec['capability'])
@@ -574,7 +632,7 @@ def approvals():
         proposal = rec.get('proposal') or {}
         digest = (f"<h3>Complete SHA-256</h3><p class='result-value mono'>{_e(proposal['sha256'])}</p>" if proposal.get('sha256') else '')
         content = (("<p class='demo-record'>Illustrative demo record · Pending synthetic proposal</p>" if rec.get('demo_fixture') else '') + f"<div class='review-top'>{_badge('pending')}{run_link(rid)}</div><h3>Full proposal</h3><pre class='raw'>{_e(shown)}</pre>"
-                    + digest + _raw(proposal, "Full proposal object") + "<h3>Approve from the operator’s terminal</h3>"+_cli(f'finrail approve {rid}')
+                    + digest + _raw(proposal, "Full proposal object") + "<h3>Approve from the operator’s terminal</h3>"+_cli(f"finrail approve {_approve_ref(rid, rec.get('proposal'))}")
                    + f"<form class='form-actions' method='post' action='/approvals/{quote(rid,safe='')}/drop' data-confirm='Drop this proposal? It will not execute.'><button class='btn btn-danger'>Drop proposal</button></form>")
         body += panel(NAMES.get(rec['capability'],rec['capability']),content)
     return _page('Approvals',body,'approvals','Review the exact proposal before the operator approves it.')
@@ -582,11 +640,13 @@ def approvals():
 
 @app.post('/approvals/{rid}/approve')
 def approve(rid: str):
-    result = dispatch_core.approve_safely(rid,actor='console')
-    if not result.get('approved'):
-        note = str(result.get('note') or '') + ' Approval executes only from the operator’s terminal. The proposal remains pending.'
-        return _page('Approval result',_error(note,'/approvals','Return to approvals')+_raw(result),'approvals')
-    return _page('Approval result',_result_block(result),'approvals')
+    # REFUSED HERE, ALWAYS. The caller rule judges the process it runs in, and in this
+    # route that is the console server, not whoever sent the request: a console started
+    # from a terminal passed it for every browser that could reach the port (review,
+    # 29 Oct). The server cannot know who clicked, so it never approves.
+    note = ('The browser cannot approve. Approval executes only from the operator’s terminal: '
+            f'finrail approve {rid}. The proposal remains pending.')
+    return _page('Approval result',_error(note,'/approvals','Return to approvals'),'approvals',status_code=403)
 
 
 @app.post('/approvals/{rid}/drop')
@@ -615,10 +675,21 @@ def _read_events(kind: str = '') -> list[dict]:
 def _event_html(event: dict) -> str:
     data = event.get('data') or {}
     kind = str(event.get('kind') or 'event')
-    shown = kind.replace('_',' ').capitalize()
+    shown = {'decision_call': 'Jev call', 'model_call': 'Model call'}.get(kind, kind.replace('_',' ').capitalize())
     provenance = "<span class='demo-record'>Illustrative demo record</span>" if (data.get('demo_fixture') or data.get('source') == 'demo-fixture') else ''
     detail = ''
-    if kind == 'model_call':
+    if kind == 'decision_call':
+        answers = data.get('answers') or {}
+        picks = ''.join(f"<li><code>{_e(name)}</code> → <b>{_e((a or {}).get('choice'))}</b> · "
+                        f"{_e(round(float((a or {}).get('confidence') or 0) * 100))}% sure</li>"
+                        for name, a in answers.items() if isinstance(a, dict))
+        detail = (f"<p class='event-meta'>Jev (TypeSafe) · {_e(data.get('model'))} · {_e(data.get('door'))} · "
+                  f"{_e(data.get('duration_ms'))} ms · for <code>{_e(data.get('capability') or 'unknown')}</code></p>"
+                  + (f"<p class='error-detail'>{_e(data['error'])}</p>" if data.get('error') else f"<ul class='plain-list'>{picks}</ul>")
+                  + "<details class='disclosure'><summary>Inspect what Jev was shown and what it picked</summary>"
+                  + _raw({'state': data.get('state'), 'questions': data.get('questions')}, 'Questions and state')
+                  + _raw(answers, 'Answers, with probabilities') + '</details>')
+    elif kind == 'model_call':
         usage = data.get('usage') or {}
         detail = (f"<p class='event-meta'>{_e(data.get('engine') or 'Engine not recorded')} · "
                   f"{_e(data.get('engine_model') or data.get('model') or 'Model not recorded')} · "
@@ -628,22 +699,24 @@ def _event_html(event: dict) -> str:
                   +_raw(data,'Full model-call record')+'</details>')
     else:
         detail = _raw(data,'Inspect event data')
-    return (f"<article class='event-row'><span class='activity-icon'>{icon('activity' if kind=='model_call' else 'clock')}</span>"
+    return (f"<article class='event-row' id='ev-{_e(event.get('seq',''))}'><span class='activity-icon'>{icon('activity' if kind in ('model_call','decision_call') else 'clock')}</span>"
             f"<div class='activity-copy'><div class='event-heading'><h3>{_e(shown)}</h3><span class='event-time'>{_e(time_label(event.get('at')))}</span></div>"
             f"<span class='company-meta'>Event {_e(event.get('seq',''))} · {_e(event.get('thread',''))}</span>{provenance}{detail}</div></article>")
 
 
 @app.get('/runs',response_class=HTMLResponse)
 def runs(kind: str = ''):
-    selected = kind if kind == 'model_call' else ''
+    selected = kind if kind in ('model_call', 'decision_call') else ''
     records = tracker.recent(25)
     run_table = table(['Work item','Status','Created',''],_run_rows(records),'Run activity') if records else empty('No live work yet','Run a screen or propose a data-room record. The recorded outcome will appear here.','<a class="btn btn-secondary" href="/dataroom">Open data room</a>','activity')
     tabs = ("<nav class='tabs' aria-label='Activity type'>"
             f"<a class='tab{' is-active' if not selected else ''}' href='/runs'>All activity</a>"
-            f"<a class='tab{' is-active' if selected else ''}' href='/runs?kind=model_call'>Model calls</a></nav>")
-    events = _read_events(selected)
+            f"<a class='tab{' is-active' if selected == 'model_call' else ''}' href='/runs?kind=model_call'>Nemotron calls</a>"
+            f"<a class='tab{' is-active' if selected == 'decision_call' else ''}' href='/runs?kind=decision_call'>Jev calls</a></nav>")
+    events = [ev for ev in _read_events(selected) if selected or ev.get('kind') in ('model_call', 'decision_call')]
     event_content = '<div class="event-list">'+''.join(_event_html(event) for event in events)+'</div>' if events else empty('No model calls recorded' if selected else 'No ledger events yet','Actual prompts, answers, model names, and token usage appear here after a model-backed workflow. Illustrative demo records are not model calls.','<a class="inline-action" href="/dataroom">Inspect the data room</a>','activity')
-    body = panel('Run activity',run_table) + tabs + panel('Model calls' if selected else 'Recent ledger activity',event_content)
+    titles = {'model_call': 'Nemotron calls: full prompt and answer', 'decision_call': 'Jev calls: what it was shown and what it picked'}
+    body = panel('Run activity',run_table) + tabs + panel(titles.get(selected, 'Model and Jev calls'),event_content)
     return _page('Activity & ledger',body+_cli_equiv('finrail runs'),'runs','Inspect proposals, outcomes, and the evidence behind each actual model call.')
 
 
@@ -689,12 +762,14 @@ def capabilities():
 def rules():
     registry.load()
     rows = ''
-    for cap in sorted(registry.commands().values(),key=lambda cap:cap.name):
+    for cap in sorted(registry.commands().values(),key=lambda cap:(not cap.name.startswith('finance.'),not cap.name.startswith('tasks.'),cap.name)):
         ruleset = cap.rules()
         flags = ', '.join(f"{key}={ruleset[key]}" for key in ('read_only','autonomous','confirm','background'))
-        rows += (f"<tr><td><strong>{_e(cap.name)}</strong></td><td><code>{_e(flags)}</code></td>"
-                 f"<td>{_e(ruleset.get('verified_by') or 'Not declared')}</td><td>{_e(ruleset.get('reason') or '—')}</td></tr>")
-    body = panel('Rules, rendered from the declarations',table(['Capability','Execution rules','Verification','Reason'],rows,'Declared governance rules'))
+        steps = ' → '.join(f"{st['name']} ({st['by']})" for st in ruleset.get('steps') or [])
+        asked = f"<span class='company-meta'>Asked as: {_e(cap.ask_label)}</span>" if cap.ask else ''
+        rows += (f"<tr><td><strong>{_e(cap.name)}</strong>{asked}</td><td><code>{_e(flags)}</code></td>"
+                 f"<td>{_e(ruleset.get('verified_by') or 'Not declared')}</td><td>{_e(steps or '—')}</td><td>{_e(ruleset.get('reason') or '—')}</td></tr>")
+    body = panel('Rules, rendered from the declarations',table(['Capability','Execution rules','Verification','Declared steps','Reason'],rows,'Declared governance rules'))
     return _page('Governance rules',body+_cli_equiv('finrail rules'),'rules','One declaration site per capability. The same rules apply in the browser and CLI.')
 
 
@@ -702,9 +777,9 @@ def rules():
 def cli_page():
     registry.load()
     examples = ("<p class='section-description'>The browser uses the same dispatcher. Every action has a terminal equivalent.</p>"
-                '<h3>Read a calculation</h3>'+_cli('finrail get finance.compute.metric metric=margin')
-                +'<h3>Propose a record</h3>'+_cli('finrail do finance.dataroom.propose "State the FY2025 revenue"')
-                +'<h3>Resolve a question</h3>'+_cli('finrail ask "what is the leverage on Meridian?"'))
+                '<h3>Check a figure against its filing</h3>'+_cli('finrail do finance.reports.analyze report_id=NVDA-Q2-FY2027 definition=issuer_fcf')
+                +'<h3>Propose a record</h3>'+_cli('finrail do finance.reports.record report_id=NVDA-Q2-FY2027 statement="Q2 free cash flow was $21,341m"')
+                +'<h3>Route a question</h3>'+_cli('finrail get finance.ask.route question="What was NVIDIA free cash flow last quarter?"'))
     commands = ''
     for cap in sorted(registry.commands().values(),key=lambda cap:cap.name):
         if not cap.name.startswith(('finance.','tasks.')):
