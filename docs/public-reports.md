@@ -38,8 +38,10 @@ excerpts; it does not synthesize or certify numerical claims.
 The numerical workflow supports NVIDIA's Q1/Q2 FY2027 FCF:
 
 1. Google retrieves actual source excerpts for the selected report.
-2. Nebius proposes typed values and verbatim evidence quotes; document content is
-   never treated as instructions. This is a recorded model call, not a fixture.
+2. Code assigns IDs to actual retrieved financial rows. Nebius proposes typed values
+   and selects those row IDs; code attaches the original quotes. The model never
+   rewrites evidence. Document content is never treated as instructions. This is a
+   recorded model call, not a fixture; the row index contains no computed answers.
 3. The original HTML is fetched privately, its SHA-256 checked, and its table headers
    checked for the current quarter and units. Only the first numeric column in the
    exact cash-flow row can support an input; comparative/year-to-date values fail.

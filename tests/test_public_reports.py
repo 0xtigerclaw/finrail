@@ -22,7 +22,7 @@ def fixture():
     evidence = [{'id': 'E1', 'text': '\n'.join(cells[key]['source_row'] for key in r.ROWS), 'source_uri': item['indexed_uris'][0]}]
     found = {'report_id': item['source_id'], 'evidence': evidence, 'backend': 'test stub'}
     candidate = {'report_id': item['source_id'], 'period_end': item['period_end'], 'currency': 'USD', 'unit': 'million', 'definition': 'issuer_fcf',
-                 'inputs': [{'metric': key, 'value': cells[key]['value'], 'evidence_id': 'E1', 'quote': cells[key]['source_row']} for key in r.ROWS]}
+                 'inputs': [{'metric': key, 'value': cells[key]['value'], 'row_id': f'E1:L{number}'} for number, key in enumerate(r.ROWS, 1)]}
     return item, raw, cells, found, candidate
 
 
@@ -53,9 +53,9 @@ def test_wrong_source_column_or_invalid_amount_is_refused(value):
 
 
 @pytest.mark.parametrize('change', [
-    lambda p: p['inputs'][0].update(evidence_id='invented'),
+    lambda p: p['inputs'][0].update(row_id='invented'),
     lambda p: p['inputs'][0].update(quote='Net cash provided by operating activities was 50,344'),
-    lambda p: p['inputs'][0].update(quote='50,344'),
+    lambda p: p['inputs'][0].update(row_id='E1:L99'),
     lambda p: p['inputs'][0].update(metric='cash_purchases'),
     lambda p: p['inputs'].pop(),
     lambda p: p['inputs'].append(p['inputs'][0]),
@@ -80,8 +80,8 @@ def test_hash_header_period_and_reconciliation_checks():
 
 def test_zero_is_a_valid_input_not_missing():
     item, _, cells, found, p = fixture()
-    p['inputs'][2].update(value='0', quote=r.ROWS['principal_payments'] + ' | 0')
-    found['evidence'][0]['text'] += '\n' + p['inputs'][2]['quote']
+    p['inputs'][2].update(value='0', row_id='E1:L4')
+    found['evidence'][0]['text'] += '\n' + r.ROWS['principal_payments'] + ' | 0'
     cells['principal_payments']['value'] = '0'
     cells['reported_fcf']['value'] = '48587'
     assert r.check_and_compute(item, 'issuer_fcf', p, found, cells)['amount'] == '48587'
@@ -137,8 +137,8 @@ def test_live_pipeline_uses_model_then_source_gate(monkeypatch):
     monkeypatch.setattr(r, 'retrieve', lambda *args, **kwargs: found)
     monkeypatch.setattr(r, 'archived', lambda _: raw)
     def extract(**kwargs):
-        assert 'retrieved_evidence' in kwargs['context']
-        assert '48554' not in kwargs['context']['retrieved_evidence']  # FCF answer absent from this context.
+        assert 'retrieved_rows' in kwargs['context']
+        assert '48554' not in kwargs['context']['retrieved_rows']  # FCF answer absent from this context.
         return p
     monkeypatch.setattr(llm, 'call', extract)
     assert r.ReportAnalyze().execute({'report_id': item['source_id'], 'definition': 'issuer_fcf'})['amount'] == '48554'
