@@ -16,7 +16,7 @@ from finrail.core import tracker
 from finrail.core.settings import state
 from finrail.core import registry
 from finrail.extensions.finance.ask import NONE, REPORTS, workflows
-from finrail.extensions.finance.public_reports import checked_fcf, stated_millions
+from finrail.extensions.finance.public_reports import PROFILES, checked_fcf, report, stated_millions
 from finrail.extensions.finance.claims import money
 from .views import e, icon, badge
 
@@ -27,12 +27,17 @@ SUGGESTIONS = (
     "What did Nebius say about capex in Q2?",
     "What does the web say about NVIDIA's free cash flow?",
     "Record NVIDIA's Q2 free cash flow as $24,077m",
+    "What was Anthropic's revenue in the first half of 2026?",
+    "What does Anthropic's S-1 say about compute commitments?",
 )
+#: The figure the router read, as the analyze definition it means for a report.
+ANTH_FIGURES = {'revenue': 'revenue', 'net_loss': 'net_loss', 'operating_cash_flow': 'operating_cash_flow',
+                'capex': 'capex', 'fcf': 'simple_fcf'}
 # How this door calls each askable capability: which parameters it fills from the route.
 # What each one is called, how it is asked for and what it does inside a run come from
 # the capability's own declaration (`ask_label`, `ask`, `steps`), never from here.
 CAPABILITY = {'fcf': 'finance.reports.analyze', 'search': 'finance.reports.search', 'record': 'finance.reports.record',
-              'web': 'finance.reports.webclaims', 'screen': 'finance.screen.fixture'}
+              'web': 'finance.reports.webclaims', 'screen': 'finance.screen.fixture', 'multiple': 'finance.reports.multiple'}
 KIND = {cap: kind for kind, cap in CAPABILITY.items()}
 
 
@@ -72,16 +77,31 @@ def new_id() -> str:
 
 # ── answering: route, then run the picked capability ────────────────────────
 
-def _fcf_run(dispatch, report_id: str) -> str:
-    """Reuse a completed or running check of this quarter; start one only if none exists."""
+def _definition(route: dict) -> str:
+    """The analyze definition a routed question means: NVIDIA's own FCF, or for Anthropic
+    the figure Jev read (revenue when it read none)."""
+    if route.get('report_id', '').startswith('ANTH'):
+        return ANTH_FIGURES.get(route.get('figure') or '', 'revenue')
+    return 'issuer_fcf'
+
+
+def _supported(report_id: str) -> bool:
+    try:
+        return report(report_id).get('company') in PROFILES
+    except Exception:  # noqa: BLE001 - an unknown report is simply unsupported
+        return False
+
+
+def _fcf_run(dispatch, report_id: str, definition: str = 'issuer_fcf') -> str:
+    """Reuse a completed or running check of this figure; start one only if none exists."""
     for rec in tracker.recent(50):
         if rec.get('capability') != CAPABILITY['fcf'] or (rec.get('proposal') or {}).get('report_id') != report_id:
             continue
-        if (rec.get('proposal') or {}).get('definition', 'issuer_fcf') != 'issuer_fcf':
+        if (rec.get('proposal') or {}).get('definition', 'issuer_fcf') != definition:
             continue
         if rec.get('status') == 'done' or rec.get('status') in ('pending', 'running'):
             return rec['id']
-    out = dispatch(CAPABILITY['fcf'], {'report_id': report_id, 'definition': 'issuer_fcf'})
+    out = dispatch(CAPABILITY['fcf'], {'report_id': report_id, 'definition': definition})
     return out.get('id') or ('error:' + str(out.get('error') or 'The check could not start.'))
 
 
@@ -100,10 +120,19 @@ def answer(dispatch, question: str, turns: list, force: str = '') -> dict:
     if not route.get('sure'):
         return {**turn, 'answer': {'kind': 'clarify'}}
     if flow == 'fcf':
-        if not route['report_id'].startswith('NVDA'):
+        if not _supported(route['report_id']):
             return {**turn, 'answer': {'kind': 'scope', 'report_id': route['report_id']}}
-        wanted = NVDA if route.get('span') == 'both' else (route['report_id'],)
-        return {**turn, 'answer': {'kind': 'fcf', 'runs': [_fcf_run(dispatch, r) for r in wanted]}}
+        definition = _definition(route)
+        wanted = NVDA if route.get('span') == 'both' and route['report_id'].startswith('NVDA') else (route['report_id'],)
+        return {**turn, 'answer': {'kind': 'fcf', 'definition': definition, 'runs': [_fcf_run(dispatch, r, definition) for r in wanted]}}
+    if flow == 'multiple':
+        valuation = stated_millions(question)
+        if valuation is None:
+            return {**turn, 'answer': {'kind': 'multiple', 'error': 'State the valuation to divide by, for example "at a $300bn valuation". Nothing was computed.'}}
+        res = dispatch(CAPABILITY['multiple'], {'report_id': route['report_id'], 'valuation_usd_m': str(valuation)})
+        return {**turn, 'answer': {'kind': 'multiple', 'run': res.get('id'), 'result': res.get('result'),
+                                   'error': str(res.get('error') or '').removeprefix(CAPABILITY['multiple'] + ': ') or None,
+                                   'valuation': str(valuation)}}
     if flow == 'search':
         res = dispatch(CAPABILITY['search'], {'report_id': route['report_id'], 'query': question})
         return {**turn, 'answer': {'kind': 'search', 'run': res.get('id'), 'error': res.get('error')}}
@@ -181,6 +210,8 @@ def verdict(turn: dict) -> tuple[str, str]:
         return ('fail', 'Could not run') if ans.get('error') else ('info', 'Excerpts, not a checked figure')
     if kind == 'web':
         return ('fail', 'Could not run') if ans.get('error') else ('pass', 'Claims checked')
+    if kind == 'multiple':
+        return ('fail', 'Refused') if ans.get('error') else ('pass', 'Arithmetic on your figure')
     if kind == 'clarify':
         return 'skip', 'Nothing ran: pick one'
     if kind in ('none', 'scope'):
@@ -204,7 +235,8 @@ def _short(turn: dict, cid: str) -> str:
         if failed:
             return f"Not verified. No answer issued: {e(failed[0])}"
         if running:
-            return "Checking NVIDIA’s filing live. One model call, then code checks every cell. About a minute."
+            company = 'Anthropic’s S-1' if (route.get('report_id') or '').startswith('ANTH') else 'NVIDIA’s filing'
+            return f"Checking {company} live. One model call, then code checks every cell. About a minute."
         if len(done) == 2:
             a, b = sorted((r['result'] for r in done), key=lambda v: v['period_end'])
             diff = Decimal(b['amount']) - Decimal(a['amount'])
@@ -212,7 +244,17 @@ def _short(turn: dict, cid: str) -> str:
             return (f"Free cash flow went from <b>${int(a['amount']):,}m</b> ({e(a['period'])}) to <b>${int(b['amount']):,}m</b> "
                     f"({e(b['period'])}), {'down' if diff < 0 else 'up'} ${abs(int(diff)):,}m ({pct:+}%). Both tie to NVIDIA’s reported figures.")
         v = done[0]['result']
-        return f"<b>${int(v['amount']):,}m</b> for {e(v['period'])}. It ties to the figure NVIDIA reported."
+        tie = (f"It ties to the figure {e(v['company'])} reports in the same filing." if v.get('reconciled') or v.get('definition') == 'issuer_fcf'
+               else e(v.get('reconciliation', '')) + '.')
+        what = v['metric'].split(',')[0] if (v.get('company') != 'NVIDIA') else 'Free cash flow'
+        return f"{e(what)}: <b>${int(v['amount']):,}m</b> for {e(v['period'])}. {tie}"
+    if kind == 'multiple':
+        if ans.get('error'):
+            return f"Refused. Nothing was computed. {e(ans['error'])}"
+        v = ans.get('result') or {}
+        return (f"<b>{e(v.get('price_to_sales'))}×</b> price-to-sales: ${int(Decimal(v.get('valuation_usd_m', '0'))):,}m, the valuation you stated, "
+                f"divided by ${int(Decimal(v.get('revenue_usd_m', '0'))):,}m of source-checked six-month revenue. "
+                "Arithmetic on your figure, not advice, not annualised.")
     if kind == 'record':
         if ans.get('error'):
             return f"Refused. Nothing was recorded. {e(_record_error(ans).removeprefix('claim check refused: '))}"
@@ -233,7 +275,7 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'search':
         return e(ans['error']) if ans.get('error') else "Here is what the filing says. Search alone never certifies a number."
     if kind == 'scope':
-        return ("Checked free cash flow covers NVIDIA only. I can show what that filing says instead."
+        return ("Source-checked figures cover NVIDIA and Anthropic only. I can show what that filing says instead."
                 + _options(turn['q'], [CAPABILITY['search']], cid))
     if kind == 'clarify':
         probs = route.get('probabilities') or {}
@@ -263,21 +305,27 @@ def followups(turns: list) -> list[str]:
     compare = "How does that compare with the quarter before?"
     nebius = "What did Nebius say about capex in Q2?"
     out: list = []
-    if kind == 'fcf':
+    anthropic_multiple = "At a $300bn valuation, what is Anthropic's price to sales?"
+    if kind == 'fcf' and rid.startswith('ANTH'):
+        out = [anthropic_multiple if ans.get('definition') == 'revenue' else "What was Anthropic's revenue in the first half of 2026?",
+               "What was Anthropic's net loss in the first half of 2026?", "What does Anthropic's S-1 say about compute commitments?"]
+    elif kind == 'fcf':
         other = "What was NVIDIA's free cash flow in Q2 FY2027?" if rid.endswith('Q1-FY2027') else compare
         out = [None if route.get('span') == 'both' else other, _record_question(rid or NVDA[1]),
                "Record NVIDIA's Q2 free cash flow as $24,077m", web]
+    elif kind == 'multiple':
+        out = ["What was Anthropic's net loss in the first half of 2026?", "What does Anthropic's S-1 say about compute commitments?"]
     elif kind == 'record':
         out = [_record_question(rid) if ans.get('error') else None, web, compare, nebius]
     elif kind == 'web':
         out = [_record_question(rid), compare, nebius]
     elif kind == 'search':
-        company = {'NBIS': 'Nebius', 'ASML': 'ASML', 'NVDA': 'NVIDIA'}.get(rid[:4], '')
+        company = {'NBIS': 'Nebius', 'ASML': 'ASML', 'NVDA': 'NVIDIA', 'ANTH': 'Anthropic'}.get(rid[:4], '')
         other = next((r for r in REPORTS if r[:4] == rid[:4] and r != rid), '')
         quarter = REPORTS[other].replace(company, '').split(',')[0].strip() if other else ''
         topic = 'capex' if company == 'Nebius' else 'guidance'
         out = [f"What did {company} say about {topic} in {quarter}?" if quarter else None,
-               "What was NVIDIA's free cash flow last quarter?", web]
+               "What was Anthropic's revenue in the first half of 2026?" if company == 'Anthropic' else "What was NVIDIA's free cash flow last quarter?", web]
     asked = {t['q'].strip().lower() for t in turns}
     if kind == 'fcf':  # the figure is on screen; asking for it again is no follow-up
         asked.add(SUGGESTIONS[0].lower())
@@ -359,11 +407,15 @@ def _fcf_card(rec: dict) -> str:
     rows = ''.join(
         f"<tr><td>{e(i['row'])}</td><td class='wp-ref'>T{e(i.get('table'))}·R{e(i.get('row_number'))}</td>"
         f"<td class='wp-num'>{int(i['amount']):,}</td><td class='wp-ticks'>{TICK}</td></tr>" for i in v['inputs'])
-    return (f"<div class='mini-wp'><div class='mini-head'><span>{e(v['period'])} · quarter ended {e(v['period_end'])}</span>"
+    tied = v.get('reconciled') or v.get('definition') == 'issuer_fcf'
+    total = 'Free cash flow' if 'fcf' in v.get('definition', '') else v['metric'].split(',')[0]
+    foot = (f"Ties to {e(v['company'])}’s own {e(v['reconciled']['label'].lower())} of {int(v['reconciled']['value']):,} in the same filing" if v.get('reconciled')
+            else f"Ties to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if tied else e(v.get('reconciliation', '')))
+    return (f"<div class='mini-wp'><div class='mini-head'><span>{e(v['period'])} · period ended {e(v['period_end'])}</span>"
             f"<strong>${int(v['amount']):,}m</strong></div><table class='mini-table'><tbody>{rows}"
-            f"<tr class='wp-total'><td>Free cash flow, recomputed</td><td class='wp-ref'>Decimal</td><td class='wp-num'><span class='double'>{int(v['amount']):,}</span></td>"
-            f"<td class='wp-ticks'><span class='tick-letter'>Σ</span><span class='tick-letter'>R</span></td></tr></tbody></table>"
-            f"<p class='mini-foot'>Ties to NVIDIA’s reported ${int(v['reported_fcf']):,}m · "
+            f"<tr class='wp-total'><td>{e(total)}, recomputed</td><td class='wp-ref'>Decimal</td><td class='wp-num'><span class='double'>{int(v['amount']):,}</span></td>"
+            f"<td class='wp-ticks'><span class='tick-letter'>Σ</span>{'<span class=tick-letter>R</span>' if tied else ''}</td></tr></tbody></table>"
+            f"<p class='mini-foot'>{foot} · "
             f"<a href='/proof?run={e(rec['id'])}'>Full workpaper</a> · <a href='/proof?run={e(rec['id'])}#break-it'>Try to break it</a></p></div>")
 
 
@@ -418,7 +470,10 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
             facts['retrieve'] = f"{len(v['retrieval']['evidence'])} excerpts, all from {e(v['report_id'])}"
             facts['check'] = ' '.join(f"<span class='chk'>{TICK}{e(c)}</span>" for c in v['checks'])
             facts['Bind'] = f"Attached the exact retrieved text of {len(v['inputs'])} rows"
-            facts['Compute'] = f"${int(v['amount']):,}m, equal to NVIDIA’s reported ${int(v['reported_fcf']):,}m"
+            tie = (f", equal to the {e(v['reconciled']['label'])} the filing reports ({int(v['reconciled']['value']):,})" if v.get('reconciled')
+                   else f", equal to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if v.get('reported_fcf') and v.get('definition') == 'issuer_fcf'
+                   else f"; {e(v.get('reconciliation', ''))}")
+            facts['Compute'] = f"${int(v['amount']):,}m{tie}"
         if failed:
             failure = failed[0]
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
@@ -464,6 +519,15 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
             order = ('wrong', 'wrong_line', 'definition', 'matches', 'unclear', 'unchecked')
             ranked = sorted(v['claims'], key=lambda x: order.index(x['verdict']) if x['verdict'] in order else 9)
             evidence = ''.join(_claim_html(x) for x in ranked) or '<p>No sentence on those pages stated a cash-flow figure.</p>'
+    elif kind == 'multiple':
+        v = ans.get('result') or {}
+        facts['Read input'] = f"${int(Decimal(ans['valuation'])):,}m, read from your sentence as typed" if ans.get('valuation') else ''
+        if ans.get('error'):
+            failure = e(ans['error'])
+            failed_at = 'code' if not ans.get('valuation') else 'check'
+        else:
+            facts['Checked revenue'] = f"${int(Decimal(v['revenue_usd_m'])):,}m from run <a href='/proof?run={e(v['revenue_run'])}'>{e(v['revenue_run'])}</a>"
+            facts['Divide'] = f"{e(v['valuation_usd_m'])} / {e(v['revenue_usd_m'])} = <b>{e(v['price_to_sales'])}×</b> in Decimal · {e(v['label'])}"
     elif kind == 'search':
         found = (_record(ans.get('run') or '') or {}).get('result') or {}
         if ans.get('error'):
@@ -537,7 +601,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
     composer = ("<form method='post' action='/ask' class='composer'>"
                 f"<input type='hidden' name='chat' value='{e(cid)}'><label class='sr-only' for='question'>Ask a finance question</label>"
                 "<textarea id='question' name='question' rows='2' required minlength='3' maxlength='1500' "
-                f"placeholder='Ask about the NVIDIA, Nebius or ASML filings'>{e(prefill)}</textarea>"
+                f"placeholder='Ask about the NVIDIA, Nebius, ASML or Anthropic filings'>{e(prefill)}</textarea>"
                 f"<button class='btn' type='submit'>Ask{icon('arrow', 16)}</button></form>")
     panel = (trace(turns[selected]) if turns else
              "<div class='trace-empty'><p class='trace-q'>The harness trace</p><p>Every answer shows what the kernel did: who routed "

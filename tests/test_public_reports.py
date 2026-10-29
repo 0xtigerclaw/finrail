@@ -125,6 +125,9 @@ def test_unsupported_metrics_and_unconfigured_corpus_fail(monkeypatch):
         r.ReportAnalyze().plan('ASML-Q2-2026')
     with pytest.raises(ContractViolation):
         r.ReportAnalyze().plan('NVDA-Q1-FY2027', 'revenue')
+    with pytest.raises(ContractViolation):
+        r.ReportAnalyze().plan('ANTH-S1-2026', 'issuer_fcf')
+    assert r.ReportAnalyze().plan('ANTH-S1-2026') == {'report_id': 'ANTH-S1-2026', 'definition': 'revenue'}
     monkeypatch.delenv('FINRAIL_RAG_CORPUS', raising=False)
     with pytest.raises(NotConfigured):
         r.retrieve(r.report('NVDA-Q1-FY2027'), 'cash flow')
@@ -156,7 +159,8 @@ def test_console_catalog_disabled_when_unconfigured(tmp_path, monkeypatch):
         page = client.get('/reports')
         assert page.status_code == 200
         assert 'Live corpus check unavailable' in page.text and 'not confirmed' in page.text
-        assert page.text.count("class='filing'") == 6 and 'NVDA-Q2-FY2027.txt' in page.text
+        assert page.text.count("class='filing'") == 7 and 'NVDA-Q2-FY2027.txt' in page.text
+        assert 'ANTH-S1-2026' in page.text and 'not yet ingested' in page.text
         assert 'Run a check directly' not in page.text and "type='submit'" not in page.text
         assert 'All companies and figures are synthetic' not in page.text
         invalid = client.post('/reports/analyze', data={'report_id': 'ASML-Q2-2026'})

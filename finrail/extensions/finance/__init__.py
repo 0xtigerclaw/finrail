@@ -748,7 +748,7 @@ class MemoRelease(Plugin):
         return (ok, f"released artefact re-read; hash match: {ok}")
 
 
-from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord
+from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, ReportMultiple
 from .ask import FinanceRoute
 from .claims import WebClaims
 
@@ -756,4 +756,5 @@ COMMANDS = [ScreenCandidates, ScreenEntity, ScreenRun, ScreenFixture,
             ScreenArchive,
             DataroomSearch, DataroomRecord, DataroomPropose,
             ComputeMetric, ComputeScenario, MemoDraft, MemoRelease,
-            ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, WebClaims, FinanceRoute]
+            ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, ReportMultiple,
+            WebClaims, FinanceRoute]

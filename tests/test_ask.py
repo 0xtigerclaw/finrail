@@ -43,7 +43,7 @@ def test_jev_below_the_bar_asks_the_person_to_pick(client, monkeypatch):
     page = _ask(client, "Is NVIDIA's cash flow real?")
     assert "60% sure" in page and "nothing ran" in page
     assert "name='force' value='finance.reports.analyze'" in page
-    assert "NVIDIA free cash flow" in page  # the capability's own ask_label
+    assert "Source-checked figure" in page  # the capability's own ask_label
 
 
 def test_jev_cannot_route_outside_the_offered_choices():

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Archive and index an approved six-report source bundle (operator only).
+"""Archive and index an approved source bundle (operator only).
 
 Requires an authenticated gcloud operator and pre-created private bucket/corpus.
 Never uploads the curated facts, calculations or expected benchmark answers.
 The source bundle contains sources.json, raw/, and working/<id>.txt for PDFs.
+
+`--only SOURCE_ID` restricts the run to one catalogued source, so a new filing can be
+archived under its own versioned `--prefix` and imported into the existing corpus
+without touching the objects or RAG files of the sources already indexed. HTML is
+extracted by `public_reports.extract`: NVIDIA's release as its tables, an S-1 as the
+whole document in order with its tables in place.
 """
 import argparse
 import hashlib
@@ -16,7 +22,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from finrail.extensions.finance.public_reports import Tables
+from finrail.extensions.finance.public_reports import extract
 
 
 def main():
@@ -27,10 +33,21 @@ def main():
     ap.add_argument('--bucket', required=True)
     ap.add_argument('--corpus', required=True)
     ap.add_argument('--prefix', default='2026-10-29')
+    ap.add_argument('--only', action='append', default=[], metavar='SOURCE_ID',
+                    help='Archive and import only this catalogued source (repeatable). Default: every source in the catalog.')
     ap.add_argument('--output', type=Path, required=True, help='Operator result file; check the async import before updating runtime IDs')
     args = ap.parse_args()
     manifest = json.loads((Path(__file__).resolve().parents[1] / 'finrail/extensions/finance/public_data/reports.json').read_text())
     sources = {s['source_id']: s for s in json.loads((args.bundle / 'sources.json').read_text())}
+    if args.only:
+        unknown = [sid for sid in args.only if sid not in {e['source_id'] for e in manifest['reports']}]
+        if unknown:
+            raise SystemExit('Not in the catalog: ' + ', '.join(unknown))
+        manifest['reports'] = [e for e in manifest['reports'] if e['source_id'] in args.only]
+    for entry in manifest['reports']:
+        if entry['object'].split('/')[0] != args.prefix:
+            raise SystemExit(f"{entry['source_id']} is catalogued under prefix {entry['object'].split('/')[0]}, not {args.prefix}; "
+                             'pass --prefix to match the catalog, or --only the sources that belong to this prefix.')
     access = subprocess.run(['gcloud', 'auth', 'print-access-token', '--account=' + args.account], capture_output=True, text=True, check=True).stdout.strip()
 
     def request(url, data=None, content_type='application/json'):
@@ -66,13 +83,7 @@ def main():
                f"Source: {source['url']}\nOriginal SHA-256: {source['sha256']}\n"
                'Source-preserving extraction; original row/column order retained. Not a benchmark answer key.\n\n')
         if source['format'] == 'html':
-            parser = Tables()
-            parser.feed(raw.decode())
-            text = ''
-            for number, rows in enumerate(parser.tables[:7], 1):
-                for start in range(0, len(rows), 12):
-                    header = '\n'.join(' | '.join(r) for r in rows[:10]) if number in (3, 4, 5, 6) and start else ''
-                    text += f'\nREPORT {sid}; HTML TABLE {number}; rows {start+1}-{min(start+12,len(rows))}\n' + header + '\n' + '\n'.join(' | '.join(r) for r in rows[start:start+12]) + '\n'
+            text = extract(raw, sid, source['company'])
         else:
             text = (args.bundle / 'working' / (sid + '.txt')).read_text()
         objects = [(args.prefix + '/' + source['local_file'], raw, 'application/pdf' if source['format'] == 'pdf' else 'text/html'),
@@ -88,8 +99,10 @@ def main():
                'ragFileTransformationConfig': {'ragFileChunkingConfig': {'fixedLengthChunking': {'chunkSize': 1024, 'chunkOverlap': 150}}}}}
     location = args.corpus.split('/locations/')[1].split('/')[0]
     operation = request('https://' + location + '-aiplatform.googleapis.com/v1beta1/' + args.corpus + '/ragFiles:import', json.dumps(payload).encode())
-    args.output.write_text(json.dumps({'archived': archived, 'import': operation}, indent=2) + '\n')
+    args.output.write_text(json.dumps({'archived': archived, 'import': operation, 'uris': uris}, indent=2) + '\n')
     print('Import started. Poll the recorded operation, list imported files, and bind only matching source URIs to each report ID.')
+    print('Operation:', operation.get('name', '?'))
+    print('Imported URIs to bind:', *uris, sep='\n  ')
 
 
 if __name__ == '__main__':

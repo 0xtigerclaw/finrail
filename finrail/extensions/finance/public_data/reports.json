@@ -174,6 +174,35 @@
       ],
       "object_generation": "1793302860420793",
       "parsed_object_generation": "1793302862981513"
+    },
+    {
+      "source_id": "ANTH-S1-2026",
+      "company": "Anthropic",
+      "report_period": "S-1, six months ended 2026-06-30",
+      "published_at": "2026-10-26",
+      "retrieved_at": "2026-10-29T22:48:38.419538+00:00",
+      "url": "https://www.sec.gov/Archives/edgar/data/0002130357/000162828026067168/anthropicpbc-sx1.htm",
+      "retrieved_url": "https://www.sec.gov/Archives/edgar/data/0002130357/000162828026067168/anthropicpbc-sx1.htm",
+      "edgar_accession": "0001628280-26-067168",
+      "edgar_cik": "0002130357",
+      "local_file": "raw/ANTH-S1-2026.html",
+      "sha256": "2fa24ae7704dbb535d096ee7459b765fe899ac9118762e738183a94473c9905a",
+      "format": "html",
+      "source_type": "registration_statement_s1",
+      "audit_status": "six-month interim figures unaudited; fiscal years audited",
+      "period_end": "2026-06-30",
+      "source_date_label": "Six Months Ended June 30,",
+      "currency": "USD",
+      "units": "millions, except share and per share data",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29-anthropic/raw/ANTH-S1-2026.html",
+      "parsed_object": "2026-10-29-anthropic/parsed/ANTH-S1-2026.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29-anthropic/parsed/ANTH-S1-2026.txt"
+      ],
+      "rag_file_ids": [],
+      "object_generation": "",
+      "parsed_object_generation": ""
     }
   ]
 }

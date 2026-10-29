@@ -38,7 +38,7 @@ def test_proof_page_draws_the_recorded_run_and_its_declaration(recorded):
     page = TestClient(app).get("/proof").text
     assert "48,554" in page and rid in page
     assert "Who did what, under which rule" in page
-    assert "Declared once, in code" in page and "must equal the issuer-reported FCF" in page
+    assert "Declared once, in code" in page and "must equal the figure the issuer reports" in page
 
 
 def test_challenge_route_shows_the_checker_refusal(recorded):

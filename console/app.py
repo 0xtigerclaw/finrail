@@ -131,7 +131,8 @@ MORE = [('approvals', '/approvals', 'Approvals'), ('screen', '/screen', 'Screeni
 NAMES = {'finance.screen.run': 'Public-risk screen', 'finance.screen.entity': 'Entity confirmation',
          'finance.dataroom.propose': 'Data-room record', 'finance.memo.draft': 'IC memo draft',
          'finance.memo.release': 'Memo release', 'finance.compute.metric': 'Financial analysis',
-         'finance.reports.search': 'Published-report search', 'finance.reports.analyze': 'Source-checked free cash flow',
+         'finance.reports.search': 'Published-report search', 'finance.reports.analyze': 'Source-checked figure',
+         'finance.reports.multiple': 'Multiple at a stated valuation',
          'finance.reports.record': 'Record a figure', 'finance.reports.webclaims': 'Web claims checked',
          'finance.reports.challenge': 'Proof challenge', 'finance.reports.corpus': 'Corpus check',
          'finance.screen.fixture': 'Public-risk screen (synthetic)', 'finance.ask.route': 'Question routed'}
@@ -201,7 +202,7 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
         "<button type='button' class='nav-backdrop' data-nav-backdrop tabindex='-1' aria-label='Close navigation' hidden></button>"
         f"<main class='app-main' id='main-content' tabindex='-1'>{page_header}"
         f"{body}<details class='demo-notice'><summary>{icon('info',16)}About this demo</summary>"
-        f"<p>{_e(allowance)}Filings are published NVIDIA, Nebius and ASML disclosures. Only the Northwind screening fixture is labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
+        f"<p>{_e(allowance)}Filings are published NVIDIA, Nebius, ASML and Anthropic disclosures. Only the Northwind screening fixture is labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
         "Approvals execute only from the operator’s terminal. No browser action can release a decision.</p></details>"
         "<footer class='workspace-footer'>Evidence before answers. Human authority before action.</footer></main></div>"
         "<div id='ui-status' class='sr-only' role='status' aria-live='polite' aria-atomic='true'></div></body></html>",
@@ -304,7 +305,7 @@ def _model_call(rid: str) -> dict | None:
     return calls[0] if calls else None
 
 
-def _proof_body(run: str = '', outcome: dict | None = None) -> str:
+def _proof_body(run: str = '', outcome: dict | None = None, multiple: dict | None = None) -> str:
     from . import proof
     rec = proof.latest(run)
     body = proof.hero()
@@ -313,6 +314,7 @@ def _proof_body(run: str = '', outcome: dict | None = None) -> str:
         body += proof.workpaper(rec, call)
         body += "<div class='proof-grid'>" + proof.rail(rec, call) + proof.declaration() + "</div>"
         body += proof.challenge(rec, outcome)
+        body += proof.multiple_section(rec, multiple)
     elif rec and _status(rec)[0] == 'running':
         body += proof.empty('running', rec['id'])
     elif rec:
@@ -345,8 +347,9 @@ def proof_page(run: str = ''):
 
 
 @app.post('/proof/run')
-def proof_run():
-    out = _dispatch('finance.reports.analyze', {'report_id': 'NVDA-Q2-FY2027', 'definition': 'issuer_fcf'})
+def proof_run(report_id: str = Form('NVDA-Q2-FY2027'), definition: str = Form('')):
+    # An empty definition lets the capability pick the report's default (NVIDIA: issuer FCF; Anthropic: revenue).
+    out = _dispatch('finance.reports.analyze', {'report_id': report_id, 'definition': definition})
     if out.get('id'):
         return RedirectResponse('/proof?run=' + quote(out['id'], safe=''), status_code=303)
     from . import proof
@@ -358,6 +361,14 @@ def proof_challenge(run_id: str = Form(''), attack: str = Form('')):
     run_id = run_id if _load_run(run_id) else ''
     outcome = _dispatch('finance.reports.challenge', {'run_id': run_id, 'attack': attack}) if run_id else None
     return _page('Proof', _proof_body(run_id, outcome), 'proof', header=False)
+
+
+@app.post('/proof/multiple', response_class=HTMLResponse)
+def proof_multiple(run_id: str = Form(''), valuation_usd_m: str = Form('')):
+    rec = _load_run(run_id)
+    report_id = ((rec or {}).get('result') or {}).get('report_id', '')
+    outcome = _dispatch('finance.reports.multiple', {'report_id': report_id, 'run_id': run_id, 'valuation_usd_m': valuation_usd_m.strip()}) if rec else None
+    return _page('Proof', _proof_body(run_id, None, outcome), 'proof', header=False)
 
 
 @app.get('/reports', response_class=HTMLResponse)
@@ -373,7 +384,7 @@ def reports_page(run: str = ''):
     from .reports import filings
     corpus = _dispatch('finance.reports.corpus') if configured else {'error': 'the managed corpus is not configured on this instance.'}
     body += filings(configured, corpus)
-    return _page('Filings', body, 'reports', 'Six real quarterly filings from NVIDIA, Nebius and ASML: what was archived, what was indexed, and what has been checked.')
+    return _page('Filings', body, 'reports', 'Seven real filings from NVIDIA, Nebius, ASML and Anthropic: what was archived, what was indexed, and what has been checked.')
 
 
 @app.post('/reports/search', response_class=HTMLResponse)
@@ -779,6 +790,8 @@ def cli_page():
     examples = ("<p class='section-description'>The browser uses the same dispatcher. Every action has a terminal equivalent.</p>"
                 '<h3>Check a figure against its filing</h3>'+_cli('finrail do finance.reports.analyze report_id=NVDA-Q2-FY2027 definition=issuer_fcf')
                 +'<h3>Propose a record</h3>'+_cli('finrail do finance.reports.record report_id=NVDA-Q2-FY2027 statement="Q2 free cash flow was $21,341m"')
+                +'<h3>Check a figure in Anthropic’s S-1</h3>'+_cli('finrail do finance.reports.analyze report_id=ANTH-S1-2026 definition=revenue')
+                +'<h3>A multiple on that checked revenue, at a valuation you state</h3>'+_cli('finrail get finance.reports.multiple report_id=ANTH-S1-2026 valuation_usd_m=300000')
                 +'<h3>Route a question</h3>'+_cli('finrail get finance.ask.route question="What was NVIDIA free cash flow last quarter?"'))
     commands = ''
     for cap in sorted(registry.commands().values(),key=lambda cap:cap.name):
