@@ -104,8 +104,8 @@ def test_stub_run_of_the_seven_tasks_produces_the_documented_figures(tmp_path):
     assert len(rows) == 14 and all(r["model_calls"] == 1 and r["run_id"] for r in rows)
     assert all(r["input_tokens"] == 1469 and r["output_tokens"] == 1050 and r["model_ms"] >= 0 for r in rows)
     # The ledger under the run's own state holds one model_call per dispatch, and nothing leaked out.
-    ledger = (tmp_path / "out" / "state" / "events" / "_ledger.jsonl").read_text()
-    assert ledger.count('"kind": "model_call"') == 14
+    ledger = (tmp_path / "out" / "state" / "events" / "_ledger.jsonl").read_text().splitlines()
+    assert sum(1 for line in ledger if line.strip() and json.loads(line).get("kind") == "model_call") == 14
     assert json.loads((tmp_path / "out" / "summary.json").read_text())["met"] == 14
 
 

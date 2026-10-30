@@ -764,7 +764,7 @@
    },
    "expect": {
     "outcome": "refused",
-    "reason": "Verified numerical analysis supports"
+    "reason": "numerical analysis supports"
    },
    "tags": [
     "analyze",
@@ -785,7 +785,7 @@
    },
    "expect": {
     "outcome": "refused",
-    "reason": "Verified numerical analysis supports"
+    "reason": "numerical analysis supports"
    },
    "tags": [
     "analyze",
@@ -806,7 +806,7 @@
    },
    "expect": {
     "outcome": "refused",
-    "reason": "seven published reports"
+    "reason": "published reports in the catalog"
    },
    "tags": [
     "analyze",
