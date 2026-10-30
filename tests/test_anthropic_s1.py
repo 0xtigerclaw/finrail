@@ -552,3 +552,54 @@ def test_router_sends_the_web_question_to_tavily_without_jev():
     from console.chat import WEB_Q
     out = ask.route(WEB_Q, ask=_jev_down)
     assert (out["workflow"], out["report_id"]) == ("finance.reports.webclaims", REPORT)
+
+
+@pytest.mark.parametrize("sentence,verdict", [
+    ("Anthropic posted a net loss of more than $80 billion in the first half of 2026.", "matches"),   # 80,748 is more than 80,000
+    ("Anthropic posted a net loss of nearly $81 billion in the first half of 2026.", "matches"),       # 80,748 is just under 81,000
+    ("Anthropic posted a net loss of about $81 billion in the first half of 2026.", "matches"),
+    ("Anthropic posted a net loss of $80 billion in the first half of 2026.", "loose"),                # 80,748 is outside 80,000 ± 500, within one unit
+    ("Anthropic posted a net loss of $79 billion in the first half of 2026.", "wrong"),
+    ("Anthropic posted a net loss of more than $90 billion in the first half of 2026.", "wrong"),
+    ("Anthropic posted a net loss of more than $70 billion in the first half of 2026.", "wrong"),      # true, but loose by a whole unit
+])
+def test_more_than_nearly_and_about_are_read_as_stated(state, sentence, verdict):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    page = {**PRESS, "content": sentence}
+    out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("net_loss", REPORT, 0.97)]))
+    assert out["claims"][0]["verdict"] == verdict, out["claims"][0]["detail"]
+    if verdict == "wrong" and "more than" in sentence:
+        assert "the claim says more than $" in out["claims"][0]["detail"]
+
+
+def test_the_convertible_notes_charge_is_its_own_checked_line(state):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    page = {**PRESS, "content": "A non-cash charge of $72.4 billion on convertible notes drove the loss in the first half of 2026."}
+    out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("convertible_notes_charge", REPORT, 0.95)]))
+    assert out["claims"][0]["verdict"] == "matches" and "−$72,388m" in out["claims"][0]["detail"]
+    assert claims._anth_keywords(page["content"], "")["line"] == "convertible_notes_charge"
+
+
+def test_nvidia_claims_read_qualifiers_too():
+    from decimal import Decimal
+    from finrail.extensions.finance import claims
+    rec = {"id": "r1", "result": {"period": "Q2 FY2027", "amount": "21700", "inputs": []}}  # 21,700: outside $21bn ± 500, inside "more than $21bn"
+    assert claims.judge(Decimal("21000"), Decimal("500"), "free_cash_flow", rec, {"kind": "min", "word": "more than"})["verdict"] == "matches"
+    assert claims.judge(Decimal("21000"), Decimal("500"), "free_cash_flow", rec)["verdict"] == "wrong"
+
+
+def test_a_sentence_with_no_period_is_ruled_out_by_code_not_by_jev(state):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    page = {**PRESS, "content": "That loss was mostly a $72 billion non-cash charge on its convertible bonds."}
+    out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("convertible_notes_charge", REPORT, 0.99)]))
+    assert out["claims"][0]["verdict"] == "unchecked" and "names no period" in out["claims"][0]["detail"]
+
+
+def test_web_summary_names_only_what_happened():
+    from console.chat import _web_summary
+    assert _web_summary({"matches": 1}) == "Tavily found <b>1</b> claim on the web. <b>1</b> matches the filing."
+    assert ("<b>2</b> match the filing, <b>1</b> is loosely rounded and <b>1</b> puts a figure on the wrong line"
+            in _web_summary({"matches": 2, "loose": 1, "wrong_line": 1, "definition": 0}))

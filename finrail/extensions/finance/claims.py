@@ -81,6 +81,42 @@ def parse_figure(text: str) -> dict:
     return {"value": value, "tolerance": tolerance}
 
 
+_BOUND = re.compile(r"\b(?P<w>more than|over|above|at least|upwards of|in excess of|exceeding|nearly|almost|just under|"
+                    r"close to|about|around|roughly|approximately|some)\s+(?:US\$|\$)\s*\d", re.I)
+_BOUND_KIND = {"more than": "min", "over": "min", "above": "min", "at least": "min", "upwards of": "min",
+               "in excess of": "min", "exceeding": "min", "nearly": "max", "almost": "max", "just under": "max",
+               "close to": "approx", "about": "approx", "around": "approx", "roughly": "approx",
+               "approximately": "approx", "some": "approx"}
+
+
+def stated_bound(sentence: str) -> dict:
+    """The word that qualifies a figure, read by code: {"kind": min | max | approx, "word"},
+    or {} when the figure is stated plainly. "More than $80 billion" is a floor, not $80bn."""
+    m = _BOUND.search(sentence or "")
+    return {"kind": _BOUND_KIND[m["w"].lower()], "word": m["w"].lower()} if m else {}
+
+
+def agrees(value: Decimal, tolerance: Decimal, truth: Decimal, bound: dict | None = None) -> bool:
+    """Whether a stated figure is consistent with the checked one. Plain: within half the last
+    typed digit. "More than X": at least X, by no more than one unit of that digit. "Nearly X":
+    at most X, by no more than one unit. "About X": within one unit. Sizes are compared, since
+    press words ("loss", "lost") carry the sign."""
+    v, t = abs(value), abs(truth)
+    unit = 2 * tolerance
+    kind = (bound or {}).get("kind")
+    if kind == "min":
+        return v - tolerance <= t <= v + unit
+    if kind == "max":
+        return v - unit <= t <= v + tolerance
+    if kind == "approx":
+        return abs(t - v) <= unit
+    return abs(t - v) <= tolerance
+
+
+def _as_stated(value: Decimal, bound: dict | None) -> str:
+    return ((bound or {}).get("word", "") + " " if bound else "") + money(abs(value) if bound else value)
+
+
 def stated_figure(text: str):
     """(value, tolerance) in USD millions, or None when `parse_figure` finds a problem."""
     found = parse_figure(text)
@@ -95,17 +131,20 @@ ANTH_LINES = {
     "net_loss": "Net loss or net income: the bottom line, what the company lost or earned overall",
     "operating_loss": "Operating result under GAAP: operating loss, or operating income or operating profit without 'adjusted'",
     "adjusted_operating_income": "Adjusted operating income, adjusted or non-GAAP profit: the company's own measure with stock compensation added back",
+    "convertible_notes_charge": "The non-cash charge from revaluing convertible notes or bonds (change in their fair value)",
     "none": "None of these: valuation, funding, run-rate, compute spending, customers, a one-off charge or anything else",
 }
 ANTH_LABELS = {"revenue": "revenue", "net_loss": "net loss", "operating_loss": "operating result",
-               "adjusted_operating_income": "adjusted operating income", "none": "not a line Finrail checks"}
+               "adjusted_operating_income": "adjusted operating income",
+               "convertible_notes_charge": "non-cash charge on convertible notes", "none": "not a line Finrail checks"}
 ANTH_PERIODS = {
     ANTHROPIC: "Anthropic's first half of 2026: the six months to 30 June 2026, as reported in its S-1",
     "other": "Another period: one quarter, a full year, an annualised run-rate, a forecast, or no period stated",
 }
 _ANTH_LINE_INSTRUCTIONS = ("Which line of Anthropic's results is this sentence's figure about? Read the words, not the number. "
                            "'Operating profit' or 'operating income' without 'adjusted' is the operating result; 'adjusted' "
-                           "or 'non-GAAP' is adjusted operating income; 'lost' or 'net loss' is the net loss.")
+                           "or 'non-GAAP' is adjusted operating income; 'lost', 'net loss' or a loss not called "
+                           "'operating' is the net loss; a non-cash charge on convertible notes or bonds is its own line.")
 _ANTH_PERIOD_INSTRUCTIONS = ("Which period is the figure for? The S-1 reports the first half of 2026, the six months to "
                              "30 June 2026. A single quarter, a full year, an annualised run-rate or a forecast is another "
                              "period. If the sentence names no period, choose other.")
@@ -126,7 +165,8 @@ def anthropic_period(sentence: str) -> str:
 
 def _anth_keywords(sentence: str, context: str) -> dict:
     s = sentence.lower()
-    line = ("adjusted_operating_income" if "adjusted" in s or "non-gaap" in s else
+    line = ("convertible_notes_charge" if "convertible" in s or "non-cash" in s else
+            "adjusted_operating_income" if "adjusted" in s or "non-gaap" in s else
             "operating_loss" if "operating" in s else
             "net_loss" if "net loss" in s or "net income" in s or " lost " in f" {s} " else
             "revenue" if "revenue" in s or "sales" in s else "none")
@@ -242,14 +282,14 @@ def money(value) -> str:
     return sign + (f"${int(value):,}m" if value == value.to_integral() else f"${value.normalize():,f}m")
 
 
-def judge(value: Decimal, tolerance: Decimal, line: str, rec: dict) -> dict:
+def judge(value: Decimal, tolerance: Decimal, line: str, rec: dict, bound: dict | None = None) -> dict:
     """Code's verdict on one read claim against one checked run."""
     period = rec["result"]["period"]
     truth = checked_line(rec, line)
     if truth is None:
         return {"verdict": "unchecked", "detail": f"{LABELS[line]} is not a line Finrail checked for {period}."}
-    if abs(value - truth) <= tolerance:
-        exact = "" if tolerance == 0 else ", as rounded"
+    if agrees(value, tolerance, truth, bound) if bound else abs(value - truth) <= tolerance:
+        exact = f', as stated ("{bound["word"]}")' if bound else "" if tolerance == 0 else ", as rounded"
         return {"verdict": "matches", "detail": f"Matches the filing{exact}: {LABELS[line]} for {period} is {money(truth)}."}
     ocf, capex = checked_line(rec, "operating_cash_flow"), checked_line(rec, "cash_purchases")
     if line == "free_cash_flow" and ocf is not None and capex is not None and abs(value - (ocf - capex)) <= tolerance:
@@ -257,10 +297,11 @@ def judge(value: Decimal, tolerance: Decimal, line: str, rec: dict) -> dict:
                 "detail": f"Different definition: {money(value)} is operating cash flow minus capex ({money(ocf)} − {money(capex)}). "
                           f"NVIDIA's own free cash flow also subtracts principal payments: {money(truth)}."}
     other = next((k for k in LINES if k not in ("none", line) and (checked_line(rec, k) is not None)
-                  and abs(value - checked_line(rec, k)) <= tolerance), "")
+                  and (agrees(value, tolerance, checked_line(rec, k), bound) if bound
+                       else abs(value - checked_line(rec, k)) <= tolerance)), "")
     hint = f" {money(value)} is NVIDIA's {LABELS[other]}, not its {LABELS[line]}." if other else ""
     return {"verdict": "wrong_line" if other else "wrong",
-            "detail": f"The filing's {LABELS[line]} for {period} is {money(truth)}; the claim says {money(value)}.{hint}"}
+            "detail": f"The filing's {LABELS[line]} for {period} is {money(truth)}; the claim says {_as_stated(value, bound)}.{hint}"}
 
 
 # ── what the web says, checked against the filing ────────────────────────────
@@ -285,7 +326,7 @@ def web_sentences(pages: list) -> list:
     return out[:MAX_CLAIMS]
 
 
-_PROFIT_WORDS = re.compile(r"revenue|sales|net loss|net income|operating (?:loss|income|profit)|adjusted|non-gaap|"
+_PROFIT_WORDS = re.compile(r"revenue|sales|net loss|net income|operating (?:loss|income|profit)|adjusted|non-gaap|convertible|"
                            r"\bprofit|\blost\b|\bloss\b", re.I)
 
 
@@ -312,24 +353,28 @@ def anthropic_checked() -> tuple:
         return {}, ""
     by = {line["key"]: Decimal(line["amount"]) for line in rec["result"].get("lines") or []}
     names = {"revenue": "revenue", "net_loss": "net_loss", "operating_loss": "aoi_operating_loss",
-             "adjusted_operating_income": "adjusted_operating_income"}
+             "adjusted_operating_income": "adjusted_operating_income", "convertible_notes_charge": "fv_convertibles"}
     return {line: by[key] for line, key in names.items() if key in by}, rec["id"]
 
 
-def judge_anthropic(value: Decimal, tolerance: Decimal, line: str, truth: dict) -> dict:
+def judge_anthropic(value: Decimal, tolerance: Decimal, line: str, truth: dict, bound: dict | None = None) -> dict:
     """Code's verdict on one read Anthropic claim. Sizes are compared as typed; the sign is
     the filing's, shown in the verdict, because press words carry it ("lost", "profit")."""
     period = "the first half of 2026"
     if line not in truth:
         return {"verdict": "unchecked", "detail": f"{ANTH_LABELS[line].capitalize()} is not a line Finrail checked in the S-1."}
-    if abs(abs(value) - abs(truth[line])) <= tolerance:
-        exact = "" if tolerance == 0 else ", as rounded"
+    if agrees(value, tolerance, truth[line], bound):
+        exact = f', as stated ("{bound["word"]}")' if bound else "" if tolerance == 0 else ", as rounded"
         return {"verdict": "matches", "detail": f"Matches the S-1{exact}: {ANTH_LABELS[line]} for {period} is {money(truth[line])}."}
-    other = next((k for k in truth if k != line and abs(abs(value) - abs(truth[k])) <= tolerance), "")
+    if not bound and tolerance and agrees(value, tolerance, truth[line], {"kind": "approx"}):
+        # Within one unit of the last typed digit but not rounded to it: "$80 billion" for $80.7bn.
+        return {"verdict": "loose", "detail": f"Close, but loosely rounded: the S-1's {ANTH_LABELS[line]} for {period} is "
+                                              f"{money(truth[line])}; the claim says {money(abs(value))}."}
+    other = next((k for k in truth if k != line and agrees(value, tolerance, truth[k], bound)), "")
     hint = (f" {money(abs(value))} is Anthropic's {ANTH_LABELS[other]} ({money(truth[other])}), "
             f"not its {ANTH_LABELS[line]}." if other else "")
     return {"verdict": "wrong_line" if other else "wrong",
-            "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}; the claim says {money(abs(value))}.{hint}"}
+            "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}; the claim says {_as_stated(abs(value), bound or {})}.{hint}"}
 
 
 def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
@@ -349,17 +394,20 @@ def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
     for f, r in zip(found, reading["readings"]):
         value, tolerance = stated_figure(f["sentence"])
         row = {**f, **r, "figure": money(value), "tolerance": str(tolerance), "line_label": ANTH_LABELS[r["line"]]}
-        if not r["sure"]:
+        if not anthropic_period(f["sentence"]):
+            # Code reads the period first: a sentence that names none is never tied to the S-1's half.
+            row.update(verdict="unchecked", detail="The sentence names no period, so it is not tied to the S-1's first half of 2026.")
+        elif not r["sure"]:
             row.update(verdict="unclear", detail="Jev was not sure which line or period this is about, so nothing was decided.")
         elif r["line"] == "none":
             row.update(verdict="unchecked", detail="Not about a line Finrail checks in the S-1.")
         elif r["quarter"] != ANTHROPIC:
             row.update(verdict="unchecked", detail="About a period other than the S-1's first half of 2026.")
         else:
-            row.update(judge_anthropic(value, tolerance, r["line"], truth), checked_run=run_id)
+            row.update(judge_anthropic(value, tolerance, r["line"], truth, stated_bound(f["sentence"])), checked_run=run_id)
         claims.append(row)
     counts = {k: sum(1 for c in claims if c["verdict"] == k)
-              for k in ("matches", "definition", "wrong", "wrong_line", "unclear", "unchecked")}
+              for k in ("matches", "loose", "definition", "wrong", "wrong_line", "unclear", "unchecked")}
     return {"report_id": item["source_id"], "query": query, "pages": len(pages), "reader": reading["reader"],
             "jev_event": reading.get("event", 0), "claims": claims, "counts": counts, "checked_run": run_id}
 
@@ -394,10 +442,11 @@ def check_web(report_id: str, search=None, ask=None) -> dict:
         elif r["quarter"] == "other" or not checked_fcf(r["quarter"]):
             row.update(verdict="unchecked", detail="About a period Finrail has not checked.")
         else:
-            row.update(judge(value, tolerance, r["line"], checked_fcf(r["quarter"])), checked_run=checked_fcf(r["quarter"])["id"])
+            row.update(judge(value, tolerance, r["line"], checked_fcf(r["quarter"]), stated_bound(f["sentence"])),
+                       checked_run=checked_fcf(r["quarter"])["id"])
         claims.append(row)
     counts = {k: sum(1 for c in claims if c["verdict"] == k)
-              for k in ("matches", "definition", "wrong", "wrong_line", "unclear", "unchecked")}
+              for k in ("matches", "loose", "definition", "wrong", "wrong_line", "unclear", "unchecked")}
     return {"report_id": report_id, "query": query, "pages": len(pages), "reader": reading["reader"],
             "jev_event": reading.get("event", 0),
             "claims": claims, "counts": counts}

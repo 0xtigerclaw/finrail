@@ -300,9 +300,7 @@ def _short(turn: dict, cid: str) -> str:
             return e(str(ans['error']).removeprefix(CAPABILITY['web'] + ': '))
         c = (_web(ans) or {}).get('counts') or {}
         n = sum(c.values())
-        return (f"Tavily found <b>{n}</b> claim{'s' if n != 1 else ''} on the web. <b>{c.get('matches', 0)}</b> match the filing, "
-                f"{c.get('definition', 0)} use another definition, <b>{c.get('wrong', 0) + c.get('wrong_line', 0)}</b> are wrong, "
-                f"and {c.get('unchecked', 0) + c.get('unclear', 0)} could not be tied to a checked quarter, so nothing was decided on them.")
+        return _web_summary(c)
     if kind == 'search':
         return e(ans['error']) if ans.get('error') else "Here is what the filing says. Search alone never certifies a number."
     if kind == 'scope':
@@ -415,7 +413,22 @@ def _options(question: str, flows, cid: str) -> str:
             + ''.join(f"<button class='chip' name='force' value='{e(f)}'>{e(label(f))}</button>" for f in flows) + "</form>")
 
 
-VERDICTS = {'matches': ('pass', 'Matches the filing'), 'definition': ('wait', 'Other definition'),
+def _web_summary(c: dict) -> str:
+    """One sentence on what the web said, naming only the outcomes that occurred."""
+    n = sum(c.values())
+    items = ((c.get('matches', 0), 'matches the filing', 'match the filing'),
+             (c.get('loose', 0), 'is loosely rounded', 'are loosely rounded'),
+             (c.get('definition', 0), 'uses another definition', 'use another definition'),
+             (c.get('wrong_line', 0), 'puts a figure on the wrong line', 'put a figure on the wrong line'),
+             (c.get('wrong', 0), 'is wrong', 'are wrong'),
+             (c.get('unchecked', 0) + c.get('unclear', 0), 'could not be tied to a checked line and period',
+              'could not be tied to a checked line and period'))
+    said = [f"<b>{k}</b> {one if k == 1 else many}" for k, one, many in items if k]
+    listed = (", ".join(said[:-1]) + " and " + said[-1]) if len(said) > 1 else (said[0] if said else "None could be checked")
+    return f"Tavily found <b>{n}</b> claim{'s' if n != 1 else ''} on the web. {listed}."
+
+
+VERDICTS = {'matches': ('pass', 'Matches the filing'), 'loose': ('wait', 'Loosely rounded'), 'definition': ('wait', 'Other definition'),
             'wrong': ('fail', 'Wrong'), 'wrong_line': ('fail', 'Wrong line'), 'unclear': ('skip', 'Unclear'),
             'unchecked': ('skip', 'Not decided')}
 
@@ -602,13 +615,14 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
         else:
             n = len(v['claims'])
             facts['Find'] = f"{v['pages']} pages for “{e(v['query'])}”"
-            facts['Pick sentences'] = f"{n} verbatim sentence{'s' if n != 1 else ''} state a cash-flow figure"
+            facts['Pick sentences'] = f"{n} verbatim sentence{'s' if n != 1 else ''} state a figure on a checked line"
             facts['Read claims'] = (f"Read {n} claims in one call{_jev_link(v.get('jev_event'))}" if v['reader'] == 'jev'
                                     else f"Jev was unreachable; keyword rules read {n} claims, and this says so")
             c = v['counts']
-            facts['Check'] = (f"{c['matches']} match · {c['definition']} other definition · {c['wrong'] + c['wrong_line']} wrong · "
+            facts['Check'] = (f"{c['matches']} match · {c.get('loose', 0)} loosely rounded · {c['wrong_line']} wrong line · "
+                              f"{c['wrong']} wrong · {c['definition']} other definition · "
                               f"{c['unchecked'] + c['unclear']} not decided")
-            order = ('wrong', 'wrong_line', 'definition', 'matches', 'unclear', 'unchecked')
+            order = ('wrong', 'wrong_line', 'loose', 'definition', 'matches', 'unclear', 'unchecked')
             ranked = sorted(v['claims'], key=lambda x: order.index(x['verdict']) if x['verdict'] in order else 9)
             evidence = ''.join(_claim_html(x) for x in ranked) or '<p>No sentence on those pages stated a cash-flow figure.</p>'
     elif kind == 'multiple':
