@@ -453,10 +453,13 @@ def test_ask_door_opens_with_three_true_lines_then_the_house_figure(state):
     rid, _value = _record("house_operating_income")
     client = TestClient(app)
     page = client.post("/ask", data={"question": MONEY_Q}, follow_redirects=True).text
-    assert "It depends which line you read" in page
-    for shown in ("net loss <b>−$80,748m</b> (table 109, row", "operating loss <b>−$693m</b> (table 61, row",
-                  "adjusted operating income <b>$1,618m</b> (table 61, row", "$72,388m of the net loss is a non-cash charge"):
-        assert shown in page, shown
+    assert "Three true answers, one filing." in page and "Which one goes in the memo is a method decision." in page
+    ladder = page.split("class='line-ladder'")[1].split("</table>")[0]
+    for name, amount, cell in (("Net loss", "−$80,748m", "T109 · R"), ("of which non-cash", "−$72,388m", "T109 · R"),
+                               ("Operating loss", "−$693m", "T61 · R"), ("Adjusted operating income", "+$1,618m", "T61 · R")):
+        row = ladder.split(f">{name}<", 1)[1].split("</tr>")[0]
+        assert amount in row and cell in row, (name, row)
+    assert ladder.index(">Net loss<") < ladder.index(">Operating loss<") < ladder.index(">Adjusted operating income<")
     assert "Which line?" in page and rid in page
     assert HOUSE_Q.replace("'", "&#x27;") in page  # the next chip is the house figure
 

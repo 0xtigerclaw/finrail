@@ -266,18 +266,7 @@ def _short(turn: dict, cid: str) -> str:
                     f"({e(b['period'])}), {'down' if diff < 0 else 'up'} ${abs(int(diff)):,}m ({pct:+}%). Both tie to NVIDIA’s reported figures.")
         v = done[0]['result']
         if route.get('figure') == 'made_money' and v.get('lines'):
-            by = {line['key']: line for line in v['lines']}
-            def cell(key, name):
-                line = by.get(key)
-                return (f"{e(name)} <b>{money(line['amount'])}</b> (table {e(line.get('table'))}, row {e(line.get('row_number'))})"
-                        if line else '')
-            told = [cell('net_loss', 'net loss'), cell('aoi_operating_loss', 'operating loss'),
-                    cell('adjusted_operating_income', 'Anthropic’s adjusted operating income')]
-            charge = by.get('fv_convertibles')
-            return ("It depends which line you read. All three are in the S-1, each checked against its archived cell: "
-                    + ' · '.join(t for t in told if t) + '.'
-                    + (f" {money(charge['amount']).lstrip('−-')} of the net loss is a non-cash charge on convertible notes." if charge else '')
-                    + " Which one goes in the memo is a method decision.")
+            return _lines_reply(v['lines'])
         if v.get('house_rule'):
             sbc = v['difference'][0]['amount']
             return (f"House operating result: <b>{money(v['amount'])}</b> for {e(v['period'])}. Anthropic reports "
@@ -326,6 +315,36 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'none':
         return "I won’t answer that. No checked workflow covers it; advice, forecasts and opinions are yours to make."
     return e(ans.get('error') or 'Something went wrong.')
+
+
+#: The profit lines, in reading order: (key, row name, note under the name, indented as part of the row above).
+LADDER = (('net_loss', 'Net loss', '', False),
+          ('fv_convertibles', 'of which non-cash', 'convertible notes revalued', True),
+          ('aoi_operating_loss', 'Operating loss', '', False),
+          ('adjusted_operating_income', 'Adjusted operating income', 'Anthropic’s own measure', False))
+
+
+def _lines_reply(lines: list) -> str:
+    """Three true answers from one filing, laid out to be read in five seconds: a lead line,
+    one row per figure with its sign, amount and filing cell, and one closing line."""
+    by = {line['key']: line for line in lines}
+    rows = ''
+    for key, name, note, sub in LADDER:
+        line = by.get(key)
+        if not line:
+            continue
+        amount = Decimal(line['amount'])
+        sign = 'neg' if amount < 0 else 'pos'
+        shown = money(amount) if amount < 0 else '+' + money(amount)
+        rows += (f"<tr class='{'ladder-sub' if sub else ''}'><th scope='row'>{e(name)}"
+                 + (f"<small>{e(note)}</small>" if note else '') + "</th>"
+                 f"<td class='ladder-amount {sign}'>{e(shown)}</td>"
+                 f"<td class='ladder-cell'>T{e(line.get('table'))} · R{e(line.get('row_number'))}</td></tr>")
+    return ("<span class='answer-lead'>Three true answers, one filing.</span>"
+            f"<table class='line-ladder'><caption class='sr-only'>Anthropic profit lines, six months ended 30 June 2026, "
+            f"each checked against its cell in the S-1</caption><tbody>{rows}</tbody></table>"
+            "<span class='answer-foot'>Each figure checked against its archived cell in the S\u20111. "
+            "Which one goes in the memo is a method decision.</span>")
 
 
 def _record_question(report_id: str) -> str | None:
@@ -663,7 +682,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
         running = running or state == 'run'
         chosen = i == selected
         thread += (f"<div class='turn{' is-selected' if chosen else ''}' id='t{i}'><p class='bubble'>{e(t['q'])}</p>"
-                   f"<div class='reply'><p class='answer-text'>{_short(t, cid)}</p>"
+                   f"<div class='reply'><div class='answer-text'>{_short(t, cid)}</div>"
                    f"<a class='trace-link' href='/?chat={e(cid)}&amp;t={i}#t{i}'{' aria-current=true' if chosen else ''}>"
                    f"<span class='verdict v-{state}'>{e(label)}</span><span>{'Showing trace' if chosen else 'Show trace'}</span></a></div></div>")
     chips = ''.join(f"<button class='chip' name='question' value='{e(s)}'>{e(s)}</button>" for s in followups(turns))
