@@ -215,7 +215,7 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 The model only picks a source row and a number. Code checks both against the archived filing and does the arithmetic. So a weaker model shows up as refusals, latency and cost, never as a wrong figure.
 
-On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every wrong pick was refused by code. Nemotron 3.5 needs a larger reply cap than Finrail's current 8,192 tokens: at 32,768 it passed 70 of 70, while at 8,192 four replies were cut off before they answered. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
+On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron 3.5, Finrail's default engine, did it at about 1/5.5 of Opus's cost per checked answer, and Nemotron 3 at about 1/17. Opus was the fastest. Every wrong pick was refused by code. Nemotron 3.5 needs room to think: with the 32,768-token reply cap Finrail now uses it passed 70 of 70, while at the old 8,192 cap four replies were cut off before they answered. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
 
 ## Honest limitations
 
