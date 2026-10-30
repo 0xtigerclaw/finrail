@@ -201,7 +201,7 @@ The entire build was done with four AI models working together:
 - NVIDIA Nemotron, via Nebius Token Factory
 - GLM-5.3, from Z.ai
 
-These models wrote and reviewed the code. They are not part of the running system. At runtime the harness calls two models, each as a function: NVIDIA Nemotron on Nebius selects filing rows, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
+These models wrote and reviewed the code. Separately, at runtime, the harness calls two models, each as a function: NVIDIA Nemotron on Nebius selects filing rows, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
 
 ## A new, standalone project
 
