@@ -745,10 +745,15 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
              "<ol class='trace'>" + _step('skip', 'Router', 'Jev picks a workflow. It cannot write.') + _step('skip', 'Plugin', 'Runs under rules declared in code.')
              + _step('skip', 'Model', 'Picks rows and values in the filing. Nothing else.') + _step('skip', 'Checks', 'Code checks every figure against the filing.')
              + _step('skip', 'Verdict', 'An answer, a refusal, or a wait for a person.') + "</ol></div>")
+    how = (("Route", "Jev sends each question to the right workflow, filing and period."),
+           ("Read", f"{e(engine)} is the core model. It reads the filing and picks the figures."),
+           ("Rules", "Plugins hold your fund’s method as rules in code."),
+           ("Check", "Code checks every figure against the filing, or refuses. The trace shows each step."))
     return ("<header class='ask-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
-            "<h1>Your fund’s method, run as code on every filing.</h1>"
-            "<p class='proof-lede'>A model finds the numbers. Code checks each one against the filing and applies your method, "
-            f"or refuses. Jev routes each question and {e(engine)} reads the filing. The trace on the right shows every step.</p></header>"
+            "<h1>Evaluate investment opportunities</h1>"
+            "<p class='proof-lede'><b>On file:</b> Anthropic’s S\u20111, and quarterly results from NVIDIA, Nebius and ASML.</p>"
+            "<dl class='hero-how' aria-label='How it works'>"
+            + ''.join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in how) + "</dl></header>"
             f"<div class='ask-layout'><div class='ask-chat'><section class='thread'{refresh}>{thread}<span id='latest'></span></section>"
             f"{starter}{composer}" + ("<p class='new-chat'><a href='/'>Start a new conversation</a></p>" if turns else '')
             + f"</div><aside class='trace-panel' id='trace' aria-label='Harness trace'>{panel}</aside></div>")
