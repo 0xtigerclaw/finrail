@@ -22,7 +22,7 @@ def client():
 def test_home_is_the_ask_door(client):
     page = client.get("/")
     assert page.status_code == 200
-    assert "Evaluate investment opportunities" in page.text and "hero-how" in page.text
+    assert "Evaluate investment opportunities" in page.text and ">How it works<" in page.text and "hero-how" in page.text
     assert "DeepSeek Harness" in page.text
     assert "What was NVIDIA" in page.text
     assert "/cli" in page.text
