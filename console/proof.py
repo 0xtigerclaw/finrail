@@ -52,7 +52,7 @@ WP_REF = {'house_operating_income': 'OP-1', 'adjusted_operating_income': 'OP-2',
 
 
 def hero() -> str:
-    return ("<header class='proof-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
+    return ("<header class='proof-hero'><p class='kicker'>Finance harness, inspired by DeepSeek Harness</p>"
             "<h1>Every plugin declares its rules in code. Code enforces them.</h1>"
             "<p class='proof-lede'>DeepSeek Harness made everything a plugin. Finrail makes each plugin say, in code, "
             "whether it may act, who must approve, and how its result is checked. Below is one live run on a real filing.</p></header>")
