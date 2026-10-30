@@ -47,6 +47,7 @@ import pathlib
 import pathlib
 import uuid
 
+from . import atomic
 from .errors import ContractViolation
 from .settings import ensure, runs, state
 
@@ -358,15 +359,24 @@ def load(rid: str) -> dict:
     return json.loads(p.read_text())
 
 
+def _record_lock(rid: str):
+    """One lock per record, held across `update`'s read, change and write. Without it the
+    console's `_spawn` (setting `worker_pid`) and the worker it just started (setting
+    `running`) each read the old record and the second write erased the first. Kept
+    apart from dispatch's claim lock, which is held while `update` runs."""
+    return atomic.locked(_find(rid).parent.parent / "locks" / f"record-{rid}")
+
+
 def update(rid: str, **kw) -> dict:
-    rec = load(rid)
     new = kw.get("status")
-    if new and new != rec["status"] and new not in TRANSITIONS[rec["status"]]:
-        raise ContractViolation(
-            f"run {rid}: illegal transition {rec['status']} -> {new}")
-    rec.update(kw)
-    rec["updated"] = _now()
-    _write(rec)
+    with _record_lock(rid):
+        rec = load(rid)
+        if new and new != rec["status"] and new not in TRANSITIONS[rec["status"]]:
+            raise ContractViolation(
+                f"run {rid}: illegal transition {rec['status']} -> {new}")
+        rec.update(kw)
+        rec["updated"] = _now()
+        _write(rec)
     # Every change but the live step list, which the log carries as its own events.
     changed = {k: v for k, v in kw.items() if k != "progress"}
     if changed:
@@ -720,5 +730,7 @@ def _write(rec: dict) -> None:
     ensure()
     d = pathlib.Path(rec[DIR_KEY]) if DIR_KEY in rec else runs()
     d.mkdir(parents=True, exist_ok=True)
-    (d / f"{rec['id']}.json").write_text(json.dumps(rec, indent=2, default=str))
+    # Atomic: a detached worker rewrites its record while the console reads it, and an
+    # in-place write left an empty file in between, which the console showed as 404.
+    atomic.write_text(d / f"{rec['id']}.json", json.dumps(rec, indent=2, default=str))
     _index(rec, d)
