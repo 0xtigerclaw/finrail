@@ -29,3 +29,6 @@ uv.lock
 
 # Local agent and preview config: holds personal account names and scratch paths.
 .claude/
+
+# Default output directory of `python -m finrail.eval run`.
+eval-out/
