@@ -1,5 +1,7 @@
 # Finrail
 
+![Finrail, the finance harness for AI agents. Did Anthropic make money? Net loss minus $80.7bn, operating loss minus $0.7bn, adjusted operating income plus $1.6bn, from Anthropic's S-1, checked by code.](docs/img/cover.png)
+
 **A harness for financial AI in which every figure is decided by code, checked against its source, and approved only by a person.**
 
 Finrail is built for one domain: finance, where a number is acted on and a fluent wrong number is the most expensive kind. Its design descends from DeepSeek Harness. Every request flows through one deterministic dispatcher. A language model is a function that code calls, with typed inputs and a checked return. The interface is a plugin over that dispatcher, with no authority of its own.
@@ -7,8 +9,6 @@ Finrail is built for one domain: finance, where a number is acted on and a fluen
 **Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
 **Built with:** Sol 6.1, Claude Opus 5.5, NVIDIA Nemotron and GLM-5.3 on Nebius Token Factory. See [How it was built](#how-it-was-built).
-
-![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
 ## The problem
 
@@ -128,6 +128,10 @@ Each answer offers the next question as a chip, so the story clicks through:
 The Rules page renders every capability's declared steps from the live registry. The Ledger shows every model and Jev call.
 
 ## Screens
+
+**The opening question.** Three true profit lines from one filing, each with its table and row, and the harness trace beside the answer.
+
+![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
 **A figure under the fund's method.** −$567m under rule M-1, with the $2,185m gap to Anthropic's adjusted figure explained. The trace on the right shows each step and the rule that holds it.
 
