@@ -24,7 +24,7 @@ def test_home_is_the_ask_door(client):
     assert page.status_code == 200
     assert "Evaluate investment opportunities" in page.text and ">How it works<" in page.text and "hero-how" in page.text
     assert "DeepSeek Harness" in page.text
-    assert "What was NVIDIA" in page.text
+    assert "Did Anthropic make money" in page.text and "What was NVIDIA" not in page.text  # demo questions only
     assert "/cli" in page.text
 
 
