@@ -23,6 +23,18 @@ model call (`model_round`: wall, model and tool seconds, what the model was show
 one `turn` per call that sums it up, with the call's own cost. A run made outside any conversation (a terminal, a cron tick) goes to the
 `_ledger` log, so every run is somewhere.
 
+EVERY LINE IS CHAINED (schema 2). Each event carries `prev`, the SHA-256 of the line
+before it as stored (a fixed genesis value for the first), and `hash`, the SHA-256 of its
+own canonical JSON (sorted keys, compact separators, UTF-8) with `prev` included. An edit
+to a line breaks its hash; a deletion or an insertion breaks the next line's `prev`; the
+`<log>.head` sidecar beside each file records the last seq and hash written, so a cut-off
+tail is seen too. When the install has a ledger key (`FINRAIL_LEDGER_KEY`, or the secret
+`ledger-hmac-key` in the secret store) every line and every head also carries `mac`, an
+HMAC-SHA256 of the hash under that key, so a rewrite by someone without the key is
+detectable even when they recomputed every hash. `finrail ledger verify` checks all of
+it and says which guarantee applied. Lines written before schema 2 have no chain fields;
+readers accept them and verify reports them as unchained.
+
 IT RECORDS; IT DOES NOT YET DECIDE. The runs, threads and sessions files are still the
 source of truth. `project_thread` and `project_run` rebuild them from the log alone, and
 `compare` says where the two disagree; once they agree for long enough, the old files
@@ -33,6 +45,8 @@ and the run goes on. Owned by core (docs/LAYERS.md): plugins append through `app
 """
 import contextlib
 import datetime
+import hashlib
+import hmac
 import json
 import os
 import pathlib
@@ -43,13 +57,24 @@ from . import log
 _logger = log.get(__name__)
 
 EPOCH = 1
+#: The schema every line written from now on carries. 1 (or absent) is a line written
+#: before the chain existed: readable, verified as "unchained, pre-v2".
+SCHEMA = 2
+#: `prev` of the first line in a file.
+GENESIS = "0" * 64
+#: Where the install-level key lives: the environment first (how Cloud Run mounts a
+#: Secret Manager secret), then the secret store (core/secrets.py).
+KEY_ENV = "FINRAIL_LEDGER_KEY"
+KEY_SECRET = "ledger-hmac-key"
+#: The sidecar beside each log that records the last line written: `<name>.head`.
+HEAD_SUFFIX = ".head"
 #: The log a run lands in when no conversation made it.
 LEDGER = "_ledger"
 DIRNAME = "events"
 
 #: The kinds this module writes, for readers that switch on them.
-KINDS = ("message", "reply", "command", "run", "run_update", "run_dropped", "step",
-         "model_call", "model_round", "turn", "delivered", "question", "answer")
+KINDS = ("message", "reply", "command", "run", "run_update", "run_dropped", "approval",
+         "step", "model_call", "model_round", "turn", "delivered", "question", "answer")
 
 
 def directory() -> pathlib.Path:
@@ -82,13 +107,14 @@ def _locked(path: pathlib.Path):
             fh.close()
 
 
-def _last_seq(fh) -> int:
-    """The seq of the last complete line, read from the end: a log only ever grows, so
-    the tail is the only part an append needs."""
+def _tail(fh) -> tuple:
+    """(seq, raw bytes) of the last complete line that parses, read from the end: a log
+    only ever grows, so the tail is the only part an append needs. (0, None) for an
+    empty log. The raw bytes are what the next line's `prev` is taken over."""
     fh.seek(0, os.SEEK_END)
     size = fh.tell()
     if not size:
-        return 0
+        return 0, None
     back = min(size, 1 << 16)
     while True:
         fh.seek(size - back)
@@ -99,12 +125,226 @@ def _last_seq(fh) -> int:
         candidates = lines if back == size else lines[1:]
         for ln in reversed(candidates):
             try:
-                return int(json.loads(ln).get("seq") or 0)
+                return int(json.loads(ln).get("seq") or 0), ln
             except (ValueError, AttributeError):
                 continue
         if back == size:
-            return 0
+            return 0, None
         back = min(size, back * 4)
+
+
+def _last_seq(fh) -> int:
+    return _tail(fh)[0]
+
+
+# ── the chain ───────────────────────────────────────────────────────────────
+def canonical(ev: dict) -> bytes:
+    """One spelling of an event: sorted keys, compact separators, UTF-8. What is hashed
+    and what is written, so the bytes on disk are the bytes the hash covers."""
+    return json.dumps(ev, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False).encode("utf-8")
+
+
+def sha256(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def line_hash(ev: dict) -> str:
+    """The hash of an event: its canonical JSON with `prev` in and `hash`/`mac` out."""
+    body = {k: v for k, v in ev.items() if k not in ("hash", "mac")}
+    return sha256(canonical(body))
+
+
+def _mac(k: bytes, text: str) -> str:
+    return hmac.new(k, text.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def head_mac(k: bytes, seq: int, h: str) -> str:
+    return _mac(k, f"{int(seq)}:{h}")
+
+
+_KEY = {}
+
+
+def key():
+    """The install-level ledger key as bytes, or None when the install has none.
+
+    Looked up once per process (per state directory for the file store): the keychain
+    answers through a subprocess, and an event is appended on every step of every run."""
+    env = os.environ.get(KEY_ENV, "").strip()
+    if env:
+        return env.encode("utf-8")
+    try:
+        from . import secrets
+        from .settings import state
+        name = secrets.default_name()
+        slot = (name, str(state()) if name == "file" else "")
+    except Exception:                                            # noqa: BLE001
+        return None
+    if slot not in _KEY:
+        try:
+            _KEY[slot] = (secrets.get(KEY_SECRET).encode("utf-8")
+                          if secrets.exists(KEY_SECRET) else None)
+        except Exception:                                        # noqa: BLE001
+            _KEY[slot] = None
+    return _KEY[slot]
+
+
+def forget_key() -> None:
+    """Drop the cached key: for a process that has just stored one."""
+    _KEY.clear()
+
+
+def chain(ev: dict, prev_raw, k=None) -> dict:
+    """`ev` with its chain fields filled: schema, prev (over the line before, or
+    genesis), hash, and mac when a key is given."""
+    out = {kk: v for kk, v in ev.items() if kk not in ("prev", "hash", "mac")}
+    out["schema"] = SCHEMA
+    out["prev"] = GENESIS if prev_raw is None else sha256(prev_raw)
+    out["hash"] = line_hash(out)
+    if k:
+        out["mac"] = _mac(k, out["hash"])
+    return out
+
+
+def head_path(path: pathlib.Path) -> pathlib.Path:
+    return path.with_name(path.name + HEAD_SUFFIX)
+
+
+def _write_head(path: pathlib.Path, ev: dict, k) -> None:
+    """The last line written, kept beside the log so a cut-off tail is seen. Written in
+    one step (core/atomic.py) under the log's own lock."""
+    from . import atomic
+    head = {"seq": int(ev.get("seq") or 0), "hash": ev["hash"], "at": _now()}
+    if k:
+        head["mac"] = head_mac(k, head["seq"], head["hash"])
+    atomic.write_text(head_path(path), json.dumps(head, sort_keys=True))
+
+
+def read_head(path: pathlib.Path):
+    try:
+        return json.loads(head_path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def append_chained(path: pathlib.Path, build) -> int:
+    """Append one chained line to any log and return its seq, or raise.
+
+    `build(seq)` returns the event's own fields; the chain fields are added here. Used
+    for the event logs and for a run's history (core/tracker.py), which chain the same
+    way and verify with the same walk."""
+    k = key()
+    with _locked(path) as fh:
+        seq, prev_raw = _tail(fh)
+        seq += 1
+        # A write cut off by a crash leaves no newline; start on a fresh line, or
+        # this event is glued onto the torn one and lost with it.
+        fh.seek(0, os.SEEK_END)
+        if fh.tell():
+            fh.seek(-1, os.SEEK_END)
+            if fh.read(1) != b"\n":
+                fh.seek(0, os.SEEK_END)
+                fh.write(b"\n")
+        ev = chain({**build(seq), "seq": seq}, prev_raw, k)
+        fh.seek(0, os.SEEK_END)
+        fh.write(canonical(ev) + b"\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+        _write_head(path, ev, k)
+    return seq
+
+
+def verify_file(path: pathlib.Path) -> dict:
+    """Walk one log and report the first break, with its line number.
+
+    Returns {"file", "lines", "chained", "unchained", "torn", "ok", "break"}:
+    `chained` and `unchained` count the schema 2 and the pre-v2 lines, `torn` lists the
+    lines that do not parse (a write cut off by a crash: the chain steps over them, as
+    the appender did, and they are said rather than counted as damage), and `break` is
+    {"line": n, "reason": ...} or None. With a key, a line or head without an HMAC, or
+    with a wrong one, is a break."""
+    k = key()
+    path = pathlib.Path(path)
+    out = {"file": str(path), "lines": 0, "chained": 0, "unchained": 0, "torn": [],
+           "ok": True, "break": None, "last_seq": 0}
+
+    def broken(n, why):
+        out["ok"], out["break"] = False, {"line": n, "reason": why}
+        return out
+
+    try:
+        raw_lines = path.read_bytes().split(b"\n")
+    except OSError as e:
+        return broken(0, f"cannot be read: {e}")
+    prev_raw, last_seq, last_hash, n = None, 0, "", 0
+    for i, raw in enumerate(raw_lines, 1):
+        if not raw.strip():
+            continue
+        n = i
+        out["lines"] += 1
+        try:
+            ev = json.loads(raw)
+            if not isinstance(ev, dict):
+                raise ValueError("not an object")
+        except ValueError:
+            out["torn"].append(n)
+            continue
+        seq = int(ev.get("seq") or 0)
+        if "hash" not in ev:
+            # Pre-v2: nothing to check, and its seq is what the next line counts from.
+            out["unchained"] += 1
+            prev_raw, last_seq, last_hash = raw, seq or last_seq, ""
+            continue
+        if last_seq and seq != last_seq + 1:
+            return broken(n, f"seq {seq} follows seq {last_seq}: "
+                             f"{'a line is missing' if seq > last_seq + 1 else 'out of order'}")
+        if not last_seq and prev_raw is None and seq != 1:
+            return broken(n, f"the first line has seq {seq}, not 1: the start is missing")
+        want = GENESIS if prev_raw is None else sha256(prev_raw)
+        if ev.get("prev") != want:
+            return broken(n, "prev does not match the line before it (that line was "
+                             "edited, replaced or removed)")
+        if ev.get("hash") != line_hash(ev):
+            return broken(n, "hash does not match the line's content (the line was edited)")
+        if k:
+            if not ev.get("mac"):
+                return broken(n, "no HMAC on a line, and this install has a ledger key")
+            if not hmac.compare_digest(str(ev["mac"]), _mac(k, ev["hash"])):
+                return broken(n, "HMAC does not match: rewritten without the ledger key")
+        out["chained"] += 1
+        prev_raw, last_seq, last_hash = raw, seq, ev["hash"]
+    out["last_seq"] = last_seq
+    head = read_head(path)
+    if head and out["chained"]:
+        hseq, hhash = int(head.get("seq") or 0), str(head.get("hash") or "")
+        if k:
+            if not head.get("mac") or not hmac.compare_digest(
+                    str(head["mac"]), head_mac(k, hseq, hhash)):
+                return broken(n + 1, "the head sidecar's HMAC does not match")
+        if hseq > last_seq:
+            return broken(n + 1, f"truncated: the head records seq {hseq}, the file "
+                                 f"ends at seq {last_seq}")
+        if hseq == last_seq and hhash != last_hash:
+            return broken(n, "the last line is not the one the head records")
+    elif k and out["chained"] and head is None:
+        return broken(n + 1, "no head sidecar, and this install has a ledger key")
+    return out
+
+
+def guarantee() -> str:
+    """Which guarantee this install's ledger gives, in one line, for verify's report."""
+    if key():
+        return ("hash chain and HMAC: an edit, a deletion or a cut-off tail is seen, and "
+                "a rewrite needs the ledger key")
+    return ("hash chain only (no ledger key): an edit, a deletion or a cut-off tail is "
+            "seen, but someone with disk access could rewrite the chain and its head")
+
+
+def verify_all() -> list:
+    """One report per event log (`verify_file`), every log in the directory."""
+    d = directory()
+    return [verify_file(p) for p in sorted(d.glob("*.jsonl"))] if d.is_dir() else []
 
 
 def _now() -> str:
@@ -132,24 +372,9 @@ def append(thread: str, kind: str, data: dict = None, run: str = "") -> int:
     thread = str(thread or LEDGER)
     path = _file(thread)
     try:
-        with _locked(path) as fh:
-            seq = _last_seq(fh) + 1
-            # A write cut off by a crash leaves no newline; start on a fresh line, or
-            # this event is glued onto the torn one and lost with it.
-            fh.seek(0, os.SEEK_END)
-            if fh.tell():
-                fh.seek(-1, os.SEEK_END)
-                if fh.read(1) != b"\n":
-                    fh.seek(0, os.SEEK_END)
-                    fh.write(b"\n")
-            line = json.dumps({"seq": seq, "epoch": EPOCH, "at": _now(), "thread": thread,
-                               "kind": kind, "run": run or "",
-                               "data": _plain(data or {})}, ensure_ascii=False)
-            fh.seek(0, os.SEEK_END)
-            fh.write(line.encode("utf-8") + b"\n")
-            fh.flush()
-            os.fsync(fh.fileno())
-        return seq
+        return append_chained(path, lambda seq: {
+            "seq": seq, "epoch": EPOCH, "at": _now(), "thread": thread, "kind": kind,
+            "run": run or "", "data": _plain(data or {})})
     except Exception:                                            # noqa: BLE001
         _logger.warning("event log: could not append %s to %s", kind, thread,
                         exc_info=True)
