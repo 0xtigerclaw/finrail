@@ -109,6 +109,16 @@ def test_stub_run_of_the_seven_tasks_produces_the_documented_figures(tmp_path):
     assert json.loads((tmp_path / "out" / "summary.json").read_text())["met"] == 14
 
 
+def test_a_second_execution_in_the_same_out_dir_counts_only_its_own_model_calls(tmp_path):
+    doc = _doc(_case())
+    first = runner.run(doc, engine="stub", runs=1, out=tmp_path / "out")
+    second = runner.run(doc, engine="stub", runs=1, out=tmp_path / "out")
+    rows = [json.loads(ln) for ln in (tmp_path / "out" / "results.jsonl").read_text().splitlines()]
+    assert len(rows) == 1 and rows[0]["model_calls"] == 1
+    assert rows[0]["input_tokens"] == 1469 and rows[0]["output_tokens"] == 1050
+    assert second["tokens"]["input_mean"] == first["tokens"]["input_mean"] == 1469
+
+
 def test_stub_run_of_the_benchmark_refuses_every_adversarial_case(tmp_path):
     doc = cases.load(CASES / "benchmark_36.json")
     summary = runner.run(doc, engine="stub", runs=1, out=tmp_path / "out")

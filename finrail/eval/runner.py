@@ -138,6 +138,13 @@ def _amount(result) -> str:
     return str(answer.get("amount")) if isinstance(answer, dict) and "amount" in answer else ""
 
 
+def _ledger_end() -> int:
+    """The byte offset after the ledger's last complete line: where this execution's
+    own model calls start."""
+    from finrail.core import events
+    return events.read_from(events.LEDGER, 0, kinds=("none",))[1]
+
+
 def _model_calls(offset: int) -> tuple:
     """The `model_call` events written since `offset`, and the new offset."""
     from finrail.core import events
@@ -228,7 +235,9 @@ def run(doc: dict, engine: str = stub.ENGINE, runs: int = 1, out="eval-out", ans
                 for mod in {sys.modules[type(registry.command(n)).__module__] for n in _cases.CAPABILITIES}:
                     stubbed["filings"].patch(mod)
             restore_llm = _wrap_llm()
-            offset = 0
+            # Start past whatever an earlier execution in this out dir already wrote,
+            # or its model calls land on this execution's first case.
+            offset = _ledger_end()
             results_path = out / "results.jsonl"
             with open(results_path, "w", encoding="utf-8") as fh:
                 for n in range(1, runs + 1):

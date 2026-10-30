@@ -110,6 +110,46 @@ def test_a_truncated_tail_is_reported():
     assert "seq 5" in report["break"]["reason"]
 
 
+def test_an_append_after_truncation_keeps_the_evidence():
+    """Cutting the log back and letting the service write again must not heal it: the
+    next line records what the head said, hashed and signed with the rest."""
+    path = _log()
+    _write_lines(path, _lines(path)[:3])
+    events.append("audit", "message", {"text": "after the cut"})
+    report = events.verify_file(path)
+    assert not report["ok"]
+    assert report["break"]["line"] == 4
+    assert "truncated before this line" in report["break"]["reason"]
+    assert "seq 5" in report["break"]["reason"] and "seq 3" in report["break"]["reason"]
+    last = json.loads(_lines(path)[-1])
+    assert last["found_break"]["head_seq"] == 5 and last["found_break"]["tail_seq"] == 3
+    # Editing the evidence out breaks the hash like any other edit.
+    del last["found_break"]
+    _write_lines(path, _lines(path)[:3] + [events.canonical(last)])
+    assert "edited" in events.verify_file(path)["break"]["reason"]
+
+
+def test_a_swapped_last_line_is_seen_at_the_next_append():
+    path = _log()
+    lines = _lines(path)
+    last = json.loads(lines[-1])
+    last["data"]["text"] = "swapped"
+    last = {k: v for k, v in last.items() if k not in ("hash", "mac")}
+    last["hash"] = events.line_hash(last)
+    _write_lines(path, lines[:-1] + [events.canonical(last)])
+    events.append("audit", "message", {"text": "after the swap"})
+    assert "truncated before this line" in events.verify_file(path)["break"]["reason"]
+
+
+def test_a_log_emptied_to_nothing_is_reported():
+    path = _log()
+    path.write_bytes(b"")
+    report = events.verify_file(path)
+    assert not report["ok"]
+    assert report["break"]["line"] == 1
+    assert "truncated" in report["break"]["reason"] and "seq 5" in report["break"]["reason"]
+
+
 def test_the_command_exits_non_zero_on_a_break(capsys):
     path = _log()
     assert entrypoint.main(["ledger", "verify"]) == 0

@@ -228,15 +228,46 @@ def read_head(path: pathlib.Path):
         return None
 
 
+def _head_disagrees(path: pathlib.Path, tail_seq: int, tail_raw) -> dict | None:
+    """What the head sidecar says that the log's tail does not: the log was cut back
+    (the head records a later seq) or its last line swapped (same seq, another hash).
+    None when they agree, or when there is no head to compare."""
+    head = read_head(path)
+    if not head:
+        return None
+    hseq, hhash = int(head.get("seq") or 0), str(head.get("hash") or "")
+    tail_hash = ""
+    if tail_raw is not None:
+        try:
+            tail_hash = str(json.loads(tail_raw).get("hash") or "")
+        except (ValueError, AttributeError):
+            tail_hash = ""
+    if hseq > tail_seq or (hseq == tail_seq and tail_hash and hhash and hhash != tail_hash):
+        return {"head_seq": hseq, "head_hash": hhash, "tail_seq": tail_seq,
+                "tail_hash": tail_hash}
+    return None
+
+
 def append_chained(path: pathlib.Path, build) -> int:
     """Append one chained line to any log and return its seq, or raise.
 
     `build(seq)` returns the event's own fields; the chain fields are added here. Used
     for the event logs and for a run's history (core/tracker.py), which chain the same
-    way and verify with the same walk."""
+    way and verify with the same walk.
+
+    Before the line goes on, the head sidecar is held against the tail. When they
+    disagree the log was cut back or its last line swapped since the last append, and
+    rewriting the head now would sign over that. So the evidence goes into the line
+    itself (`found_break`, hashed and signed with the rest) where verify reports it,
+    and the append goes ahead: a service does not stop writing its audit trail because
+    someone damaged it."""
     k = key()
     with _locked(path) as fh:
         seq, prev_raw = _tail(fh)
+        found = _head_disagrees(path, seq, prev_raw)
+        if found:
+            _logger.error("%s: the head records seq %s but the log ends at seq %s; "
+                          "recorded in the next line", path.name, found["head_seq"], seq)
         seq += 1
         # A write cut off by a crash leaves no newline; start on a fresh line, or
         # this event is glued onto the torn one and lost with it.
@@ -246,7 +277,10 @@ def append_chained(path: pathlib.Path, build) -> int:
             if fh.read(1) != b"\n":
                 fh.seek(0, os.SEEK_END)
                 fh.write(b"\n")
-        ev = chain({**build(seq), "seq": seq}, prev_raw, k)
+        fields = {**build(seq), "seq": seq}
+        if found:
+            fields["found_break"] = found
+        ev = chain(fields, prev_raw, k)
         fh.seek(0, os.SEEK_END)
         fh.write(canonical(ev) + b"\n")
         fh.flush()
@@ -314,9 +348,16 @@ def verify_file(path: pathlib.Path) -> dict:
                 return broken(n, "HMAC does not match: rewritten without the ledger key")
         out["chained"] += 1
         prev_raw, last_seq, last_hash = raw, seq, ev["hash"]
+        found = ev.get("found_break")
+        if isinstance(found, dict):
+            return broken(n, f"truncated before this line: when it was appended the head "
+                             f"recorded seq {found.get('head_seq')}, the file ended at seq "
+                             f"{found.get('tail_seq')}")
     out["last_seq"] = last_seq
     head = read_head(path)
-    if head and out["chained"]:
+    # A head is checked whenever there are chained lines, and also over a log with none
+    # left: a head that records a seq over an empty file is a log cut back to nothing.
+    if head and (out["chained"] or int(head.get("seq") or 0) > 0):
         hseq, hhash = int(head.get("seq") or 0), str(head.get("hash") or "")
         if k:
             if not head.get("mac") or not hmac.compare_digest(

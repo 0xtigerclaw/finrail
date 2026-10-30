@@ -54,6 +54,8 @@ chain, so it is refused.
 | edits a line | seen: its hash no longer matches | seen |
 | deletes or inserts a line | seen: the next line's `prev` and `seq` no longer match | seen |
 | cuts the tail off a file | seen: the head records a later seq | seen |
+| cuts the tail off, then lets the service append again | seen: the next line records what the head said (`found_break`), hashed with the rest | seen |
+| empties a file to nothing | seen: the head records a seq over an empty file | seen |
 | rewrites a line and recomputes every hash and the head after it | not seen | seen: they cannot produce the HMACs |
 | deletes a whole file and its head | not seen by `verify`; `compare` reports a run whose log is gone | same |
 | edits a run file and its stored hash before approval | refused at approval, against the chain | refused |
