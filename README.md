@@ -184,6 +184,17 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 201 offline tests, no provider calls. They cover the source-cell checks and a tamper replay, the Anthropic S-1 figures and M-1, the router bar on workflow, report, period and figure, a Jev pick outside the offered choices being discarded, the record check (operating cash flow stated as free cash flow is refused and named), web claims against stubbed Tavily pages, every Jev call reaching the ledger, the evidence gate (a fabricated quote is discarded, not repaired), the hash-bound memo release, the engine seam's named failures, and the console plugin refusing to start when disabled.
 
+## Model performance
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/model-performance-dark.svg">
+  <img src="docs/img/model-performance-light.svg" alt="Model performance inside Finrail. Nemotron 3 Super passed 67 of 70 code checks at $1.45 per 1,000 checked answers, 5.3 s median. Nemotron 3.5 Super VL passed 66 of 70 at $4.12, 8.8 s. Claude Opus 5.5 passed 35 of 35 at $24.54, 3.9 s. No wrong figure shipped on any model.">
+</picture>
+
+The model only picks a source row and a number. Code checks both against the archived filing and does the arithmetic. So a weaker model shows up as refusals, latency and cost, never as a wrong figure.
+
+On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every miss was refused by code or returned no answer. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
+
 ## Honest limitations
 
 - M-1 is illustrative. A fund's real rules replace it.
