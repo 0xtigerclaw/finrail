@@ -166,7 +166,11 @@ def _engine_short() -> str:
         return 'Local development engine'
     _base, _key, model = llm._http_config()
     name = (model or 'model not set').split('/')[-1]
-    return f"NVIDIA Nemotron on {eng.title()}" if 'nemotron' in name else f"{name} on {eng.title()}"
+    if 'nemotron' not in name.lower():
+        return f"{name} on {eng.title()}"
+    # Name the version the engine is configured with, e.g. Nemotron-3.5-Super-VL -> Nemotron 3.5 Super.
+    m = re.search(r'nemotron-(\d+(?:\.\d+)?)-super', name.lower())
+    return f"NVIDIA Nemotron {m.group(1)} Super on {eng.title()}" if m else f"NVIDIA Nemotron on {eng.title()}"
 
 
 def _page(title: str, body: str, active: str = '', lede: str = '', actions: str = '', status_code: int = 200,
