@@ -6,6 +6,8 @@ Finrail is an agent harness for finance. Every number it gives you is rebuilt fr
 
 **Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
+![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
+
 ## Why it exists
 
 Anthropic's S-1 (filed 26 October 2026) reports three true profit lines for the same six months:
@@ -20,19 +22,48 @@ An AI that picks one for your memo has made your investment decision for you. In
 
 The same rail catches the quieter mistake. NVIDIA's Q2 FY2027 free cash flow is $21,341m. Ask Finrail to record it as $24,077m and it refuses: that is the operating cash flow line, a real number on the wrong line.
 
+## The core idea
+
+Every step is one of three kinds, and knowing which is which is the design:
+
+| Kind | Decided by | Guarantee |
+| --- | --- | --- |
+| **Code** | A script: same input, same output | It always runs, or the action never runs. |
+| **Judgement** | A model | None, on purpose. This is the work a model is for. |
+| **Approval** | A named person | A gate. Nothing is recorded without it. |
+
+Judgement steps are allowed to be wrong, because they sit between code steps that cannot be skipped and an approval that a browser cannot forge.
+
 ## How a question flows
 
 ```mermaid
-flowchart LR
-    Q[Question] --> J[Jev routes it<br/>picks a workflow, with confidence]
-    J -->|below the bar| P1[Person picks]
-    J --> R[Google Vertex RAG<br/>retrieves from one filing]
-    R --> N[Nemotron picks row IDs<br/>never types a quote or a number]
-    N --> C[Code checks file hash, row text,<br/>period column, units; computes in Decimal]
-    C -->|does not reconcile| X[Refused, reason named]
-    C --> A[Answer with workpaper]
-    A -->|to record it| H[Person approves<br/>from the terminal only]
+flowchart TB
+    Q["Question"]:::q
+    J["<b>Jev routes it</b><br/>picks one declared workflow,<br/>with a confidence"]:::model
+    P["<b>A person picks</b><br/>when Jev is under the bar"]:::human
+    R["<b>Google Vertex RAG</b><br/>retrieves from one filing only"]:::code
+    N["<b>Nemotron picks row IDs</b><br/>never types a quote or a number"]:::model
+    C["<b>Code checks</b><br/>file hash, row text, period column, units;<br/>computes in Decimal; reconciles to the filing"]:::code
+    X["<b>Refused</b><br/>the reason is named"]:::deny
+    A["<b>Answer</b><br/>with the workpaper"]:::code
+    H["<b>A person approves</b><br/>from the terminal only"]:::human
+
+    Q --> J
+    J -->|under the bar| P --> R
+    J -->|clears the bar| R
+    R --> N --> C
+    C -->|does not reconcile| X
+    C -->|reconciles| A
+    A -->|to record it| H
+
+    classDef q fill:#ffffff,stroke:#5f6570,color:#15171c
+    classDef model fill:#f3edfb,stroke:#6b3fa0,stroke-width:2px,color:#15171c
+    classDef code fill:#eef3fd,stroke:#2456c8,stroke-width:2px,color:#15171c
+    classDef human fill:#eaf6f0,stroke:#15704b,stroke-width:2px,color:#15171c
+    classDef deny fill:#fdeeed,stroke:#b3261e,color:#15171c
 ```
+
+Purple is judgement, blue is code, green is a person, red is a refusal.
 
 ## Who does what
 
@@ -92,6 +123,16 @@ Try the wrong figure from a terminal, after one `finance.reports.analyze` run fo
 finrail do finance.reports.record report_id=NVDA-Q2-FY2027 statement="Record NVIDIA's Q2 free cash flow as \$24,077m"
 ```
 
+## Check it yourself, without a model
+
+The rules do not depend on a model behaving. These tests feed the checker the wrong figure, the wrong column and a tampered input directly, with no keys and no network, and every one must be refused:
+
+```bash
+pytest tests/test_record.py tests/test_anthropic_s1.py::test_tamper_replays_are_refused_by_the_checker tests/test_public_reports.py -k "refused or waits"
+```
+
+They include the case above: $24,077m stated as free cash flow is refused and named as the operating cash flow line. Stated as operating cash flow, the same figure passes and waits for a person.
+
 ## The console
 
 Ask is a chat on the left with the harness trace for each answer on the right. Filings lists the seven sources and reconciles every indexed file live against the corpus. Proof holds the workpaper and a tamper replay. Ledger shows runs, Nemotron calls and Jev calls. Rules shows every declaration.
@@ -121,6 +162,12 @@ There is no silent fallback. If the engine is down or returns something malforme
 - When Jev is unreachable, plain keyword rules route the question, and the trace says so.
 - Capability code runs in-process and is not OS-sandboxed. Agents started inside a person's own login share that person's scope.
 - The demo deployment keeps state on one instance's disk. A restart clears its runs.
+
+## Where this sits
+
+An AI-native fund needs four things: capital, compute, context and culture. The first two anyone can buy. Context is the bottleneck: a record where every number carries its source and who stood behind it. Culture is trust, and trust is earned by verification. The thinking is in [Building the Frontier Investment House](https://superagents.substack.com/p/building-the-frontier-investment).
+
+Finrail is the workflow layer on top of that record. Each capability is a command, a contract and an evaluation set: a declared way to ask, a rule in code that must hold, and tests that prove it holds. A new workflow costs those three things, not a new trust story.
 
 ## Docs
 
