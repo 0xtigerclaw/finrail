@@ -22,17 +22,6 @@ from finrail.extensions.finance.public_reports import HOUSE_RULES
 from .views import long_date, e, icon, badge
 
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
-SUGGESTIONS = (
-    "Did Anthropic make money, according to its S-1?",
-    "Under our method, what was Anthropic's operating result in its S-1?",
-    "What does the web say about Anthropic's profit?",
-    "What revenue did Anthropic report in its S-1?",
-    "What does Anthropic's S-1 say about compute commitments?",
-    "What was NVIDIA's free cash flow last quarter?",
-    "What does the web say about NVIDIA's free cash flow?",
-    "Record NVIDIA's Q2 free cash flow as $24,077m",
-    "What did Nebius say about capex in Q2?",
-)
 #: Asking for the issuer's stock-compensation add-back: the demo's method-rule refusal.
 ADD_BACK = "Add back stock compensation the way Anthropic does."
 HOUSE_Q = "Under our method, what was Anthropic's operating result in its S-1?"
@@ -40,6 +29,9 @@ HOUSE_Q = "Under our method, what was Anthropic's operating result in its S-1?"
 MONEY_Q = "Did Anthropic make money, according to its S-1?"
 #: Jev routes this to Tavily; Jev reads each press sentence; code checks it against the S-1.
 WEB_Q = "What does the web say about Anthropic's profit?"
+#: The starter chips: only the demo's questions, in the order the demo asks them
+#: (docs/demo-script.md). Every follow-up chip is padded from this list too.
+SUGGESTIONS = (MONEY_Q, HOUSE_Q, WEB_Q, ADD_BACK)
 #: The figure the router read, as the analyze definition it means for a report.
 ANTH_FIGURES = {'revenue': 'revenue', 'net_loss': 'net_loss', 'operating_cash_flow': 'operating_cash_flow',
                 'capex': 'capex', 'fcf': 'simple_fcf', 'house_operating_income': 'house_operating_income',
@@ -396,9 +388,9 @@ def followups(turns: list) -> list[str]:
     out: list = []
     anthropic_multiple = "At a $300bn valuation, what is Anthropic's price to sales?"
     if kind == 'fcf' and rid.startswith('ANTH') and route.get('figure') == 'made_money':
-        out = [HOUSE_Q, WEB_Q, "What revenue did Anthropic report in its S-1?"]
+        out = [HOUSE_Q, WEB_Q, ADD_BACK]
     elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'house_operating_income':
-        out = [ADD_BACK, WEB_Q, anthropic_multiple]
+        out = [ADD_BACK, WEB_Q]
     elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'adjusted_operating_income':
         out = [HOUSE_Q, "What revenue did Anthropic report in its S-1?"]
     elif kind == 'fcf' and rid.startswith('ANTH'):
@@ -413,7 +405,7 @@ def followups(turns: list) -> list[str]:
     elif kind == 'record':
         out = [_record_question(rid) if ans.get('error') else None, web, compare, nebius]
     elif kind == 'web' and rid.startswith('ANTH'):
-        out = [HOUSE_Q, ADD_BACK, "What does Anthropic's S-1 say about compute commitments?"]
+        out = [HOUSE_Q, ADD_BACK]
     elif kind == 'web':
         out = [_record_question(rid), compare, nebius]
     elif kind == 'search':
