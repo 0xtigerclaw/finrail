@@ -196,7 +196,7 @@ Every model call goes through one entry point, `finrail/core/llm.py`. The engine
 
 | Deployment | Configuration |
 | --- | --- |
-| Nebius (this submission) | `FINRAIL_ENGINE=nebius` and `NEBIUS_API_KEY`. Runs NVIDIA Nemotron (`nvidia/nemotron-3-super-120b-a12b`) on Nebius Token Factory. |
+| Nebius (this submission) | `FINRAIL_ENGINE=nebius` and `NEBIUS_API_KEY`. Runs NVIDIA Nemotron 3.5 Super (`nvidia/Nemotron-3.5-Super-VL`) on Nebius Token Factory, with a 32,768-token reply cap (`FINRAIL_ENGINE_MAX_TOKENS`). Nemotron 3 Super leaves Token Factory serverless on 9 November 2026. |
 | Meta | `FINRAIL_ENGINE=meta`, `FINRAIL_ENGINE_BASE_URL`, `FINRAIL_ENGINE_API_KEY`, `FINRAIL_MODEL`. Same capabilities, same checks. |
 | Local development | The default CLI engine. Never used in a judged deployment. |
 
@@ -210,12 +210,12 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/model-performance-dark.svg">
-  <img src="docs/img/model-performance-light.svg" alt="Model performance inside Finrail. Nemotron 3 Super passed 67 of 70 code checks at $1.45 per 1,000 checked answers, 5.3 s median. Nemotron 3.5 Super VL passed 66 of 70 at $4.12, 8.8 s. Claude Opus 5.5 passed 35 of 35 at $24.54, 3.9 s. No wrong figure shipped on any model.">
+  <img src="docs/img/model-performance-light.svg" alt="Model performance inside Finrail. Nemotron 3 Super passed 67 of 70 code checks at $1.45 per 1,000 checked answers, 5.3 s median. Nemotron 3.5 Super VL, with a 32,768-token reply cap, passed 70 of 70 at $4.43, 12.5 s. Claude Opus 5.5 passed 35 of 35 at $24.54, 3.9 s. No wrong figure shipped on any model.">
 </picture>
 
 The model only picks a source row and a number. Code checks both against the archived filing and does the arithmetic. So a weaker model shows up as refusals, latency and cost, never as a wrong figure.
 
-On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every miss was refused by code or returned no answer. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
+On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every wrong pick was refused by code. Nemotron 3.5 needs a larger reply cap than Finrail's current 8,192 tokens: at 32,768 it passed 70 of 70, while at 8,192 four replies were cut off before they answered. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
 
 ## Honest limitations
 

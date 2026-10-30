@@ -82,8 +82,12 @@ def default_model() -> str:
 # JUDGED surface — non-tool, sessionless calls — over an OpenAI-compatible
 # chat-completions endpoint, selected by environment only (PRD E2/E5):
 #
-#   FINRAIL_ENGINE=nebius   Token Factory, model nvidia/nemotron-3-super-120b-a12b
+#   FINRAIL_ENGINE=nebius   Token Factory, model nvidia/Nemotron-3.5-Super-VL
 #   FINRAIL_ENGINE=meta     Meta Model API (or a partner endpoint), Muse models
+#
+# Nemotron 3 Super (nvidia/nemotron-3-super-120b-a12b) leaves Token Factory serverless on
+# 9 Nov 2026; Nebius names 3.5 Super VL as its replacement at the same price. Measured on
+# 30 Oct: 70 of 70 analyze picks passed the checks (docs/model-comparison.md).
 #
 # Canonical error codes (PRD E6, adapted from DeepSeek Harness): a provider
 # failure is reported under one of these codes, never as a raw provider
@@ -97,9 +101,21 @@ ERR_UNSUPPORTED = "ENGINE_UNSUPPORTED"
 
 _ENGINE_DEFAULTS = {
     "nebius": ("https://api.tokenfactory.nebius.com/v1/",
-               "nvidia/nemotron-3-super-120b-a12b", "NEBIUS_API_KEY"),
+               "nvidia/Nemotron-3.5-Super-VL", "NEBIUS_API_KEY"),
     "meta": ("", "", "FINRAIL_ENGINE_API_KEY"),
 }
+
+#: The reply cap sent as `max_tokens`. A reasoning model's thinking counts toward it, and a
+#: reply cut off mid-thought has no answer in it (EMPTY_RESPONSE). At 8,192, Nemotron 3.5
+#: came back empty on 4 of 70 analyze calls; 7 of 70 needed more, the longest 11,934
+#: (measured 30 Oct 2026). FINRAIL_ENGINE_MAX_TOKENS overrides it.
+MAX_TOKENS = 32768
+
+
+def max_tokens() -> int:
+    """The HTTP engine's reply cap: FINRAIL_ENGINE_MAX_TOKENS when it is a positive whole number."""
+    raw = (os.environ.get("FINRAIL_ENGINE_MAX_TOKENS") or "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else MAX_TOKENS
 
 
 def engine() -> str:
@@ -147,7 +163,7 @@ def _http_call(system: str, prompt_text: str, expect_json: bool, schema,
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt_text})
     body = {"model": chosen, "messages": messages, "temperature": 0,
-            "max_tokens": 8192}
+            "max_tokens": max_tokens()}
     if expect_json:
         body["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(
