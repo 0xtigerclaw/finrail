@@ -47,6 +47,7 @@ import pathlib
 import pathlib
 import uuid
 
+from . import atomic
 from .errors import ContractViolation
 from .settings import ensure, runs, state
 
@@ -720,5 +721,7 @@ def _write(rec: dict) -> None:
     ensure()
     d = pathlib.Path(rec[DIR_KEY]) if DIR_KEY in rec else runs()
     d.mkdir(parents=True, exist_ok=True)
-    (d / f"{rec['id']}.json").write_text(json.dumps(rec, indent=2, default=str))
+    # Atomic: a detached worker rewrites its record while the console reads it, and an
+    # in-place write left an empty file in between, which the console showed as 404.
+    atomic.write_text(d / f"{rec['id']}.json", json.dumps(rec, indent=2, default=str))
     _index(rec, d)
