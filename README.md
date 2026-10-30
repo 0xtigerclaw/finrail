@@ -215,7 +215,7 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 The model only picks a source row and a number. Code checks both against the archived filing and does the arithmetic. So a weaker model shows up as refusals, latency and cost, never as a wrong figure.
 
-On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every miss was refused by code or returned no answer. Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
+On seven checked filing tasks, all three models passed at rates that cannot be told apart at this sample size. Nemotron on Nebius did it at about 1/17 of Opus's cost per checked answer. Opus was the fastest. Every miss was refused by code, or hit Finrail's own per-reply token cap before answering (a setting, not a usage limit). Method, every call and caveats (one domain, 35 to 70 calls per model, retrieval held fixed): [docs/model-comparison.md](docs/model-comparison.md).
 
 ## Honest limitations
 

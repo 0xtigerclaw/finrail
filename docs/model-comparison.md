@@ -18,8 +18,10 @@ No wrong figure got out on any arm.
 
 - **Nemotron 3** missed 3 times. Each time it read the right row from another period's
   column, and the source-cell check refused it.
-- **Nemotron 3.5** missed 4 times. Each time it used up the 8,192-token output budget
-  reasoning and returned nothing. It never picked a wrong value.
+- **Nemotron 3.5** missed 4 times. Each time it was still thinking when it hit Finrail's
+  own reply cap of 8,192 tokens per call, so it returned nothing. It never picked a wrong
+  value. This is a Finrail setting (`max_tokens` in `_http_call`), not a Nebius quota or
+  account limit.
 
 Cost per checked answer at list price:
 
@@ -46,7 +48,7 @@ reported separately below.
 | Passed the code checks | **67 / 70** (96%) | **66 / 70** (94%) | **35 / 35** (100%) |
 | 95% interval (Wilson) | 88% to 99% | 86% to 98% | 90% to 100% |
 | Refused by the checks | 3 | 0 | 0 |
-| No answer (output budget used up) | 0 | 4 | 0 |
+| No answer (hit Finrail's 8,192-token reply cap) | 0 | 4 | 0 |
 | Wrong figure shipped | 0 | 0 | 0 |
 | Latency, median / p90 | 5.3 s / 9.6 s | 8.8 s / 16.0 s | 3.9 s / 6.0 s |
 | Input tokens per call (mean) | 1,469 | 1,469 | 5,275 (about 3,540 is the CLI's own prompt) |
@@ -100,11 +102,14 @@ The S-1 tables print five periods side by side, and the current period is the la
 In 3 of 70 calls Nemotron 3 took another period's figure. Opus never did in 35, and
 Nemotron 3.5 never did in 70.
 
-**Nemotron 3.5: no answer (4).** Each call ran to exactly 8,192 output tokens, the
-`max_tokens` that `_http_call` sends. Each returned empty content after 18 to 24 s. Finrail
-reported `EMPTY_RESPONSE` and retried nothing. This happened on S-1 net loss twice, NVIDIA Q1
-FCF once and the S-1 method-rule task once. These are budget failures, not wrong answers: on
-every call it finished, Nemotron 3.5 picked the right cell.
+**Nemotron 3.5: no answer (4).** Finrail caps every HTTP-engine reply at 8,192 tokens
+(`max_tokens` in `_http_call`). Nemotron 3.5 thinks before it answers, and the thinking counts
+toward that cap. On these 4 calls it was still thinking when the cap cut it off at exactly
+8,192 tokens, so the reply had no answer in it. Each came back empty after 18 to 24 s. Finrail
+reported `EMPTY_RESPONSE` and retried nothing. This is not a usage limit or quota: the account
+had capacity, and the next call ran normally. It happened on S-1 net loss twice, NVIDIA Q1 FCF
+once and the S-1 method-rule task once. On every call that finished, Nemotron 3.5 picked the
+right cell.
 
 ### The screen call (`finance.screen`, bundled Northwind fixture)
 
@@ -185,9 +190,9 @@ Nebius names `nvidia/Nemotron-3.5-Super-VL` as the replacement, at the same pric
 - **Opus via the CLI.** This is how Finrail runs Opus. It adds about 3,540 tokens of CLI
   prompt and about 1 s of process start per call. The CLI has no temperature control, and
   the harness set no effort.
-- **Nemotron 3.5 at the runtime's budget.** Its four misses depend on `max_tokens` 8192. A
-  larger budget would likely turn some or all of them into passes, at more output cost. That
-  was not measured.
+- **Nemotron 3.5 at Finrail's reply cap.** Its four misses come from Finrail's own
+  `max_tokens` of 8192. A higher cap would likely turn some or all of them into passes, at
+  more output cost. That was not measured.
 - **Temperature 0 still varies.** Nemotron gave different values on identical excerpts. Read
   refusals as a rate, not as all-or-nothing.
 
@@ -197,9 +202,10 @@ Nebius names `nvidia/Nemotron-3.5-Super-VL` as the replacement, at the same pric
    sample, at about 1/17 of Opus's list cost per checked answer (Nemotron 3) or about 1/6
    (Nemotron 3.5). The harness turns every miss into a refusal or an empty answer, never a
    wrong number.
-2. **Switching to Nemotron 3.5 before 9 November needs one change first.** Raise the output
-   budget for it, then re-run the 70 calls. If Token Factory offers a lower reasoning setting
-   for it, measure that too. At 8,192 tokens, 1 call in 17 comes back empty.
+2. **Switching to Nemotron 3.5 before 9 November needs one change first.** Raise Finrail's
+   reply cap (`max_tokens`) for it, then re-run the 70 calls. If Token Factory offers a lower
+   reasoning setting for it, measure that too. At today's cap of 8,192 tokens, 1 call in 17
+   comes back empty.
 3. **Show retries on the run record.** At these prices one retry after a refusal still leaves
    Nemotron far cheaper than Opus. Finrail's rule is never to retry silently, so the retry
    should be visible.
