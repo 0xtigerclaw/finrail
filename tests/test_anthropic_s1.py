@@ -603,3 +603,27 @@ def test_web_summary_names_only_what_happened():
     assert _web_summary({"matches": 1}) == "Tavily found <b>1</b> claim on the web. <b>1</b> matches the filing."
     assert ("<b>2</b> match the filing, <b>1</b> is loosely rounded and <b>1</b> puts a figure on the wrong line"
             in _web_summary({"matches": 2, "loose": 1, "wrong_line": 1, "definition": 0}))
+
+
+def test_a_quarter_named_in_the_sentence_is_ruled_out_by_code_even_when_jev_is_unsure(state):
+    # The live tomtunguz.com sentence: Jev was 70% on the period, code reads "second quarter".
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    page = {**PRESS, "content": "It narrowed every quarter of 2026, & in the second quarter Anthropic reported $974M of "
+                                "operating income, an 8.4% GAAP margin & 19% adjusted."}
+    out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("operating_loss", "other", 0.70)]))
+    assert out["claims"][0]["verdict"] == "unchecked" and "other than the S-1's first half" in out["claims"][0]["detail"]
+
+
+def test_web_search_runs_both_queries_and_merges_pages_by_url(state):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    asked = []
+    one = {**PRESS, "url": "https://a.example/1", "content": "Anthropic posted a net loss of $80.7 billion in the first half of 2026."}
+    two = {**PRESS, "url": "https://b.example/2", "content": "Anthropic's revenue was $16.3 billion in the first six months of 2026."}
+    def search(q, c):
+        asked.append(q)
+        return [one, two] if len(asked) == 1 else [two]
+    out = claims.check_web(REPORT, search=search, ask=_reader([("net_loss", REPORT, 0.97), ("revenue", REPORT, 0.97)]))
+    assert asked == list(claims.ANTH_QUERIES) and out["pages"] == 2
+    assert [c["verdict"] for c in out["claims"]] == ["matches", "matches"]

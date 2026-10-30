@@ -377,6 +377,11 @@ def judge_anthropic(value: Decimal, tolerance: Decimal, line: str, truth: dict, 
             "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}; the claim says {_as_stated(abs(value), bound or {})}.{hint}"}
 
 
+#: Two plain searches, merged by URL: one pass on its own often returns only a few snippets.
+ANTH_QUERIES = ("Anthropic S-1 first half 2026 net loss operating loss",
+                "Anthropic IPO filing adjusted operating income stock-based compensation")
+
+
 def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
     from . import research
     truth, run_id = anthropic_checked()
@@ -385,8 +390,13 @@ def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
                                 "money first; nothing was searched.")
     if not (search or research.configured()):
         raise NotConfigured("Tavily is not configured on this instance.")
-    query = "Anthropic S-1 first half 2026 revenue net loss operating loss adjusted operating income"
-    pages = (search or research._search_one)(query, "financials")
+    pages, seen = [], set()
+    for q in ANTH_QUERIES:
+        for page in (search or research._search_one)(q, "financials"):
+            if page.get("url") not in seen:
+                seen.add(page.get("url"))
+                pages.append(page)
+    query = "” and “".join(ANTH_QUERIES)
     found = web_sentences_about(pages, _PROFIT_WORDS)
     reading = read([f["sentence"] for f in found], context="", ask=ask, titles=[f["title"] for f in found],
                    capability=WebClaims.name, company="Anthropic")
@@ -394,9 +404,13 @@ def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
     for f, r in zip(found, reading["readings"]):
         value, tolerance = stated_figure(f["sentence"])
         row = {**f, **r, "figure": money(value), "tolerance": str(tolerance), "line_label": ANTH_LABELS[r["line"]]}
-        if not anthropic_period(f["sentence"]):
+        stated = anthropic_period(f["sentence"])
+        if not stated:
             # Code reads the period first: a sentence that names none is never tied to the S-1's half.
             row.update(verdict="unchecked", detail="The sentence names no period, so it is not tied to the S-1's first half of 2026.")
+        elif stated != ANTHROPIC:
+            # A quarter, a run rate or a full year, named in the sentence's own words: code rules it out.
+            row.update(verdict="unchecked", detail="It names a period other than the S-1's first half of 2026, read by code.")
         elif not r["sure"]:
             row.update(verdict="unclear", detail="Jev was not sure which line or period this is about, so nothing was decided.")
         elif r["line"] == "none":
