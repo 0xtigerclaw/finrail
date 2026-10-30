@@ -573,7 +573,8 @@ def _route_step(route: dict) -> str:
     registry.load()
     steps = registry.command('finance.ask.route').steps
     probs = route.get('probabilities') or {}
-    bars = ''.join([f"<span class='prob' style='--p:{float(p) * 100:.0f}%'><span>{e(label(f))}</span><b>{float(p) * 100:.0f}%</b></span>"
+    # The bar width rides on a data attribute, set by app.js: an inline style would fail the CSP.
+    bars = ''.join([f"<span class='prob' data-p='{float(p) * 100:.0f}'><span>{e(label(f))}</span><b>{float(p) * 100:.0f}%</b></span>"
                    for f, p in sorted(probs.items(), key=lambda kv: -kv[1]) if f != flow][:3])
     seen = {
         'Offer': f"{len(workflows()) - 1} workflows can answer, plus “not answerable”.",

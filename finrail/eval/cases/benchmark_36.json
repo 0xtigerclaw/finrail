@@ -1,0 +1,821 @@
+{
+ "schema": "finrail.eval.cases/1",
+ "name": "benchmark-36",
+ "description": "The 36-case benchmark: every supported definition on NVIDIA Q1 and Q2 FY2027 and Anthropic's S-1 as a passing case, plus adversarial variants (another column of the same row, an invented row ID, a dropped input, the wrong report in the answer, the adjusted_operating_income add-back refused under M-1, unsupported definitions and an unknown report). Three simple-FCF figures are drafts: derived from documented lines, printed in no document.",
+ "cases": [
+  {
+   "id": "nvda-q1-fy2027-fcf",
+   "title": "NVIDIA Q1 FY2027 free cash flow",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "48554"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 48,554"
+  },
+  {
+   "id": "nvda-q1-fy2027-simple-fcf",
+   "title": "NVIDIA Q1 FY2027 simple free cash flow",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "48587"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing"
+   ],
+   "draft": true,
+   "source": "Derived: 50,344 - 1,757 from the documented Q1 lines (tests/test_public_reports.py asserts 48,587); no document prints it"
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf",
+   "title": "NVIDIA Q2 FY2027 free cash flow",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "21341"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 21,341; README worked example"
+  },
+  {
+   "id": "nvda-q2-fy2027-simple-fcf",
+   "title": "NVIDIA Q2 FY2027 simple free cash flow",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "21400"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing"
+   ],
+   "draft": true,
+   "source": "Derived: 24,077 - 2,677 from the README's Q2 lines; no document prints it"
+  },
+  {
+   "id": "anth-s1-revenue",
+   "title": "Anthropic S-1 revenue",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "16286"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 16,286"
+  },
+  {
+   "id": "anth-s1-net-loss",
+   "title": "Anthropic S-1 net loss",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "net_loss"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "80748"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 80,748"
+  },
+  {
+   "id": "anth-s1-operating-cash-flow",
+   "title": "Anthropic S-1 operating cash flow",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "operating_cash_flow"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "3929"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 3,929"
+  },
+  {
+   "id": "anth-s1-capex",
+   "title": "Anthropic S-1 capex",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "capex"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "482"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 482"
+  },
+  {
+   "id": "anth-s1-simple-fcf",
+   "title": "Anthropic S-1 simple free cash flow",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "3447"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing"
+   ],
+   "draft": true,
+   "source": "Derived: 3,929 - 482 from the documented S-1 lines (tests/test_anthropic_s1.py asserts 3,447); no document prints it"
+  },
+  {
+   "id": "anth-s1-house-operating-income",
+   "title": "Anthropic S-1 method-rule operating result (M-1)",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "house_operating_income"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "-567"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "house-rule"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: -567; docs/public-reports.md HR-1 arithmetic"
+  },
+  {
+   "id": "nvda-q1-fy2027-fcf-other-column",
+   "title": "NVIDIA Q1 FY2027 free cash flow, another column of the same row",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "nvda-q1-fy2027-simple-fcf-other-column",
+   "title": "NVIDIA Q1 FY2027 simple free cash flow, another column of the same row",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf-other-column",
+   "title": "NVIDIA Q2 FY2027 free cash flow, another column of the same row",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "nvda-q2-fy2027-simple-fcf-other-column",
+   "title": "NVIDIA Q2 FY2027 simple free cash flow, another column of the same row",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-revenue-other-column",
+   "title": "Anthropic S-1 revenue, another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-net-loss-other-column",
+   "title": "Anthropic S-1 net loss, another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "net_loss"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-operating-cash-flow-other-column",
+   "title": "Anthropic S-1 operating cash flow, another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "operating_cash_flow"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-capex-other-column",
+   "title": "Anthropic S-1 capex, another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "capex"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-simple-fcf-other-column",
+   "title": "Anthropic S-1 simple free cash flow, another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "anth-s1-house-operating-income-other-column",
+   "title": "Anthropic S-1 method-rule operating result (M-1), another column of the same row",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "house_operating_income"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "Source-cell check refused"
+   },
+   "inject": {
+    "tamper": "other_column"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "other_column"
+   ],
+   "draft": false,
+   "source": "The miss Nemotron 3 made 3 times in 70 (docs/model-comparison.md, Every miss): right row, another period's column. check_and_compute refuses it."
+  },
+  {
+   "id": "nvda-q1-fy2027-fcf-invented-row",
+   "title": "NVIDIA Q1 FY2027 free cash flow, an invented row ID",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "not present in the retrieved evidence"
+   },
+   "inject": {
+    "tamper": "invented_row"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "invented_row"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf-invented-row",
+   "title": "NVIDIA Q2 FY2027 free cash flow, an invented row ID",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "not present in the retrieved evidence"
+   },
+   "inject": {
+    "tamper": "invented_row"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "invented_row"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "anth-s1-revenue-invented-row",
+   "title": "Anthropic S-1 revenue, an invented row ID",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "not present in the retrieved evidence"
+   },
+   "inject": {
+    "tamper": "invented_row"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "invented_row"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q1-fy2027-fcf-drop-input",
+   "title": "NVIDIA Q1 FY2027 free cash flow, a dropped input",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf-drop-input",
+   "title": "NVIDIA Q2 FY2027 free cash flow, a dropped input",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q1-fy2027-simple-fcf-drop-input",
+   "title": "NVIDIA Q1 FY2027 simple free cash flow, a dropped input",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q2-fy2027-simple-fcf-drop-input",
+   "title": "NVIDIA Q2 FY2027 simple free cash flow, a dropped input",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "anth-s1-simple-fcf-drop-input",
+   "title": "Anthropic S-1 simple free cash flow, a dropped input",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "simple_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "anth-s1-house-operating-income-drop-input",
+   "title": "Anthropic S-1 method-rule operating result (M-1), a dropped input",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "house_operating_income"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "missing required inputs"
+   },
+   "inject": {
+    "tamper": "drop_input"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "drop_input"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q1-fy2027-fcf-wrong-report",
+   "title": "NVIDIA Q1 FY2027 free cash flow, the wrong report in the answer",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "did not match the selected report"
+   },
+   "inject": {
+    "tamper": "wrong_report"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "wrong_report"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf-wrong-report",
+   "title": "NVIDIA Q2 FY2027 free cash flow, the wrong report in the answer",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "did not match the selected report"
+   },
+   "inject": {
+    "tamper": "wrong_report"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "wrong_report"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "anth-s1-revenue-wrong-report",
+   "title": "Anthropic S-1 revenue, the wrong report in the answer",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "did not match the selected report"
+   },
+   "inject": {
+    "tamper": "wrong_report"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "wrong_report"
+   ],
+   "draft": false,
+   "source": "public_reports.check_and_compute refuses it with this reason; the tamper is applied at the seam"
+  },
+  {
+   "id": "anth-s1-adjusted-operating-income-m1",
+   "title": "Anthropic S-1 adjusted operating income, refused under M-1",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "adjusted_operating_income"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "M-1"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "house-rule",
+    "plan"
+   ],
+   "draft": false,
+   "source": "docs/public-reports.md: the add-back is refused by the plan before any retrieval or model call"
+  },
+  {
+   "id": "nvda-q1-fy2027-revenue-unsupported",
+   "title": "NVIDIA Q1 FY2027 revenue, not a supported definition",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "numerical analysis supports"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "plan"
+   ],
+   "draft": false,
+   "source": "public_reports.ReportAnalyze.plan refuses a definition the profile does not declare"
+  },
+  {
+   "id": "anth-s1-issuer-fcf-unsupported",
+   "title": "Anthropic S-1 issuer free cash flow, not a supported definition",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "numerical analysis supports"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "adversarial",
+    "plan"
+   ],
+   "draft": false,
+   "source": "Anthropic defines no free cash flow; the plan refuses NVIDIA's definition on its filing"
+  },
+  {
+   "id": "nvda-q3-fy2027-unknown-report",
+   "title": "NVIDIA Q3 FY2027, a report that is not in the catalog",
+   "report_id": "NVDA-Q3-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "published reports in the catalog"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "adversarial",
+    "plan"
+   ],
+   "draft": false,
+   "source": "public_reports.report refuses a source id outside the catalog"
+  }
+ ]
+}

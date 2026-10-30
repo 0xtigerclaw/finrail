@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "rules": {
+    "M-1": {
+      "id": "M-1",
+      "illustrative": true,
+      "title": "Stock compensation is a cost",
+      "text": "Stock-based compensation is an operating cost and is never added back. Where an issuer's adjusted figure adds it back, our method shows that figure only beside its own, reconciled to the dollar.",
+      "refusal": "Method rule M-1 (illustrative) counts stock compensation as an operating cost, so it is never added back. Ask for the operating result under our method instead: it shows Anthropic's adjusted figure beside it, reconciled to the dollar. Changing the method is a change to the rules file that a person reviews and approves. Nothing ran."
+    }
+  }
+}

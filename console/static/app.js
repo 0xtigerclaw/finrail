@@ -248,6 +248,13 @@
     if (refreshTimer !== null) clearTimeout(refreshTimer);
   });
 
+  // Probability bars: the width comes from a data attribute, because the page ships a
+  // Content-Security-Policy that forbids inline style attributes.
+  document.querySelectorAll(".prob[data-p]").forEach(bar => {
+    const p = Number(bar.getAttribute("data-p"));
+    if (Number.isFinite(p)) bar.style.setProperty("--p", `${Math.max(0, Math.min(100, p))}%`);
+  });
+
   // Ask: Enter sends, Shift+Enter adds a line, as in any chat.
   const composer = document.querySelector(".composer textarea");
   if (composer) {

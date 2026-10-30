@@ -1,0 +1,61 @@
+{
+  "source_id": "NVDA-Q2-FY2027",
+  "company": "NVIDIA",
+  "format": "html",
+  "catalog_sha256": "844d0018c3dd72d42b0872a80f9a8c53e0e761ff3cf595ef42edca024fb5de8d",
+  "catalog_match": false,
+  "original": {
+    "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/default.aspx",
+    "retrieved_at": "2026-10-30T19:16:00+00:00",
+    "sha256": "5d886f78974235b4c9b5b212d3a489d71713c3eaa7f546641b95e6247caed2b1",
+    "bytes": 398006,
+    "table_count": 12,
+    "nested_tables": [
+      11
+    ]
+  },
+  "note": "Catalog SHA-256 844d0018 did not match the page on 2026-10-30. The page is an ASP.NET form whose chrome varies by client: as served to the browser pane it hashed 5d886f78 (398,006 bytes, identical on repeated fetches; the bytes sliced here), as served to urllib with a plain User-Agent 2ced0d32 (391,802 bytes); tables 5 and 6 are byte-identical in both. investor.nvidia.com sometimes answers non-browser clients with a challenge page. The catalog hash was left as is.",
+  "slice": {
+    "file": "NVDA-Q2-FY2027.html",
+    "sha256": "a8a1a72a9a8c48f1943ef623198bce99d7fb66bdfcfad3f7f0274a92b8f52696",
+    "bytes": 176702,
+    "tool": "scripts/slice_filing.py",
+    "prefix_bytes": 8192
+  },
+  "kept": [
+    {
+      "table": 5,
+      "slice_table": 5,
+      "original": {
+        "prose_start": 132964,
+        "table_start": 132977,
+        "table_end": 195504,
+        "sha256": "1bf566b4d0a7e1445f121023e3fa1691a36e857da81786f28a5de0c43717c132"
+      },
+      "slice": {
+        "start": 171,
+        "end": 62711
+      }
+    },
+    {
+      "table": 6,
+      "slice_table": 6,
+      "original": {
+        "prose_start": 195504,
+        "table_start": 195517,
+        "table_end": 309478,
+        "sha256": "78f9a84da9c9a09ca10196cf22a8420f56f0c055ca4f8fe125dea6a87a26bd5f"
+      },
+      "slice": {
+        "start": 62712,
+        "end": 176686
+      }
+    }
+  ],
+  "placeholders": [
+    1,
+    2,
+    3,
+    4
+  ]
+}

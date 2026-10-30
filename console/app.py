@@ -19,13 +19,14 @@ from finrail.core.settings import state
 from .views import (e as _e, badge as _badge, icon, panel, empty, table,
                     cli as _cli, cli_equiv as _cli_equiv, raw as _raw,
                     fields, company_context, time_label, run_link)
+from . import ops
 
 app = FastAPI(title="Finrail")
+app.add_middleware(ops.ConsoleOps)
 app.mount("/assets", StaticFiles(directory=Path(__file__).parent / "static"), name="assets")
 _ASSET_VERSION = hashlib.sha256(b''.join(
     (Path(__file__).parent / 'static' / name).read_bytes()
     for name in ('app.css', 'app.js'))).hexdigest()[:12]
-_POSTS = {"count": 0}
 
 def _seed_demo_entity() -> None:
     """Public-demo affordance, operator-declared: when FINRAIL_DEMO_ENTITY
@@ -99,17 +100,15 @@ BRAND_MARK = ("<svg width='22' height='22' viewBox='0 0 24 24' fill='none' "
 def _dispatch(name: str, payload: dict = None, task: str = "") -> dict:
     registry.load()
     cap = registry.command(name)
-    if cap.kind != "read":
-        limit = int(os.environ.get("FINRAIL_DEMO_POST_LIMIT") or 0)
-        if limit and _POSTS["count"] >= limit:
-            return {"status": "failed", "capability": name,
-                    "error": "the public demo's judged-call budget is "
-                             "exhausted for now; the read pages and the "
-                             "archived results remain available"}
-        _POSTS["count"] += 1
+    # The budget lives in the middleware now (ops.ConsoleOps): per client and per day,
+    # on every provider-bound route, before the form is read.
+    ops.note(step=name)
     try:
-        return dispatch_core.dispatch(name, payload or {}, task=task,
-                                      source="console")
+        out = dispatch_core.dispatch(name, payload or {}, task=task,
+                                     source="console")
+        if cap.kind != "read" and isinstance(out, dict) and out.get("id"):
+            ops.note(run=str(out["id"]))
+        return out
     except FinrailError as exc:
         return {"status": "failed", "capability": name, "error": str(exc)}
     except Exception as exc:  # noqa: BLE001 - the page reports, never hides
@@ -182,8 +181,8 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
     nav = (primary + f"<details class='nav-more'><summary class='nav-link{' is-active' if more_active else ''}'>"
            f"{'More: ' + _e(dict((k, l) for k, _h, l in MORE)[active]) if more_active else 'More'}</summary>"
            f"<div class='nav-menu'><p class='nav-label'>Approvals and system</p>{more}</div></details>")
-    limit = max(0, int(os.environ.get('FINRAIL_DEMO_POST_LIMIT') or 0))
-    allowance = (f"{max(0, limit - _POSTS['count'])} of {limit} demo actions left. " if limit else '')
+    used, limit = ops.DAILY.status(ops.daily_cap())
+    allowance = (f"{max(0, limit - used)} of {limit} demo actions left today. " if limit else '')
     subtitle = f"<p class='page-lede'>{_e(lede)}</p>" if lede else ''
     page_header = (f"<div class='page-header'><div><h1 class='page-title'>{_e(title)}</h1>{subtitle}</div>"
                    f"<div class='page-actions'>{actions}</div></div>") if header else ''
@@ -326,6 +325,21 @@ def _proof_body(run: str = '', outcome: dict | None = None, multiple: dict | Non
     else:
         body += proof.empty()
     return body + proof.other_rails()
+
+
+@app.get('/healthz')
+def healthz():
+    """Liveness: the process answers and its state dir takes a write. JSON, 200 or 503."""
+    body, code = ops.liveness()
+    return JSONResponse(body, status_code=code, headers={'cache-control': 'no-store'})
+
+
+@app.get('/readyz')
+def readyz():
+    """Readiness: registry, state dir, engine, engine key and corpus setting, checked
+    without calling any provider. JSON, 200 or 503, no secret values."""
+    body, code = ops.readiness()
+    return JSONResponse(body, status_code=code, headers={'cache-control': 'no-store'})
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -687,6 +701,13 @@ def _read_events(kind: str = '') -> list[dict]:
     return list(reversed(records[-30:]))
 
 
+def _ledger_on_disk_note() -> str:
+    """Prompts and answers stay on disk unless the operator turns FINRAIL_CONSOLE_SHOW_PROMPTS on."""
+    return (f"<p class='form-hint'>The full prompt and answer are in the ledger on disk, "
+            f"<code>{_e(state() / 'events' / '_ledger.jsonl')}</code>. "
+            "This console shows them only when FINRAIL_CONSOLE_SHOW_PROMPTS is on.</p>")
+
+
 def _event_html(event: dict) -> str:
     data = event.get('data') or {}
     kind = str(event.get('kind') or 'event')
@@ -700,18 +721,26 @@ def _event_html(event: dict) -> str:
                         for name, a in answers.items() if isinstance(a, dict))
         detail = (f"<p class='event-meta'>Jev (TypeSafe) · {_e(data.get('model'))} · {_e(data.get('door'))} · "
                   f"{_e(data.get('duration_ms'))} ms · for <code>{_e(data.get('capability') or 'unknown')}</code></p>"
-                  + (f"<p class='error-detail'>{_e(data['error'])}</p>" if data.get('error') else f"<ul class='plain-list'>{picks}</ul>")
-                  + "<details class='disclosure'><summary>Inspect what Jev was shown and what it picked</summary>"
-                  + _raw({'state': data.get('state'), 'questions': data.get('questions')}, 'Questions and state')
-                  + _raw(answers, 'Answers, with probabilities') + '</details>')
+                  + (f"<p class='error-detail'>{_e(data['error'])}</p>" if data.get('error') else f"<ul class='plain-list'>{picks}</ul>"))
+        if ops.show_prompts():
+            detail += ("<details class='disclosure'><summary>Inspect what Jev was shown and what it picked</summary>"
+                       + _raw({'state': data.get('state'), 'questions': data.get('questions')}, 'Questions and state')
+                       + _raw(answers, 'Answers, with probabilities') + '</details>')
+        else:
+            detail += _ledger_on_disk_note()
     elif kind == 'model_call':
         usage = data.get('usage') or {}
         detail = (f"<p class='event-meta'>{_e(data.get('engine') or 'Engine not recorded')} · "
                   f"{_e(data.get('engine_model') or data.get('model') or 'Model not recorded')} · "
-                  f"{_e(usage.get('input_tokens',0))} tokens in · {_e(usage.get('output_tokens',0))} tokens out</p>"
-                  "<details class='disclosure'><summary>Inspect prompt and answer</summary><h3>Prompt</h3>"
-                  f"<pre class='raw'>{_e(data.get('prompt','Not recorded'))}</pre><h3>Answer</h3><pre class='raw'>{_e(data.get('answer','Not recorded'))}</pre>"
-                  +_raw(data,'Full model-call record')+'</details>')
+                  f"for <code>{_e(data.get('capability') or event.get('capability') or 'unknown')}</code> · "
+                  f"{_e(usage.get('input_tokens',0))} tokens in · {_e(usage.get('output_tokens',0))} tokens out</p>")
+        if ops.show_prompts():
+            detail += ("<details class='disclosure'><summary>Inspect prompt and answer</summary><h3>Prompt</h3>"
+                       f"<pre class='raw'>{_e(data.get('prompt','Not recorded'))}</pre><h3>Answer</h3><pre class='raw'>{_e(data.get('answer','Not recorded'))}</pre>"
+                       + _raw(data,'Full model-call record') + '</details>')
+        else:
+            detail += (f"<p class='event-meta'>Prompt SHA-256 <code class='mono'>{_e(ops.sha256(data.get('prompt')))}</code></p>"
+                       + _ledger_on_disk_note())
     else:
         detail = _raw(data,'Inspect event data')
     return (f"<article class='event-row' id='ev-{_e(event.get('seq',''))}'><span class='activity-icon'>{icon('activity' if kind in ('model_call','decision_call') else 'clock')}</span>"
@@ -730,7 +759,9 @@ def runs(kind: str = ''):
             f"<a class='tab{' is-active' if selected == 'decision_call' else ''}' href='/runs?kind=decision_call'>Jev calls</a></nav>")
     events = [ev for ev in _read_events(selected) if selected or ev.get('kind') in ('model_call', 'decision_call')]
     event_content = '<div class="event-list">'+''.join(_event_html(event) for event in events)+'</div>' if events else empty('No model calls recorded' if selected else 'No ledger events yet','Actual prompts, answers, model names, and token usage appear here after a model-backed workflow. Illustrative demo records are not model calls.','<a class="inline-action" href="/dataroom">Inspect the data room</a>','activity')
-    titles = {'model_call': 'Nemotron calls: full prompt and answer', 'decision_call': 'Jev calls: what it was shown and what it picked'}
+    titles = ({'model_call': 'Nemotron calls: full prompt and answer', 'decision_call': 'Jev calls: what it was shown and what it picked'}
+              if ops.show_prompts() else
+              {'model_call': 'Nemotron calls: model, tokens and prompt digest', 'decision_call': 'Jev calls: what it picked'})
     body = panel('Run activity',run_table) + tabs + panel(titles.get(selected, 'Model and Jev calls'),event_content)
     return _page('Activity & ledger',body+_cli_equiv('finrail runs'),'runs','Inspect proposals, outcomes, and the evidence behind each actual model call.')
 

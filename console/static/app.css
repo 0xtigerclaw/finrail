@@ -872,7 +872,7 @@ td.wp-num { font-variant-numeric: tabular-nums; }
 .chk .tick { width: 15px; height: 11px; }
 .probs { display: grid; gap: 4px; margin-top: 8px; }
 .probs-label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #6b7280); }
-.prob { position: relative; display: flex; justify-content: space-between; padding: 3px 8px; font-size: 11px; color: var(--ink-secondary); background: linear-gradient(90deg, #e7eef7 var(--p), transparent var(--p)); border: 1px solid var(--line); border-radius: 4px; }
+.prob { --p: 0%; position: relative; display: flex; justify-content: space-between; padding: 3px 8px; font-size: 11px; color: var(--ink-secondary); background: linear-gradient(90deg, #e7eef7 var(--p), transparent var(--p)); border: 1px solid var(--line); border-radius: 4px; }
 .prob b { color: var(--ink); font-weight: 600; }
 .trace-evidence { margin-top: 18px; }
 .trace-evidence h3 { margin: 0 0 10px; color: var(--ink-muted); font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
