@@ -43,6 +43,7 @@ FIGURES = {
     "capex": "Capital expenditure, purchases of property and equipment",
     "revenue": "Revenue or sales",
     "net_loss": "Net loss or net income, the bottom line",
+    "made_money": "Whether the company made money, was profitable, or lost money overall",
     "house_operating_income": "The operating result under the fund's own house rules or house method",
     "adjusted_operating_income": "Adjusted operating income with stock compensation added back, as the company presents it",
     "none": "No single figure: a topic, a sentence to record, a valuation multiple, or anything else",
@@ -137,7 +138,8 @@ def _keywords(question: str, previous: dict) -> dict:
     quarter = re.search(r"\bq([1-4])\b", q)
     report_id = next((r for r in REPORTS if company and r.startswith(company) and quarter
                       and f"-Q{quarter.group(1)}-" in r), latest)
-    figure = ("adjusted_operating_income" if "add back" in q or "adjusted operating" in q else
+    figure = ("made_money" if any(w in q for w in ("make money", "made money", "profitable", "lose money", "lost money")) else
+              "adjusted_operating_income" if "add back" in q or "adjusted operating" in q else
               "house_operating_income" if "house" in q else
               "fcf" if "free cash" in q or "fcf" in q else
               "operating_cash_flow" if "operating cash" in q or "cash from operations" in q else

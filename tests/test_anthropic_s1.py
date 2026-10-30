@@ -40,6 +40,8 @@ def s1_html(*, year="2026", revenue="$ 16,286", total="$ 16,286", unit_caption=T
     operations = _table(["F-7", "Anthropic, PBC", "Consolidated Statements of Operations", unit], "",
                         _row("Revenue", "$ 41", "$ 386", "$ 4,585", "$ 1,163", revenue),
                         _row("Operating expenses:"), _row("Total operating expenses", "592", "3,366", "12,645", "3,298", "16,979"),
+                        _row("Change in fair value of convertible notes, derivative liabilities, and SAFEs",
+                             "(1,045)", "(5,434)", "(34,308)", "(10,942)", "(72,388)"),
                         _row("Net loss", "$ (1,531)", "$ (8,309)", "$ (41,965)", "$ (12,969)", "$ (80,748)"),
                         _row("Net loss per share attributable to common stockholders, basic and diluted", "$ (1.42)", "$ (5.43)", "$ (23.04)", "$ (7.25)", "$ (39.88)"))
     cash = _table(["F-12", "Anthropic, PBC", "Consolidated Statements of Cash Flows", "(In millions)" if unit_caption else ""], "",
@@ -424,3 +426,57 @@ def test_proof_page_draws_the_bridge_and_the_rules_page_lists_the_house_rule(sta
     assert "House rule HR-1 (illustrative):" in page and "House rule applied." in page
     rules = client.get("/rules").text
     assert "House rules, applied by code to every figure" in rules and "HR-1" in rules and "illustrative" in rules
+
+
+# ── the opener: three true profit lines from one filing ────────────────────────
+
+def test_house_run_carries_the_profit_lines_signed_as_the_filing_prints_them():
+    item, _raw, cells, found, p = fixture("house_operating_income")
+    out = r.check_and_compute(item, "house_operating_income", p, found, cells)
+    lines = {line["key"]: (line["amount"], line["table"]) for line in out["lines"]}
+    assert lines == {"net_loss": ("-80748", 109), "fv_convertibles": ("-72388", 109),
+                     "aoi_operating_loss": ("-693", 61), "adjusted_operating_income": ("1618", 61)}
+    assert r.replay(out)["amount"] == "-567"  # the lines are context; the checked figure is unchanged
+
+
+def test_router_reads_did_it_make_money_as_the_profit_lines():
+    out = ask.route("Did Anthropic make money, according to its S-1?", ask=_jev_down)
+    assert (out["workflow"], out["report_id"], out["figure"]) == ("finance.reports.analyze", REPORT, "made_money")
+
+
+def test_ask_door_opens_with_three_true_lines_then_the_house_figure(state):
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+    from console.app import app
+    from console.chat import MONEY_Q, HOUSE_Q, SUGGESTIONS
+    assert SUGGESTIONS[0] == MONEY_Q
+    rid, _value = _record("house_operating_income")
+    client = TestClient(app)
+    page = client.post("/ask", data={"question": MONEY_Q}, follow_redirects=True).text
+    assert "It depends which line you read" in page
+    for shown in ("net loss <b>−$80,748m</b> (table 109, row", "operating loss <b>−$693m</b> (table 61, row",
+                  "adjusted operating income <b>$1,618m</b> (table 61, row", "$72,388m of the net loss is a non-cash charge"):
+        assert shown in page, shown
+    assert "Which line?" in page and rid in page
+    assert HOUSE_Q.replace("'", "&#x27;") in page  # the next chip is the house figure
+
+
+def test_a_profit_question_with_no_figure_picked_gets_the_profit_lines(state):
+    from console.chat import answer
+
+    def jev_without_figure(body):
+        return {"workflow": {"choice": "finance.reports.analyze", "confidence": 0.9},
+                "report": {"choice": REPORT, "confidence": 1.0}, "span": {"choice": "one", "confidence": 1.0},
+                "figure": {"choice": "none", "confidence": 0.9}}
+    calls = []
+
+    def dispatch(name, payload=None, task=""):
+        calls.append((name, payload))
+        if name == "finance.ask.route":
+            return {"result": ask.route(payload["question"], ask=jev_without_figure)}
+        return {"id": "run-1"}
+    turn = answer(dispatch, "Was Anthropic profitable, according to its S-1?", [])
+    assert turn["route"]["figure"] == "made_money" and turn["route"]["figure_by"] == "code, from the words"
+    assert ("finance.reports.analyze", {"report_id": REPORT, "definition": "house_operating_income"}) in calls
+    turn = answer(dispatch, "What revenue did Anthropic report in its S-1?", [])
+    assert turn["route"]["figure"] == "revenue"

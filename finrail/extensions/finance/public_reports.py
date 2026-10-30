@@ -94,6 +94,9 @@ PROFILES = {
             "aoi_charitable": {"table": 61, "label": "Non-cash charitable contributions (1)", "sign": "+", "reconciles": True},
             "aoi_settlement": {"table": 61, "label": "Bartz settlement (2)", "sign": "+", "reconciles": True,
                                "blank_is_zero": True},
+            # The non-cash charge that makes up most of the net loss, read by code for the profit lines.
+            "fv_convertibles": {"table": 109, "label": "Change in fair value of convertible notes, derivative liabilities, and SAFEs",
+                                "sign": "-", "reconciles": True},
         },
         "definitions": {
             "revenue": {"label": "Revenue, six months ended 30 June 2026", "terms": (("+", "revenue"),),
@@ -116,6 +119,10 @@ PROFILES = {
                 "label": "House operating result, six months ended 30 June 2026 (house rule HR-1: stock compensation is a cost)",
                 "terms": (("+", "adjusted_operating_income"), ("-", "stock_comp")), "reconcile": None,
                 "house_rule": "HR-1",
+                # The profit lines a reader meets first, each read by code from its archived cell,
+                # shown beside the house figure: (key, plain-language name).
+                "show": (("net_loss", "Net loss"), ("fv_convertibles", "of which, non-cash charge on convertible notes"),
+                         ("aoi_operating_loss", "Operating loss"), ("adjusted_operating_income", "Anthropic's adjusted operating income")),
                 # Before the house rule is applied, Anthropic's own figure must be recomputed
                 # from its own bridge, every component an archived cell.
                 "verify": {"target": "adjusted_operating_income",
@@ -599,6 +606,17 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
         out["issuer_figure"] = {"label": prof["rows"][spec["terms"][0][1]]["label"], "amount": str(amounts[spec["terms"][0][1]])}
         out["difference"] = [{"label": prof["rows"][k]["label"], "amount": str(amounts[k])} for k in removed]
         out["checks"] = out["checks"] + ["Issuer bridge recomputed", f"House rule {rule['id']} applied in code"]
+    if spec.get("show"):
+        # Signed as the filing prints them. Lines a replay does not carry are left out, never guessed.
+        out["lines"] = []
+        for key, name in spec["show"]:
+            cell = cells.get(key) or {}
+            if "value" not in cell:
+                continue
+            value = Decimal(cell["value"])
+            out["lines"].append({"key": key, "name": name, "label": prof["rows"][key]["label"],
+                                 "amount": str(-value if cell.get("sign", prof["rows"][key]["sign"]) == "-" else value),
+                                 **{k: cell[k] for k in ("table", "row_number", "html_cell", "column") if k in cell}})
     return out
 
 

@@ -23,6 +23,7 @@ from .views import e, icon, badge
 
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
 SUGGESTIONS = (
+    "Did Anthropic make money, according to its S-1?",
     "What was NVIDIA's free cash flow last quarter?",
     "What did Nebius say about capex in Q2?",
     "What does the web say about NVIDIA's free cash flow?",
@@ -34,10 +35,14 @@ SUGGESTIONS = (
 #: Asking for the issuer's stock-compensation add-back: the demo's house-rule refusal.
 ADD_BACK = "Add back stock compensation the way Anthropic does."
 HOUSE_Q = "What is Anthropic's operating result under our house rules?"
+#: The demo's opener: three true profit lines from one filing, shown side by side.
+MONEY_Q = "Did Anthropic make money, according to its S-1?"
 #: The figure the router read, as the analyze definition it means for a report.
 ANTH_FIGURES = {'revenue': 'revenue', 'net_loss': 'net_loss', 'operating_cash_flow': 'operating_cash_flow',
                 'capex': 'capex', 'fcf': 'simple_fcf', 'house_operating_income': 'house_operating_income',
-                'adjusted_operating_income': 'adjusted_operating_income'}
+                'adjusted_operating_income': 'adjusted_operating_income',
+                # "Did it make money?" is answered from the house run, which carries the profit lines.
+                'made_money': 'house_operating_income'}
 # How this door calls each askable capability: which parameters it fills from the route.
 # What each one is called, how it is asked for and what it does inside a run come from
 # the capability's own declaration (`ask_label`, `ask`, `steps`), never from here.
@@ -84,9 +89,9 @@ def new_id() -> str:
 
 def _definition(route: dict) -> str:
     """The analyze definition a routed question means: NVIDIA's own FCF, or for Anthropic
-    the figure Jev read (revenue when it read none)."""
+    the figure read from the question (the profit lines when none was named)."""
     if route.get('report_id', '').startswith('ANTH'):
-        return ANTH_FIGURES.get(route.get('figure') or '', 'revenue')
+        return ANTH_FIGURES.get(route.get('figure') or '', 'house_operating_income')
     return 'issuer_fcf'
 
 
@@ -129,6 +134,13 @@ def answer(dispatch, question: str, turns: list, force: str = '') -> dict:
     if flow == 'fcf':
         if not _supported(route['report_id']):
             return {**turn, 'answer': {'kind': 'scope', 'report_id': route['report_id']}}
+        if route['report_id'].startswith('ANTH') and route.get('figure') not in ANTH_FIGURES:
+            # Jev picked the workflow but no figure: code reads the figure from the words, and a
+            # question that names none ("was it profitable?") gets the profit lines, never a guess.
+            from finrail.extensions.finance.ask import _keywords
+            read = _keywords(question, {}).get('figure')
+            route = turn['route'] = {**route, 'figure': read if read in ANTH_FIGURES else 'made_money',
+                                     'figure_by': 'code, from the words'}
         definition = _definition(route)
         wanted = NVDA if route.get('span') == 'both' and route['report_id'].startswith('NVDA') else (route['report_id'],)
         return {**turn, 'answer': {'kind': 'fcf', 'definition': definition, 'runs': [_fcf_run(dispatch, r, definition) for r in wanted]}}
@@ -253,6 +265,19 @@ def _short(turn: dict, cid: str) -> str:
             return (f"Free cash flow went from <b>${int(a['amount']):,}m</b> ({e(a['period'])}) to <b>${int(b['amount']):,}m</b> "
                     f"({e(b['period'])}), {'down' if diff < 0 else 'up'} ${abs(int(diff)):,}m ({pct:+}%). Both tie to NVIDIA’s reported figures.")
         v = done[0]['result']
+        if route.get('figure') == 'made_money' and v.get('lines'):
+            by = {line['key']: line for line in v['lines']}
+            def cell(key, name):
+                line = by.get(key)
+                return (f"{e(name)} <b>{money(line['amount'])}</b> (table {e(line.get('table'))}, row {e(line.get('row_number'))})"
+                        if line else '')
+            told = [cell('net_loss', 'net loss'), cell('aoi_operating_loss', 'operating loss'),
+                    cell('adjusted_operating_income', 'Anthropic’s adjusted operating income')]
+            charge = by.get('fv_convertibles')
+            return ("It depends which line you read. All three are in the S-1, each checked against its archived cell: "
+                    + ' · '.join(t for t in told if t) + '.'
+                    + (f" {money(charge['amount']).lstrip('−-')} of the net loss is a non-cash charge on convertible notes." if charge else '')
+                    + " Which one goes in the memo is a method decision.")
         if v.get('house_rule'):
             sbc = v['difference'][0]['amount']
             return (f"House operating result: <b>{money(v['amount'])}</b> for {e(v['period'])}. Anthropic reports "
@@ -322,7 +347,9 @@ def followups(turns: list) -> list[str]:
     nebius = "What did Nebius say about capex in Q2?"
     out: list = []
     anthropic_multiple = "At a $300bn valuation, what is Anthropic's price to sales?"
-    if kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'house_operating_income':
+    if kind == 'fcf' and rid.startswith('ANTH') and route.get('figure') == 'made_money':
+        out = [HOUSE_Q, "What revenue did Anthropic report in its S-1?", "What does Anthropic's S-1 say about compute commitments?"]
+    elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'house_operating_income':
         out = [ADD_BACK, "What revenue did Anthropic report in its S-1?", anthropic_multiple]
     elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'adjusted_operating_income':
         out = [HOUSE_Q, "What revenue did Anthropic report in its S-1?"]
@@ -348,7 +375,7 @@ def followups(turns: list) -> list[str]:
                "What revenue did Anthropic report in its S-1?" if company == 'Anthropic' else "What was NVIDIA's free cash flow last quarter?", web]
     asked = {t['q'].strip().lower() for t in turns}
     if kind == 'fcf':  # the figure is on screen; asking for it again is no follow-up
-        asked.add(SUGGESTIONS[0].lower())
+        asked.add("What was NVIDIA's free cash flow last quarter?".lower())
     picked = [q for q in out if q and q.strip().lower() not in asked]
     for q in SUGGESTIONS:
         if len(picked) >= 4:
@@ -420,6 +447,19 @@ def _model_line(rid: str) -> str:
     name = (data.get('engine_model') or data.get('model') or 'model').split('/')[-1]
     return (f"{e(name)} · {usage.get('input_tokens', 0):,} tokens in, {usage.get('output_tokens', 0):,} out · "
             f"<a href='/runs/{e(rid)}'>prompt and answer in the ledger</a>")
+
+
+def _lines_card(rec: dict) -> str:
+    """The profit lines of one filing side by side, each with its table and row."""
+    lines = (rec.get('result') or {}).get('lines') or []
+    if not lines:
+        return ''
+    rows = ''.join(f"<tr><td>{e(line['name'])}<span class='company-meta'>{e(line['label'])}</span></td>"
+                   f"<td class='wp-ref'>T{e(line.get('table'))}·R{e(line.get('row_number'))}</td>"
+                   f"<td class='wp-num'>{money(line['amount'])}</td><td class='wp-ticks'>{TICK}</td></tr>" for line in lines)
+    return (f"<div class='mini-wp'><div class='mini-head'><span>Same filing, same six months</span><strong>Which line?</strong></div>"
+            f"<table class='mini-table'><tbody>{rows}</tbody></table>"
+            "<p class='mini-foot'>Each figure read by code from the hash-checked S-1, under the six-month 2026 column.</p></div>")
 
 
 def _fcf_card(rec: dict) -> str:
@@ -507,7 +547,7 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
             refused = any(str(x).startswith('ContractViolation') for r in recs if r for x in r.get('errors') or [])
             failed_at = 'House rule' if failure.startswith('House rule') else 'Check' if refused else 'retrieve'
-        evidence = ''.join(_fcf_card(r) for r in done)
+        evidence = ''.join((_lines_card(r) if (turn.get('route') or {}).get('figure') == 'made_money' else '') + _fcf_card(r) for r in done)
     elif kind == 'record':
         if ans.get('stated'):
             facts['Read figure'] = f"{money(ans['stated'])}, read from your sentence as typed"
