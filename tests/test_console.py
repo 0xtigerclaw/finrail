@@ -22,7 +22,7 @@ def client():
 def test_home_is_the_ask_door(client):
     page = client.get("/")
     assert page.status_code == 200
-    assert "Only checked code answers it" in page.text
+    assert "Evaluate investment opportunities" in page.text and "hero-how" in page.text
     assert "DeepSeek Harness" in page.text
     assert "What was NVIDIA" in page.text
     assert "/cli" in page.text
@@ -30,8 +30,8 @@ def test_home_is_the_ask_door(client):
 
 def test_proof_page_offers_a_live_run_on_a_fresh_instance(client):
     page = client.get("/proof")
-    assert "Every plugin declares its trust rules" in page.text
-    assert "Run the proof live" in page.text
+    assert "Every plugin declares its rules in code" in page.text
+    assert "Run it live" in page.text and "house_operating_income" in page.text
 
 
 def test_cli_page_generated_from_registry(client):

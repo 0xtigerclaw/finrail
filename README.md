@@ -49,7 +49,7 @@ Finrail separates the work into three kinds of step and assigns each to the part
 | **Judgement** | A model, called as a function | None, by design. Its output is a proposal that code verifies. |
 | **Approval** | A named person | A gate. Nothing is recorded without it, and no browser can pass it. |
 
-Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under house rule HR-1 (stock compensation is a cost) the same archived cells give **−$567m**, and the $2,185m difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24,077m as NVIDIA's free cash flow is refused and names the line it actually came from.
+Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under method rule M-1 (stock compensation is a cost) the same archived cells give **−$567m**, and the $2,185m difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24,077m as NVIDIA's free cash flow is refused and names the line it actually came from.
 
 ## Inspired from DeepSeek Harness Architecture
 
@@ -120,9 +120,9 @@ Purple is judgement, blue is code, green is a person, red is a refusal.
 Each answer offers the next question as a chip, so the story clicks through:
 
 1. "Did Anthropic make money, according to its S-1?" Three true lines, each with its table and row.
-2. "What is Anthropic's operating result under our house rules?" −$567m, with the workpaper.
+2. "Under our method, what was Anthropic's operating result in its S-1?" −$567m, with the workpaper.
 3. "What does the web say about Anthropic's profit?" Tavily finds press sentences. Jev names the line and period of each. Code gives every verdict: matches, loosely rounded, wrong line, or another period.
-4. "Add back stock compensation the way Anthropic does." Refused by HR-1.
+4. "Add back stock compensation the way Anthropic does." Refused by M-1.
 5. On the workpaper, "Swap in a figure from another column." Refused by the checker.
 
 The Rules page renders every capability's declared steps from the live registry. The Ledger shows every model and Jev call.
@@ -131,7 +131,7 @@ The Rules page renders every capability's declared steps from the live registry.
 
 | Pack | What it does | The rule it enforces |
 | --- | --- | --- |
-| `finance.reports` | Seven real filings: quarterly releases from NVIDIA, Nebius and ASML, and Anthropic's S-1. NVIDIA free cash flow and Anthropic's revenue, net loss, operating cash flow, capex and house operating result, rebuilt from the archived cells. Stated figures and web claims checked against them. A price-to-sales multiple at a valuation the person states. | Inputs must match the exact archived cell under the right period column, and the total must equal the figure the issuer reports, or no answer is issued. A recorded figure must equal the checked line, and a person releases it. A multiple is arithmetic on a supplied figure, never advice. |
+| `finance.reports` | Seven real filings: quarterly releases from NVIDIA, Nebius and ASML, and Anthropic's S-1. NVIDIA free cash flow and Anthropic's revenue, net loss, operating cash flow, capex and operating result under the fund's method, rebuilt from the archived cells. Stated figures and web claims checked against them. A price-to-sales multiple at a valuation the person states. | Inputs must match the exact archived cell under the right period column, and the total must equal the figure the issuer reports, or no answer is issued. A recorded figure must equal the checked line, and a person releases it. A multiple is arithmetic on a supplied figure, never advice. |
 | `finance.screen` | Public-risk screening across leadership, regulatory, cyber and distress | A deterministic evidence gate is the sole authority for VERIFIED. A quote that is not verbatim in its source is discarded, never repaired. |
 | `finance.dataroom`, `finance.compute`, `finance.memo` | Claim check, deterministic metrics and hash-bound memo release over a synthetic data room | Figures must be carried by cited sources. Arithmetic is Python. Release is bound to the memo's hash. |
 | `tasks` | A minimal non-finance pack, kept as a control | Shows that the finance rules live in the finance packs, not in special cases inside the dispatcher. |
@@ -182,11 +182,11 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 ## Evaluation
 
-201 offline tests, no provider calls. They cover the source-cell checks and a tamper replay, the Anthropic S-1 figures and HR-1, the router bar on workflow, report, period and figure, a Jev pick outside the offered choices being discarded, the record check (operating cash flow stated as free cash flow is refused and named), web claims against stubbed Tavily pages, every Jev call reaching the ledger, the evidence gate (a fabricated quote is discarded, not repaired), the hash-bound memo release, the engine seam's named failures, and the console plugin refusing to start when disabled.
+201 offline tests, no provider calls. They cover the source-cell checks and a tamper replay, the Anthropic S-1 figures and M-1, the router bar on workflow, report, period and figure, a Jev pick outside the offered choices being discarded, the record check (operating cash flow stated as free cash flow is refused and named), web claims against stubbed Tavily pages, every Jev call reaching the ledger, the evidence gate (a fabricated quote is discarded, not repaired), the hash-bound memo release, the engine seam's named failures, and the console plugin refusing to start when disabled.
 
 ## Honest limitations
 
-- HR-1 is illustrative. A fund's real rules replace it.
+- M-1 is illustrative. A fund's real rules replace it.
 - Anthropic is checked for one half-year, the period its S-1 covers. The 36-case benchmark has not been run.
 - When Jev is unreachable, plain keyword rules route the question, and the trace says so.
 - Capability code runs in-process and is not OS-sandboxed. Agents started inside a person's own login share that person's scope.

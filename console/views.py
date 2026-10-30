@@ -111,3 +111,14 @@ def time_label(value) -> str:
 
 def run_link(rid, label='View run') -> str:
     return f"<a class='inline-action' href='/runs/{quote(str(rid), safe='')}'>{e(label)}{icon('arrow',16)}</a>"
+
+
+_MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+           'October', 'November', 'December')
+
+
+def long_date(text: str) -> str:
+    """Every ISO date in `text` written the way a reader says it: 2026-06-30 -> 30 June 2026."""
+    import re
+    return re.sub(r"\b(\d{4})-(\d{2})-(\d{2})\b",
+                  lambda m: f"{int(m[3])} {_MONTHS[int(m[2]) - 1]} {m[1]}", str(text or ''))

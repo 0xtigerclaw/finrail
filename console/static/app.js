@@ -201,9 +201,13 @@
     }
     submitted.set(form, saved);
     form.setAttribute("aria-busy", "true");
+    // Only the button that was pressed says so; the rest of the form just dims. Without a
+    // submitter (Enter in a text box) the form's first enabled button stands in for it.
+    const pressed = submitter || (saved.find(({ disabled }) => !disabled) || {}).button;
     for (const { button, disabled } of saved) {
       if (disabled) continue;
       button.disabled = true;
+      if (button !== pressed) continue;
       if (button instanceof HTMLButtonElement) button.textContent = "Working…";
       else button.value = "Working…";
     }

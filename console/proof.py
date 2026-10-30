@@ -9,7 +9,7 @@ from __future__ import annotations
 from finrail.core import registry, tracker
 from finrail.extensions.finance.public_reports import ATTACKS, PROFILES
 from finrail.extensions.finance.claims import money
-from .views import e, icon
+from .views import e, icon, long_date
 
 ANALYZE = 'finance.reports.analyze'
 MULTIPLE = 'finance.reports.multiple'
@@ -47,9 +47,13 @@ def _money(value, negative=False) -> str:
     return f"({text})" if negative or int(value) < 0 else text
 
 
+#: The workpaper reference for each definition, the way an audit file numbers its papers.
+WP_REF = {'house_operating_income': 'OP-1', 'adjusted_operating_income': 'OP-2', 'revenue': 'REV-1', 'net_loss': 'NL-1'}
+
+
 def hero() -> str:
-    return ("<header class='proof-hero'><p class='kicker'>A finance harness, inspired by DeepSeek Harness</p>"
-            "<h1>Every plugin declares its trust rules. The kernel enforces them.</h1>"
+    return ("<header class='proof-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
+            "<h1>Every plugin declares its rules in code. Code enforces them.</h1>"
             "<p class='proof-lede'>DeepSeek Harness made everything a plugin. Finrail makes each plugin say, in code, "
             "whether it may act, who must approve, and how its result is checked. Below is one live run on a real filing.</p></header>")
 
@@ -82,7 +86,7 @@ def workpaper(rec: dict, model_call: dict | None) -> str:
                      f"{e(part['label'])}</td><td class='wp-ref'>T{e(part.get('table', '?'))} · R{e(part.get('row_number', '?'))}</td>"
                      f"<td class='wp-num'>{_money(part['amount'], part['sign'] == '-')}</td><td class='wp-ticks'>{TICK}</td></tr>")
         hr = v['house_rule']
-        rows += (f"<tr class='wp-rule'><td class='wp-label' colspan='4'><b>House rule {e(hr['id'])}{' (illustrative)' if hr.get('illustrative') else ''}:</b> "
+        rows += (f"<tr class='wp-rule'><td class='wp-label' colspan='4'><b>Method rule {e(hr['id'])}{' (illustrative)' if hr.get('illustrative') else ''}:</b> "
                  f"{e(hr['text'])}</td></tr>")
     elif issuer and not v.get('reconciled'):
         rows += (f"<tr class='wp-issuer'><td class='wp-label'>Issuer-reported free cash flow</td><td class='wp-ref'>Same filing, table 6</td>"
@@ -91,25 +95,27 @@ def workpaper(rec: dict, model_call: dict | None) -> str:
     if model_call:
         data = model_call.get('data') or {}
         proposer = (data.get('engine_model') or data.get('model') or 'model not named').split('/')[-1] + ' on Nebius'
-    verdict = (f"House rule applied. {e(v['company'])}’s adjusted figure recomputes from its own bridge; the gap is stock compensation."
+    verdict = (f"Method rule {e(v['house_rule']['id'])} applied. {e(v['company'])}’s adjusted figure recomputes from its own bridge. "
+               "The gap is stock compensation."
                if v.get('house_rule') else
                f"Reconciled. The recomputed total equals {e(v['company'])}’s own figure in the same filing." if issuer
-               else f"Different definition. {e(v.get('reconciliation', ''))}, and the answer says so.")
+               else f"Different definition. {e(v.get('reconciliation', ''))}. The answer says so.")
     legend = ("<dl class='wp-legend'>"
               f"<div><dt>{TICK}</dt><dd>Agreed to the archived source cell (file SHA-256 checked)</dd></div>"
               f"<div><dt>{_mark('q', 'q')}</dt><dd>Row text attached by code; the model only picked the row</dd></div>"
               f"<div><dt>{_mark('Σ', 'Σ')}</dt><dd>Recomputed in code, never by the model</dd></div>"
               + (f"<div><dt>{_mark('R', 'R')}</dt><dd>Reconciled to the issuer’s figure in the same filing</dd></div>" if issuer else '')
               + "</dl>")
+    meta = f"Period ended {e(long_date(v['period_end']))} · USD millions" + ('' if v.get('house_rule') else f" · {e(long_date(v['metric']))}")
     return ("<section class='workpaper' aria-labelledby='wp-title'>"
-            "<div class='wp-head'><div><p class='wp-ref-line'>W/P FCF-1 · Live run</p>"
-            f"<h2 id='wp-title'>{e(v['company'])} {e(total.lower())}, {e(v['period'])}</h2>"
-            f"<p class='wp-meta'>Period ended {e(v['period_end'])} · USD millions · {e(v['metric'])}</p></div>"
+            f"<div class='wp-head'><div><p class='wp-ref-line'>W/P {WP_REF.get(v.get('definition'), 'FCF-1')} · Live run</p>"
+            f"<h2 id='wp-title'>{e(v['company'])} {e(total.lower())}, {e(long_date(v['period']))}</h2>"
+            f"<p class='wp-meta'>{meta}</p></div>"
             f"<div class='wp-answer'><span class='wp-amount'>${_money(v['amount'])}m</span><span class='wp-verdict'>{e(verdict)}</span></div></div>"
             "<div class='wp-sign'>"
-            f"<span><b>Proposed by</b> {e(proposer)}</span><span><b>Checked by</b> Finrail kernel (code)</span>"
+            f"<span><b>Proposed by</b> {e(proposer)}</span><span><b>Checked by</b> Finrail code, not the model</span>"
             f"<span><b>Run</b> <a href='/runs/{e(rec['id'])}'><code>{e(rec['id'])}</code></a></span></div>"
-            "<div class='table-wrap wp-table'><table><caption class='sr-only'>Free cash flow workpaper</caption>"
+            f"<div class='table-wrap wp-table'><table><caption class='sr-only'>{e(total)} workpaper</caption>"
             "<thead><tr><th scope='col'>Line item</th><th scope='col'>Source cell</th><th scope='col' class='wp-num'>USD millions</th><th scope='col'><span class='sr-only'>Checks</span></th></tr></thead>"
             f"<tbody>{rows}</tbody></table></div>{legend}"
             f"<p class='wp-foot'>Filing fingerprint <code>{e(v['source_sha256'][:16])}…</code> · "
@@ -146,14 +152,14 @@ def rail(rec: dict, model_call: dict | None) -> str:
     v = rec['result']
     usage = ((model_call or {}).get('data') or {}).get('usage') or {}
     tokens = f" · {usage.get('input_tokens', 0):,} tokens in, {usage.get('output_tokens', 0):,} out" if usage else ''
-    seen = {'Retrieve': f"{len(v['retrieval']['evidence'])} excerpts from {v['report_id']}",
+    seen = {'Retrieve': f"{len(v['retrieval']['evidence'])} excerpts, all from {'Anthropic’s S-1' if v['report_id'].startswith('ANTH') else v['report_id']}",
             'Propose': f"Picked {len(v['inputs'])} row IDs and their values{tokens}",
             'Bind': f"Attached the exact retrieved text of {len(v['inputs'])} rows",
             'Check': f"{len(v['checks'])} checks passed",
             'Compute': f"{money(v['amount'])} in Decimal" + (", the issuer’s adjusted figure less stock compensation" if v.get('house_rule')
                          else ", equal to the issuer’s figure" if v.get('reconciled') or v.get('definition') == 'issuer_fcf' else '')}
     if v.get('house_rule'):
-        seen['House rule'] = f"{v['house_rule']['id']} applied: {v['house_rule']['text']}"
+        seen['Method rule'] = f"{v['house_rule']['id']} applied before anything ran."
     registry.load()
     kinds = {'retrieve': 'plugin', 'model': 'model'}
     items = ''.join(
@@ -175,7 +181,7 @@ def declaration() -> str:
     return ("<aside class='declaration' aria-labelledby='decl-title'><h2 id='decl-title'>Declared once, in code</h2>"
             "<p>Read live from the registry. The browser and the CLI obey the same declaration.</p>"
             f"<p class='decl-name'><code>{ANALYZE}</code></p><dl class='decl-list'>{lines}</dl>"
-            f"<p class='decl-verified'><b>verified_by</b> {e(rules.get('verified_by') or 'Not declared')}</p>"
+            f"<p class='decl-verified'><b>verified_by</b> {e(rules.get('verified_by') or 'nothing to verify: it reads only')}</p>"
             "<a class='inline-action' href='/rules'>Every capability’s rules" + icon('arrow', 14) + "</a></aside>")
 
 
@@ -205,20 +211,23 @@ def challenge(rec: dict, outcome: dict | None) -> str:
 def empty(state: str = '', rid: str = '', error: str = '') -> str:
     if state == 'running':
         return (f"<section class='workpaper wp-pending' data-run-refresh data-refresh-url='/proof?run={e(rid)}'>"
-                f"<p class='wp-ref-line'>W/P FCF-1 · Running</p><h2>Running live on NVIDIA’s filing</h2>"
+                f"<p class='wp-ref-line'>Running</p><h2>Reading the filing now</h2>"
                 "<p role='status'>Retrieving, proposing, checking. This page refreshes on its own and never re-submits.</p></section>")
     note = f"<div class='alert' role='alert'>{e(error)}</div>" if error else ''
-    return ("<section class='workpaper wp-pending'><p class='wp-ref-line'>W/P FCF-1 · Not yet run on this instance</p>"
-            "<h2>NVIDIA free cash flow, Q2 FY2027</h2>"
-            "<p>One model call on Nemotron proposes the inputs. Every other step is code. About a minute.</p>" + note +
-            "<form method='post' action='/proof/run' class='break-actions'><button class='btn'>Run the proof live" + icon('arrow', 16) + "</button>"
-            "<button class='btn btn-secondary' name='report_id' value='ANTH-S1-2026'>Or check Anthropic’s S-1 revenue</button></form></section>")
+    return ("<section class='workpaper wp-pending'><p class='wp-ref-line'>W/P OP-1 · Not yet run on this server</p>"
+            "<h2>Anthropic operating result under our method, six months to 30 June 2026</h2>"
+            "<p>One model call on Nemotron picks the rows. Every other step is code. About a minute.</p>" + note +
+            "<form method='post' action='/proof/run' class='break-actions'>"
+            "<input type='hidden' name='definition' value='house_operating_income'>"
+            "<button class='btn' name='report_id' value='ANTH-S1-2026'>Run it live" + icon('arrow', 16) + "</button></form>"
+            "<form method='post' action='/proof/run' class='break-actions'>"
+            "<button class='btn btn-secondary'>Or check NVIDIA’s Q2 free cash flow</button></form></section>")
 
 
 def other_rails() -> str:
-    return ("<section class='other-rails'><h2>The same kernel, elsewhere</h2><ul>"
+    return ("<section class='other-rails'><h2>The same checks, elsewhere</h2><ul>"
             "<li><a href='/?q=Record%20NVIDIA%27s%20Q2%20free%20cash%20flow%20as%20%2424%2C077m'>Record a wrong NVIDIA figure and watch the claim check refuse it</a></li>"
             "<li><a href='/?q=What%20revenue%20did%20Anthropic%20report%20in%20its%20S-1%3F'>Check Anthropic’s S-1 revenue against the archived statement cell</a></li>"
             "<li><a href='/reports'>Seven filings, every indexed file reconciled live against the corpus</a></li>"
-            "<li><a href='/screen'>One publisher can report; only two can verify (synthetic fixture)</a></li>"
+            "<li><a href='/screen'>A risk finding needs two independent publishers to count as verified (synthetic company)</a></li>"
             "</ul></section>")

@@ -53,7 +53,7 @@ def reconciled_line(value) -> str:
 
 def proof_rail(value):
     if value.get('house_rule'):
-        verdict, verdict_detail = 'House rule applied', (f"{value['house_rule']['id']}: {value['house_rule']['text']} "
+        verdict, verdict_detail = 'Method rule applied', (f"{value['house_rule']['id']}: {value['house_rule']['text']} "
                                                          f"Anthropic's bridge recomputes to {int(value['reconciled']['value']):,}.")
     elif reconciled(value):
         verdict, verdict_detail = 'Reconciled', reconciled_line(value)
@@ -114,7 +114,7 @@ def result_html(value):
 COMPANIES = ('NVIDIA', 'Nebius', 'ASML', 'Anthropic')
 ASKS = {'NVIDIA': ("What was NVIDIA's free cash flow in {q}?",), 'Nebius': ("What did Nebius say about capex in {q}?",),
         'ASML': ("What did ASML say about guidance in {q}?",),
-        'Anthropic': ("What is Anthropic's operating result under our house rules?",
+        'Anthropic': ("Under our method, what was Anthropic's operating result in its S-1?",
                       "What revenue did Anthropic report in its S-1?",
                       "What does Anthropic's S-1 say about compute commitments?")}
 #: The figure shown as checked on a filing card, per company: (definition, label).

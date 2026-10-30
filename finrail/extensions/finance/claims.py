@@ -301,7 +301,7 @@ def judge(value: Decimal, tolerance: Decimal, line: str, rec: dict, bound: dict 
                        else abs(value - checked_line(rec, k)) <= tolerance)), "")
     hint = f" {money(value)} is NVIDIA's {LABELS[other]}, not its {LABELS[line]}." if other else ""
     return {"verdict": "wrong_line" if other else "wrong",
-            "detail": f"The filing's {LABELS[line]} for {period} is {money(truth)}; the claim says {_as_stated(value, bound)}.{hint}"}
+            "detail": f"The filing's {LABELS[line]} for {period} is {money(truth)}. The claim says {_as_stated(value, bound)}.{hint}"}
 
 
 # ── what the web says, checked against the filing ────────────────────────────
@@ -369,12 +369,12 @@ def judge_anthropic(value: Decimal, tolerance: Decimal, line: str, truth: dict, 
     if not bound and tolerance and agrees(value, tolerance, truth[line], {"kind": "approx"}):
         # Within one unit of the last typed digit but not rounded to it: "$80 billion" for $80.7bn.
         return {"verdict": "loose", "detail": f"Close, but loosely rounded: the S-1's {ANTH_LABELS[line]} for {period} is "
-                                              f"{money(truth[line])}; the claim says {money(abs(value))}."}
+                                              f"{money(truth[line])}. The claim says {money(abs(value))}."}
     other = next((k for k in truth if k != line and agrees(value, tolerance, truth[k], bound)), "")
     hint = (f" {money(abs(value))} is Anthropic's {ANTH_LABELS[other]} ({money(truth[other])}), "
             f"not its {ANTH_LABELS[line]}." if other else "")
     return {"verdict": "wrong_line" if other else "wrong",
-            "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}; the claim says {_as_stated(abs(value), bound or {})}.{hint}"}
+            "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}. The claim says {_as_stated(abs(value), bound or {})}.{hint}"}
 
 
 #: Two plain searches, merged by URL: one pass on its own often returns only a few snippets.
@@ -410,7 +410,7 @@ def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
             row.update(verdict="unchecked", detail="The sentence names no period, so it is not tied to the S-1's first half of 2026.")
         elif stated != ANTHROPIC:
             # A quarter, a run rate or a full year, named in the sentence's own words: code rules it out.
-            row.update(verdict="unchecked", detail="It names a period other than the S-1's first half of 2026, read by code.")
+            row.update(verdict="unchecked", detail="It names another period. The S-1 covers the first half of 2026.")
         elif not r["sure"]:
             row.update(verdict="unclear", detail="Jev was not sure which line or period this is about, so nothing was decided.")
         elif r["line"] == "none":
@@ -481,7 +481,7 @@ class WebClaims(Plugin):
         {"name": "Find", "by": "Tavily", "kind": "retrieve", "where": "research._search_one()",
          "rule": "Discovery only. A web page is a claim to check, never evidence."},
         {"name": "Pick sentences", "by": "Kernel", "kind": "code", "where": "claims.web_sentences()",
-         "rule": "Keeps verbatim sentences that name a checked line and state one figure."},
+         "rule": "Keeps sentences, word for word, that name a checked line and state one figure."},
         {"name": "Read claims", "by": "Jev (TypeSafe)", "kind": "model", "where": "claims.read()",
          "rule": "Picks which line and period each sentence is about. Cannot write a number."},
         {"name": "Check", "by": "Kernel", "kind": "check", "where": "claims.judge()",

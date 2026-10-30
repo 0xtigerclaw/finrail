@@ -19,23 +19,23 @@ from finrail.extensions.finance.ask import NONE, REPORTS, workflows
 from finrail.extensions.finance.public_reports import PROFILES, checked_fcf, report, stated_millions
 from finrail.extensions.finance.claims import money
 from finrail.extensions.finance.public_reports import HOUSE_RULES
-from .views import e, icon, badge
+from .views import long_date, e, icon, badge
 
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
 SUGGESTIONS = (
     "Did Anthropic make money, according to its S-1?",
-    "What was NVIDIA's free cash flow last quarter?",
-    "What did Nebius say about capex in Q2?",
-    "What does the web say about NVIDIA's free cash flow?",
-    "Record NVIDIA's Q2 free cash flow as $24,077m",
+    "Under our method, what was Anthropic's operating result in its S-1?",
+    "What does the web say about Anthropic's profit?",
     "What revenue did Anthropic report in its S-1?",
     "What does Anthropic's S-1 say about compute commitments?",
-    "What is Anthropic's operating result under our house rules?",
-    "What does the web say about Anthropic's profit?",
+    "What was NVIDIA's free cash flow last quarter?",
+    "What does the web say about NVIDIA's free cash flow?",
+    "Record NVIDIA's Q2 free cash flow as $24,077m",
+    "What did Nebius say about capex in Q2?",
 )
-#: Asking for the issuer's stock-compensation add-back: the demo's house-rule refusal.
+#: Asking for the issuer's stock-compensation add-back: the demo's method-rule refusal.
 ADD_BACK = "Add back stock compensation the way Anthropic does."
-HOUSE_Q = "What is Anthropic's operating result under our house rules?"
+HOUSE_Q = "Under our method, what was Anthropic's operating result in its S-1?"
 #: The demo's opener: three true profit lines from one filing, shown side by side.
 MONEY_Q = "Did Anthropic make money, according to its S-1?"
 #: Jev routes this to Tavily; Jev reads each press sentence; code checks it against the S-1.
@@ -182,6 +182,14 @@ TICK = "<svg class='tick' viewBox='0 0 22 16' aria-hidden='true'><path d='M2 9.5
 MARK = {'pass': '✓', 'fail': '✕', 'run': '…', 'skip': '–', 'wait': '◷', 'info': 'i'}
 
 
+def _plain_error(err) -> str:
+    """An error as a reader should see it: no capability name or error class in front."""
+    text = str(err)
+    for prefix in (CAPABILITY['web'] + ': ', 'not configured: ', 'NotConfigured: ', 'ContractViolation: '):
+        text = text.removeprefix(prefix)
+    return text
+
+
 def _record(rid: str) -> dict | None:
     try:
         return tracker.load(rid)
@@ -255,12 +263,12 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'fcf':
         done, running, failed = _fcf_state(ans)
         if failed:
-            if failed[0].startswith('House rule'):
+            if failed[0].startswith('Method rule'):
                 return f"Refused. {e(failed[0])}"
             return f"Not verified. No answer issued: {e(failed[0])}"
         if running:
             company = 'Anthropic’s S-1' if (route.get('report_id') or '').startswith('ANTH') else 'NVIDIA’s filing'
-            return f"Checking {company} live. One model call, then code checks every cell. About a minute."
+            return f"Reading {company} now. One model call, then code checks every cell. About a minute."
         if len(done) == 2:
             a, b = sorted((r['result'] for r in done), key=lambda v: v['period_end'])
             diff = Decimal(b['amount']) - Decimal(a['amount'])
@@ -272,13 +280,14 @@ def _short(turn: dict, cid: str) -> str:
             return _lines_reply(v['lines'])
         if v.get('house_rule'):
             sbc = v['difference'][0]['amount']
-            return (f"House operating result: <b>{money(v['amount'])}</b> for {e(v['period'])}. Anthropic reports "
-                    f"{money(v['issuer_figure']['amount'])} adjusted, and its bridge recomputes exactly; the {money(sbc)} gap is stock "
-                    f"compensation, which house rule {e(v['house_rule']['id'])} never adds back.")
+            return (f"Under your method: <b>{money(v['amount'])}</b> for the six months to 30 June 2026. "
+                    f"Anthropic reports +{money(v['issuer_figure']['amount'])} adjusted. The {money(sbc)} gap is stock "
+                    f"compensation, which rule {e(v['house_rule']['id'])} counts as a cost. "
+                    "Anthropic’s own figure recomputes exactly from its bridge.")
         tie = (f"It ties to the figure {e(v['company'])} reports in the same filing." if v.get('reconciled') or v.get('definition') == 'issuer_fcf'
                else e(v.get('reconciliation', '')) + '.')
         what = v['metric'].split(',')[0] if (v.get('company') != 'NVIDIA') else 'Free cash flow'
-        return f"{e(what)}: <b>{money(v['amount'])}</b> for {e(v['period'])}. {tie}"
+        return f"{e(what)}: <b>{money(v['amount'])}</b> for {e(long_date(v['period']))}. {tie}"
     if kind == 'multiple':
         if ans.get('error'):
             return f"Refused. Nothing was computed. {e(ans['error'])}"
@@ -297,12 +306,12 @@ def _short(turn: dict, cid: str) -> str:
                 f"{counts['reported']} reported, {counts['rejected']} rejected.") if counts else e(ans.get('error') or 'Unavailable.')
     if kind == 'web':
         if ans.get('error'):
-            return e(str(ans['error']).removeprefix(CAPABILITY['web'] + ': '))
+            return e(_plain_error(ans['error']))
         c = (_web(ans) or {}).get('counts') or {}
         n = sum(c.values())
         return _web_summary(c)
     if kind == 'search':
-        return e(ans['error']) if ans.get('error') else "Here is what the filing says. Search alone never certifies a number."
+        return e(ans['error']) if ans.get('error') else "Here is what the filing says. These are excerpts, so no number here is checked."
     if kind == 'scope':
         return ("Source-checked figures cover NVIDIA and Anthropic only. I can show what that filing says instead."
                 + _options(turn['q'], [CAPABILITY['search']], cid))
@@ -344,8 +353,8 @@ def _lines_reply(lines: list) -> str:
     return ("<span class='answer-lead'>Three true answers, one filing.</span>"
             f"<table class='line-ladder'><caption class='sr-only'>Anthropic profit lines, six months ended 30 June 2026, "
             f"each checked against its cell in the S-1</caption><tbody>{rows}</tbody></table>"
-            "<span class='answer-foot'>Each figure checked against its archived cell in the S\u20111. "
-            "Which one goes in the memo is a method decision.</span>")
+            "<span class='answer-foot'>Each figure is checked against its cell in the S\u20111. "
+            "Which one belongs in your memo depends on your method.</span>")
 
 
 def _record_question(report_id: str) -> str | None:
@@ -421,16 +430,15 @@ def _web_summary(c: dict) -> str:
              (c.get('definition', 0), 'uses another definition', 'use another definition'),
              (c.get('wrong_line', 0), 'puts a figure on the wrong line', 'put a figure on the wrong line'),
              (c.get('wrong', 0), 'is wrong', 'are wrong'),
-             (c.get('unchecked', 0) + c.get('unclear', 0), 'could not be tied to a checked line and period',
-              'could not be tied to a checked line and period'))
-    said = [f"<b>{k}</b> {one if k == 1 else many}" for k, one, many in items if k]
-    listed = (", ".join(said[:-1]) + " and " + said[-1]) if len(said) > 1 else (said[0] if said else "None could be checked")
-    return f"Tavily found <b>{n}</b> claim{'s' if n != 1 else ''} on the web. {listed}."
+             (c.get('unchecked', 0) + c.get('unclear', 0), 'was set aside, with no checked line and period to compare',
+              'were set aside, with no checked line and period to compare'))
+    said = [f"<b>{k}</b> {one if k == 1 else many}." for k, one, many in items if k]
+    return f"Tavily found <b>{n}</b> claim{'s' if n != 1 else ''} on the web. " + (' '.join(said) or "None could be checked.")
 
 
 VERDICTS = {'matches': ('pass', 'Matches the filing'), 'loose': ('wait', 'Loosely rounded'), 'definition': ('wait', 'Other definition'),
             'wrong': ('fail', 'Wrong'), 'wrong_line': ('fail', 'Wrong line'), 'unclear': ('skip', 'Unclear'),
-            'unchecked': ('skip', 'Not decided')}
+            'unchecked': ('skip', 'Set aside')}
 
 
 def _web(ans: dict) -> dict:
@@ -439,12 +447,26 @@ def _web(ans: dict) -> dict:
 
 def _claim_html(c: dict) -> str:
     state, text = VERDICTS.get(c['verdict'], ('skip', c['verdict']))
-    read = (f"Jev read: {e(c['line_label'])} {c['line_conf']}% · {e(c['quarter'])} {c['quarter_conf']}%"
-            if c.get('line_conf') is not None else f"Read by keyword rules: {e(c['line_label'])} · {e(c['quarter'])}")
+    period = _period_name(c.get('quarter'))
+    read = (f"Jev read it as {e(c['line_label'])} ({c['line_conf']}% sure), {e(period)} ({c['quarter_conf']}% sure)"
+            if c.get('line_conf') is not None else f"Keyword rules read it as {e(c['line_label'])}, {e(period)}")
     return (f"<div class='web-claim'><span class='verdict v-{state}'>{e(text)}</span>"
             f"<blockquote class='claim-quote'>“{e(c['sentence'])}”</blockquote>"
             f"<p class='claim-meta'><a href='{e(c['url'])}' target='_blank' rel='noopener noreferrer'>{e(c['publisher'])}</a> · {read}</p>"
             f"<p class='claim-detail'>{e(c['detail'])}</p></div>")
+
+
+def _report_name(report_id: str) -> str:
+    return 'Anthropic’s S-1' if report_id.startswith('ANTH') else REPORTS.get(report_id, report_id).split(',')[0]
+
+
+def _period_name(quarter: str) -> str:
+    """The period a reader names, never a report ID: "the first half of 2026", "NVIDIA Q2 FY2027"."""
+    if not quarter or quarter == 'other':
+        return 'another period'
+    if quarter.startswith('ANTH'):
+        return 'the first half of 2026'
+    return REPORTS.get(quarter, quarter).split(',')[0]
 
 
 def _screen_counts(ans: dict) -> dict:
@@ -470,8 +492,12 @@ def _declared(cap: str) -> str:
     registry.load()
     r = registry.command(cap).rules()
     flags = ' · '.join(f"{k}={r[k]}" for k in ('read_only', 'autonomous', 'confirm', 'background'))
-    why = f"<br>verified_by: {e(r['verified_by'])}" if r.get('verified_by') else ''
-    return f"Declared in code: <code>{e(flags)}</code>{why}"
+    plain = ' '.join((
+        'It reads only.' if r['read_only'] else 'It writes only its own result.',
+        'A person must approve it.' if r['confirm'] else 'It needs no approval.',
+        'It runs in the background.' if r['background'] else 'It runs while you wait.'))
+    why = f"<br>Verified by: {e(r['verified_by'])}." if r.get('verified_by') else ''
+    return f"{plain}{why}<br><code>{e(flags)}</code>"
 
 
 def _model_line(rid: str) -> str:
@@ -507,7 +533,7 @@ def _fcf_card(rec: dict) -> str:
         f"<td class='wp-num'>{int(i['amount']):,}</td><td class='wp-ticks'>{TICK}</td></tr>" for i in v['inputs'])
     tied = v.get('reconciled') or v.get('definition') == 'issuer_fcf'
     total = 'Free cash flow' if 'fcf' in v.get('definition', '') else v['metric'].split(',')[0]
-    foot = (f"House rule {e(v['house_rule']['id'])} (illustrative): {e(v['house_rule']['text'])} Anthropic’s own bridge recomputes to "
+    foot = (f"Method rule {e(v['house_rule']['id'])} (illustrative): {e(v['house_rule']['text'])} Anthropic’s own bridge recomputes to "
             f"{int(v['reconciled']['value']):,} in code" if v.get('house_rule')
             else f"Ties to {e(v['company'])}’s own {e(v['reconciled']['label'].lower())} of {int(v['reconciled']['value']):,} in the same filing" if v.get('reconciled')
             else f"Ties to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if tied else e(v.get('reconciliation', '')))
@@ -534,13 +560,13 @@ def _route_step(route: dict) -> str:
     bars = ''.join([f"<span class='prob' style='--p:{float(p) * 100:.0f}%'><span>{e(label(f))}</span><b>{float(p) * 100:.0f}%</b></span>"
                    for f, p in sorted(probs.items(), key=lambda kv: -kv[1]) if f != flow][:3])
     seen = {
-        'Offer': f"{len(workflows()) - 1} capabilities declare <code>ask</code>, plus “not answerable”.",
+        'Offer': f"{len(workflows()) - 1} workflows can answer, plus “not answerable”.",
         'Pick': (f"<b>{e(label(flow))}</b>, {e(route.get('confidence'))}% sure.{_jev_link(route.get('event'))}"
                  + (f"<span class='probs'><span class='probs-label'>Also considered</span>{bars}</span>" if bars else '')) if route.get('router') == 'jev'
                 else f"Keyword rules picked <b>{e(label(flow))}</b>: Jev was unreachable, and this says so."
                 if route.get('router') == 'keywords' else f"You picked <b>{e(label(flow))}</b>.",
         'Bar': (f"{e(route.get('unsure'))} Nothing ran." if not route.get('sure') else
-                'Cleared: workflow, report and span each over the bar, and the period is on file.'
+                'Cleared the bar on workflow, report and period. The period is on file.'
                 if route.get('router') == 'jev' else
                 'Cleared: a covered company and a period on file. Keyword rules give no confidence.'
                 if route.get('router') == 'keywords' else 'Cleared: you picked the workflow.'),
@@ -568,22 +594,22 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
         facts['model'] = _model_line(rid)
         if done:
             v = done[0]['result']
-            facts['retrieve'] = f"{len(v['retrieval']['evidence'])} excerpts, all from {e(v['report_id'])}"
+            facts['retrieve'] = f"{len(v['retrieval']['evidence'])} excerpts, all from {e(_report_name(v['report_id']))}"
             facts['check'] = ' '.join(f"<span class='chk'>{TICK}{e(c)}</span>" for c in v['checks'])
             facts['Bind'] = f"Attached the exact retrieved text of {len(v['inputs'])} rows"
             tie = (f", equal to the {e(v['reconciled']['label'])} the filing reports ({int(v['reconciled']['value']):,})" if v.get('reconciled')
                    else f", equal to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if v.get('reported_fcf') and v.get('definition') == 'issuer_fcf'
                    else f"; {e(v.get('reconciliation', ''))}")
             if v.get('house_rule'):
-                tie = (f"; Anthropic’s {e(v['issuer_figure']['label'])} recomputes from its own bridge to {int(v['reconciled']['value']):,}, "
-                       f"and the {money(v['difference'][0]['amount'])} of stock compensation is not added back")
-                facts['House rule'] = f"{e(v['house_rule']['id'])} applied: {e(v['house_rule']['text'])}"
-            facts['Compute'] = f"{money(v['amount'])}{tie}"
+                tie = (f". Anthropic’s adjusted figure recomputes from its own bridge to {money(v['reconciled']['value'])}. "
+                       f"The {money(v['difference'][0]['amount'])} of stock compensation stays a cost")
+                facts['Method rule'] = f"{e(v['house_rule']['id'])} applied before anything ran."
+            facts['Compute'] = f"{money(v['amount'])}{tie}."
         if failed:
             failure = e(failed[0])
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
             refused = any(str(x).startswith('ContractViolation') for r in recs if r for x in r.get('errors') or [])
-            failed_at = 'House rule' if failure.startswith('House rule') else 'Check' if refused else 'retrieve'
+            failed_at = 'Method rule' if failure.startswith('Method rule') else 'Check' if refused else 'retrieve'
         evidence = ''.join((_lines_card(r) if (turn.get('route') or {}).get('figure') == 'made_money' else '') + _fcf_card(r) for r in done)
     elif kind == 'record':
         if ans.get('stated'):
@@ -610,18 +636,18 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
     elif kind == 'web':
         v = _web(ans)
         if ans.get('error') or not v:
-            failure = e(str(ans.get('error') or 'Unavailable.').removeprefix(CAPABILITY['web'] + ': '))
+            failure = e(_plain_error(ans.get('error') or 'Unavailable.'))
             failed_at = 'retrieve' if 'tavily' in failure.lower() else 'check'
         else:
             n = len(v['claims'])
-            facts['Find'] = f"{v['pages']} pages for “{e(v['query'])}”"
-            facts['Pick sentences'] = f"{n} verbatim sentence{'s' if n != 1 else ''} state a figure on a checked line"
-            facts['Read claims'] = (f"Read {n} claims in one call{_jev_link(v.get('jev_event'))}" if v['reader'] == 'jev'
-                                    else f"Jev was unreachable; keyword rules read {n} claims, and this says so")
+            facts['Find'] = f"{v['pages']} page{'s' if v['pages'] != 1 else ''} for “{e(v['query'])}”"
+            facts['Pick sentences'] = f"Kept {n} sentence{'s' if n != 1 else ''}, word for word, that state a figure on a checked line"
+            facts['Read claims'] = (f"Read {n} sentence{'s' if n != 1 else ''} in one call{_jev_link(v.get('jev_event'))}" if v['reader'] == 'jev'
+                                    else f"Jev was unreachable, so keyword rules read {n} sentence{'s' if n != 1 else ''}. This says so")
             c = v['counts']
             facts['Check'] = (f"{c['matches']} match · {c.get('loose', 0)} loosely rounded · {c['wrong_line']} wrong line · "
                               f"{c['wrong']} wrong · {c['definition']} other definition · "
-                              f"{c['unchecked'] + c['unclear']} not decided")
+                              f"{c['unchecked'] + c['unclear']} set aside")
             order = ('wrong', 'wrong_line', 'loose', 'definition', 'matches', 'unclear', 'unchecked')
             ranked = sorted(v['claims'], key=lambda x: order.index(x['verdict']) if x['verdict'] in order else 9)
             evidence = ''.join(_claim_html(x) for x in ranked) or '<p>No sentence on those pages stated a cash-flow figure.</p>'
@@ -682,11 +708,11 @@ def trace(turn: dict) -> str:
         registry.load()
         n = len(registry.command(cap).steps)
         steps.append(_step('pass', f"Plugin · <code>{e(cap)}</code>",
-                           _declared(cap) + f"<br>Declares {n} step{'s' if n != 1 else ''}. The trace below is drawn from them."))
+                           _declared(cap) + f"<br>The {n} step{'s' if n != 1 else ''} below are its own declaration, filled in with what this run did."))
         facts, failure, failed_at, evidence = _facts(turn)
         steps.append(_declared_steps(cap, state, facts, failure, failed_at))
     else:
-        steps.append(_step('skip', 'Plugin', 'None ran. Below the bar, or out of scope, nothing is attempted.'))
+        steps.append(_step('skip', 'Plugin', 'None ran. Below the bar or out of scope, nothing is attempted.'))
     steps.append(_step(state, 'Verdict', e(verdict_label)))
     return (f"<div class='trace-head'><p class='trace-q'>“{e(turn['q'])}”</p><span class='verdict v-{state}'>{e(verdict_label)}</span></div>"
             f"<ol class='trace'>{''.join(steps)}</ol>" + (f"<div class='trace-evidence'><h3>Evidence</h3>{evidence}</div>" if evidence else ''))
@@ -706,7 +732,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
                    f"<span class='verdict v-{state}'>{e(label)}</span><span>{'Showing trace' if chosen else 'Show trace'}</span></a></div></div>")
     chips = ''.join(f"<button class='chip' name='question' value='{e(s)}'>{e(s)}</button>" for s in followups(turns))
     starter = ("<form method='post' action='/ask' class='suggestions'>"
-               f"<input type='hidden' name='chat' value='{e(cid)}'><p>{'Ask next' if turns else 'Try one'}</p>{chips}</form>") if chips else ''
+               f"<input type='hidden' name='chat' value='{e(cid)}'><p>{'Ask next' if turns else 'Start here'}</p>{chips}</form>") if chips else ''
     refresh = f" data-run-refresh data-refresh-url='/?chat={e(cid)}#latest'" if running else ''
     composer = ("<form method='post' action='/ask' class='composer'>"
                 f"<input type='hidden' name='chat' value='{e(cid)}'><label class='sr-only' for='question'>Ask a finance question</label>"
@@ -714,15 +740,20 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
                 f"placeholder='Ask about the NVIDIA, Nebius, ASML or Anthropic filings'>{e(prefill)}</textarea>"
                 f"<button class='btn' type='submit'>Ask{icon('arrow', 16)}</button></form>")
     panel = (trace(turns[selected]) if turns else
-             "<div class='trace-empty'><p class='trace-q'>The harness trace</p><p>Every answer shows what the kernel did: who routed "
-             "the question, which plugin ran under which declared rule, what the model was allowed to touch, each check, and the verdict.</p>"
-             "<ol class='trace'>" + _step('skip', 'Router', 'Picks a workflow. Cannot write.') + _step('skip', 'Plugin', 'Runs under rules declared in code.')
-             + _step('skip', 'Model', 'Proposes inputs only.') + _step('skip', 'Checks', 'Code checks every figure against its source.')
-             + _step('skip', 'Verdict', 'Answer, refusal, or wait for a person.') + "</ol></div>")
-    return ("<header class='ask-hero'><p class='kicker'>A finance harness, inspired by DeepSeek Harness</p>"
-            "<h1>Ask a finance question. Only checked code answers it.</h1>"
-            f"<p class='proof-lede'>Jev picks which workflow answers; it can only pick, never write. {e(engine)} proposes inputs. "
-            "The kernel checks every figure against its source before you see it, or refuses. The right side shows how.</p></header>"
+             "<div class='trace-empty'><p class='trace-q'>How each answer is made</p><p>Every answer shows its steps here: who routed "
+             "the question, which rules applied, what the model was allowed to touch, each check code ran, and the verdict.</p>"
+             "<ol class='trace'>" + _step('skip', 'Router', 'Jev picks a workflow. It cannot write.') + _step('skip', 'Plugin', 'Runs under rules declared in code.')
+             + _step('skip', 'Model', 'Picks rows and values in the filing. Nothing else.') + _step('skip', 'Checks', 'Code checks every figure against the filing.')
+             + _step('skip', 'Verdict', 'An answer, a refusal, or a wait for a person.') + "</ol></div>")
+    how = (("Route", "Jev sends each question to the right workflow, filing and period."),
+           ("Read", f"{e(engine)} is the core model. It reads the filing and picks the figures."),
+           ("Rules", "Plugins hold your fund’s method as rules in code."),
+           ("Check", "Code checks every figure against the filing, or refuses. The trace shows each step."))
+    return ("<header class='ask-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
+            "<h1>Evaluate investment opportunities</h1>"
+            "<p class='proof-lede'><b>In the corpus, ingested for RAG:</b> Anthropic’s S\u20111, and quarterly results from NVIDIA, Nebius and ASML.</p>"
+            "<dl class='hero-how' aria-label='How it works'>"
+            + ''.join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in how) + "</dl></header>"
             f"<div class='ask-layout'><div class='ask-chat'><section class='thread'{refresh}>{thread}<span id='latest'></span></section>"
             f"{starter}{composer}" + ("<p class='new-chat'><a href='/'>Start a new conversation</a></p>" if turns else '')
             + f"</div><aside class='trace-panel' id='trace' aria-label='Harness trace'>{panel}</aside></div>")
