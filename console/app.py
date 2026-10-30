@@ -90,7 +90,7 @@ ICONS = {
 }
 
 BRAND_MARK = ("<svg width='22' height='22' viewBox='0 0 24 24' fill='none' "
-              "stroke='#1b4b8f' stroke-width='2' stroke-linecap='round' "
+              "stroke='currentColor' stroke-width='2' stroke-linecap='round' "
               "aria-hidden='true'><path d='M5 20L14 4'/><path d='M10 20l9-16'/>"
               "<path d='M4 16h9M7 10h9'/></svg>")
 
@@ -186,10 +186,15 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
     return HTMLResponse(
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<meta name='theme-color' content='#f6f8fb'>"
+        "<meta name='theme-color' content='#0c0f12'>"
+        # Dark by default. ?theme=light switches this tab to the light version and ?theme= switches back.
+        # It runs before the stylesheet so the page never paints in the wrong theme first.
+        "<script>try{const q=new URLSearchParams(location.search).get('theme');"
+        "if(q!==null)sessionStorage.setItem('finrail-theme',q);const t=sessionStorage.getItem('finrail-theme');"
+        "if(t)document.documentElement.dataset.theme=t}catch(_){}</script>"
         f"<title>{_e(title)} · Finrail</title>"
         "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
-        "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap'>"
+        "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap'>"
         f"<link rel='stylesheet' href='/assets/app.css?v={_ASSET_VERSION}'><script src='/assets/app.js?v={_ASSET_VERSION}' defer></script>"
         "</head><body><a class='skip-link' href='#main-content'>Skip to main content</a>"
         "<div class='workspace-shell'><header class='masthead'>"
