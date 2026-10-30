@@ -170,3 +170,55 @@ def test_console_catalog_disabled_when_unconfigured(tmp_path, monkeypatch):
             assert missing.status_code == 400
             assert 'text/html' in missing.headers['content-type']
             assert 'Return to reports' in missing.text
+
+
+# ── the cell reader: a dash or a footnote marker is never guessed past ──
+
+def test_current_period_dash_is_refused_unless_the_row_declares_it_nil():
+    rows = [['Net cash', '', '—', '1,234']]
+    with pytest.raises(ContractViolation, match='printed as a dash'):
+        r._current_cell(rows, 'Net cash')
+    cell = r._current_cell(rows, 'Net cash', blank_is_zero=True)
+    assert cell['signed_value'] == 0 and cell['html_cell'] == 3 and 'read as nil' in cell['column']
+    for dash in ('–', '-'):
+        with pytest.raises(ContractViolation, match='dash'):
+            r._current_cell([['Net cash', dash, '1,234']], 'Net cash')
+
+
+def test_footnote_marker_after_the_label_is_never_read_as_minus_one():
+    with pytest.raises(ContractViolation, match='footnote'):
+        r._current_cell([['Operating loss', '(1)', '', '(693', ')', '(2,135']], 'Operating loss')
+    with pytest.raises(ContractViolation, match='footnote'):
+        r._signed('(12)')
+    assert r._signed('(12)', located=True) == -12  # a cell found by its column is a figure
+    assert r._signed('(1,757') == -1757 and r._signed('(33') == -33  # the split parenthesis the release prints
+
+
+def test_split_parenthesis_and_currency_spacer_cells_still_read():
+    rows = [['Purchases', '', '(1,757', ')', '(1,227', ')'], ['Principal', '', '(33', ')', '(52', ')'],
+            ['Free cash flow', '$', '48,554', '', '34,902']]
+    assert r._current_cell(rows, 'Purchases')['signed_value'] == -1757
+    assert r._current_cell(rows, 'Principal')['signed_value'] == -33
+    fcf = r._current_cell(rows, 'Free cash flow')
+    assert fcf['signed_value'] == 48554 and fcf['html_cell'] == 3
+
+
+def test_other_text_in_the_current_cell_refuses_instead_of_skipping_to_the_comparative():
+    with pytest.raises(ContractViolation, match='not a number'):
+        r._current_cell([['Net cash', 'n/a', '1,234']], 'Net cash')
+    with pytest.raises(ContractViolation, match='No numeric'):
+        r._current_cell([['Net cash', '', '$']], 'Net cash')
+
+
+def test_source_cells_reads_a_declared_dash_as_nil_in_the_first_column_layout(monkeypatch):
+    item, raw, _cells, _found, _p = fixture()
+    nil = raw.replace(b'<td>(33</td><td>)</td>', b'<td>\xe2\x80\x94</td><td></td>')
+    item['sha256'] = hashlib.sha256(nil).hexdigest()
+    with pytest.raises(ContractViolation, match='printed as a dash'):
+        r.source_cells(item, nil)
+    prof = copy.deepcopy(r.PROFILES['NVIDIA'])
+    prof['rows']['principal_payments']['blank_is_zero'] = True
+    monkeypatch.setitem(r.PROFILES, 'NVIDIA', prof)
+    cells = r.source_cells(item, nil)
+    assert cells['principal_payments']['value'] == '0' and 'read as nil' in cells['principal_payments']['column']
+    assert cells['cash_purchases']['value'] == '1757'

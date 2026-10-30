@@ -367,9 +367,25 @@ class Document(Tables):
 
 
 _NUMBER_CELL = r"\$?\s?\(?\d[\d,]*(?:\.\d+)?\)?"
+#: A label footnote the way filings print one: "(1)", "(12)". It has the shape of a small
+#: negative figure, so position has to decide, and where position cannot, code refuses.
+_FOOTNOTE = r"\(\d{1,2}\)"
+_DASHES = ("—", "–", "-")
+_CURRENCY = ("$", "€", "£")
 
 
-def _signed(cell: str) -> Decimal:
+def _footnote(cell: str) -> bool:
+    return re.fullmatch(_FOOTNOTE, cell.strip()) is not None
+
+
+def _signed(cell: str, *, located: bool = False) -> Decimal:
+    """The figure a source cell carries, negative when the source shows parentheses.
+
+    A cell shaped like a footnote marker, "(1)", is refused unless the caller located the
+    cell by its column (`located`), where nothing but a figure can stand. A split
+    parenthesis, "(1,757" with ")" in the next cell, is a figure and keeps its sign."""
+    if not located and _footnote(cell):
+        raise ContractViolation(f"Source cell {cell!r} is shaped like a footnote marker, not a figure; refused rather than guessed.")
     negative = "(" in cell
     return -Decimal(cell.strip("$() ").replace(",", "")) if negative else Decimal(cell.strip("$() ").replace(",", ""))
 
@@ -381,16 +397,33 @@ def _only_row(rows: list, label: str) -> tuple:
     return matches[0]
 
 
-def _current_cell(rows: list, label: str) -> dict:
-    """NVIDIA's layout: the first numeric cell after the label is the current quarter."""
+def _current_cell(rows: list, label: str, blank_is_zero: bool = False) -> dict:
+    """NVIDIA's layout: the first figure cell after the label is the current quarter.
+
+    Only spacer cells (empty, or a lone currency sign) are stepped over. The first cell
+    with content decides: a figure is returned; a printed dash is nil only for a row that
+    declares `blank_is_zero`, since a dash in the current column would otherwise hand
+    the comparative column over as current; a footnote marker or any other text refuses,
+    because guessing past it would do the same."""
     row_no, row = _only_row(rows, label)
     start = row.index(label) + 1
+    column_note = "first numeric column; current quarter (three months)"
     for column, cell in enumerate(row[start:], start):
-        if re.fullmatch(r"\(?\d[\d,]*(?:\.\d+)?\)?", cell):
-            return {"signed_value": _signed(cell),
-                    "row": label, "row_number": row_no + 1, "html_cell": column + 1,
-                    "column": "first numeric column; current quarter (three months)",
-                    "source_row": " | ".join(row)}
+        text = cell.strip()
+        if not text or text in _CURRENCY:
+            continue
+        where = {"row": label, "row_number": row_no + 1, "html_cell": column + 1, "source_row": " | ".join(row)}
+        if text in _DASHES:
+            if blank_is_zero:
+                return {"signed_value": Decimal(0), "column": column_note + "; printed as a dash, read as nil because the row declares it", **where}
+            raise ContractViolation(f"The current-period cell for {label} is printed as a dash; the row does not declare a dash "
+                                    "as nil, so no figure was read.")
+        if _footnote(text):
+            raise ContractViolation(f"The cell after the label {label} reads {text!r}, the shape of a footnote marker; "
+                                    "refused rather than read as a figure.")
+        if re.fullmatch(r"\(?\d[\d,]*(?:\.\d+)?\)?", text):
+            return {"signed_value": _signed(text), "column": column_note, **where}
+        raise ContractViolation(f"The current-period cell for {label} is not a number: {text[:40]!r}.")
     raise ContractViolation(f"No numeric source cell found for {label}.")
 
 
@@ -423,14 +456,16 @@ def _cell_under(rows: list, spans: list, label: str, period: str, year: str, bla
              for text, a, b, _n in cells if a <= ys < b]
     for text, a, _b, number in _cover(row, spans[row_no]):
         if ys <= a < ye:
-            if blank_is_zero and text in ("—", "–", "-"):
-                value = Decimal(0)  # the filing prints a dash for nil; only rows declared so may read it as zero
+            dash = False
+            if blank_is_zero and text in _DASHES:
+                value, dash = Decimal(0), True  # the filing prints a dash for nil; only rows declared so may read it as zero
             elif not re.fullmatch(_NUMBER_CELL, text):
                 raise ContractViolation(f"The {year} cell for {label} is not a number.")
             else:
-                value = _signed(text)
+                value = _signed(text, located=True)
             return {"signed_value": value, "row": label, "row_number": row_no + 1, "html_cell": number,
-                    "column": f"under '{period}' / {year}" + (f", marked {' '.join(notes)}" if notes else ""),
+                    "column": f"under '{period}' / {year}" + (f", marked {' '.join(notes)}" if notes else "")
+                    + ("; printed as a dash, read as nil because the row declares it" if dash else ""),
                     "source_row": " | ".join(c for c in row if c)}
     raise ContractViolation(f"No source cell for {label} under '{period}' {year}.")
 
@@ -470,7 +505,7 @@ def source_cells(item: dict, raw: bytes) -> dict:
             if row_spec["table"] != table_no:
                 continue
             if column["kind"] == "first":
-                cell = _current_cell(rows, row_spec["label"])
+                cell = _current_cell(rows, row_spec["label"], blank_is_zero=row_spec.get("blank_is_zero", False))
             else:
                 cell = _cell_under(rows, spans, row_spec["label"], column["period"], year,
                                    blank_is_zero=row_spec.get("blank_is_zero", False))
