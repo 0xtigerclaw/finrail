@@ -24,6 +24,8 @@ Anthropic's S-1 (filed 26 October 2026) shows how easily that happens. For the s
 
 A model that chooses one of these for an investment memo has made a methodological decision on the fund's behalf, without saying so. NVIDIA's Q2 FY2027 release shows the quieter version: free cash flow is $21,341m, and $24,077m two lines above it is operating cash flow. Both numbers are real. Only one is free cash flow.
 
+Underneath both sits a harder problem: parsing. When models read dense financial tables, multi-column statements and charts, they still misread rows, take the figure from the wrong column, and produce numbers that look right but are not in the source. We have seen this repeatedly, with capable models. A fund or family office that wants to rely on AI-native infrastructure cannot accept that error rate. It needs precise guardrails, and code that verifies every detail of every figure: the source document, the row, the column, the period, the units and the arithmetic.
+
 ## The approach
 
 Finrail separates the work into three kinds of step and assigns each to the party able to guarantee it:
