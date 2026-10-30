@@ -115,7 +115,7 @@ COMPANIES = ('NVIDIA', 'Nebius', 'ASML', 'Anthropic')
 ASKS = {'NVIDIA': ("What was NVIDIA's free cash flow in {q}?",), 'Nebius': ("What did Nebius say about capex in {q}?",),
         'ASML': ("What did ASML say about guidance in {q}?",),
         'Anthropic': ("What is Anthropic's operating result under our house rules?",
-                      "What was Anthropic's revenue in the first half of 2026?",
+                      "What revenue did Anthropic report in its S-1?",
                       "What does Anthropic's S-1 say about compute commitments?")}
 #: The figure shown as checked on a filing card, per company: (definition, label).
 CARD_CHECK = {'NVIDIA': ('issuer_fcf', 'Free cash flow'), 'Anthropic': ('revenue', 'Revenue')}

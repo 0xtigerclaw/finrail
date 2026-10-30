@@ -24,11 +24,10 @@ from .views import e, icon, badge
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
 SUGGESTIONS = (
     "What was NVIDIA's free cash flow last quarter?",
-    "How does that compare with the quarter before?",
     "What did Nebius say about capex in Q2?",
     "What does the web say about NVIDIA's free cash flow?",
     "Record NVIDIA's Q2 free cash flow as $24,077m",
-    "What was Anthropic's revenue in the first half of 2026?",
+    "What revenue did Anthropic report in its S-1?",
     "What does Anthropic's S-1 say about compute commitments?",
     "What is Anthropic's operating result under our house rules?",
 )
@@ -324,18 +323,18 @@ def followups(turns: list) -> list[str]:
     out: list = []
     anthropic_multiple = "At a $300bn valuation, what is Anthropic's price to sales?"
     if kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'house_operating_income':
-        out = [ADD_BACK, "What was Anthropic's revenue in the first half of 2026?", anthropic_multiple]
+        out = [ADD_BACK, "What revenue did Anthropic report in its S-1?", anthropic_multiple]
     elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'adjusted_operating_income':
-        out = [HOUSE_Q, "What was Anthropic's revenue in the first half of 2026?"]
+        out = [HOUSE_Q, "What revenue did Anthropic report in its S-1?"]
     elif kind == 'fcf' and rid.startswith('ANTH'):
-        out = [anthropic_multiple if ans.get('definition') == 'revenue' else "What was Anthropic's revenue in the first half of 2026?",
-               "What was Anthropic's net loss in the first half of 2026?", "What does Anthropic's S-1 say about compute commitments?"]
+        out = [anthropic_multiple if ans.get('definition') == 'revenue' else "What revenue did Anthropic report in its S-1?",
+               "What net loss did Anthropic report in its S-1?", "What does Anthropic's S-1 say about compute commitments?"]
     elif kind == 'fcf':
-        other = "What was NVIDIA's free cash flow in Q2 FY2027?" if rid.endswith('Q1-FY2027') else compare
+        other = "What free cash flow did NVIDIA report for Q2?" if rid.endswith('Q1-FY2027') else compare
         out = [None if route.get('span') == 'both' else other, _record_question(rid or NVDA[1]),
                "Record NVIDIA's Q2 free cash flow as $24,077m", web]
     elif kind == 'multiple':
-        out = ["What was Anthropic's net loss in the first half of 2026?", "What does Anthropic's S-1 say about compute commitments?"]
+        out = ["What net loss did Anthropic report in its S-1?", "What does Anthropic's S-1 say about compute commitments?"]
     elif kind == 'record':
         out = [_record_question(rid) if ans.get('error') else None, web, compare, nebius]
     elif kind == 'web':
@@ -346,7 +345,7 @@ def followups(turns: list) -> list[str]:
         quarter = REPORTS[other].replace(company, '').split(',')[0].strip() if other else ''
         topic = 'capex' if company == 'Nebius' else 'guidance'
         out = [f"What did {company} say about {topic} in {quarter}?" if quarter else None,
-               "What was Anthropic's revenue in the first half of 2026?" if company == 'Anthropic' else "What was NVIDIA's free cash flow last quarter?", web]
+               "What revenue did Anthropic report in its S-1?" if company == 'Anthropic' else "What was NVIDIA's free cash flow last quarter?", web]
     asked = {t['q'].strip().lower() for t in turns}
     if kind == 'fcf':  # the figure is on screen; asking for it again is no follow-up
         asked.add(SUGGESTIONS[0].lower())

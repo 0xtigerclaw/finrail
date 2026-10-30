@@ -683,7 +683,8 @@ class ReportSearch(Plugin):
     autonomous = True
     confirm = False
     verified_by = "every excerpt's source must be one of the selected report's indexed files"
-    ask = "What a Nebius, NVIDIA or ASML report says about another topic: guidance, capex, revenue, liquidity, risks"
+    ask = ("What a Nebius, NVIDIA, ASML or Anthropic filing says in words about a topic: guidance, strategy, "
+           "compute commitments, liquidity, risks. Excerpts only, never a single checked figure")
     ask_label = "Search a filing"
     steps = (
         {"name": "Retrieve", "by": "Google Vertex RAG", "kind": "retrieve", "where": "retrieve()",
@@ -713,10 +714,10 @@ class ReportAnalyze(Plugin):
               "input is checked against the archived source before any arithmetic")
     verified_by = ("the total is recomputed in Decimal from hash-checked source cells "
                    "and must equal the figure the issuer reports in the same filing, or no answer is issued")
-    ask = ("NVIDIA free cash flow (FCF) or cash generation, for one quarter or compared across quarters; "
-           "or one figure from Anthropic's S-1 for the six months to 30 June 2026: revenue, net loss, "
+    ask = ("One figure checked against its filing. Anthropic (S-1, first half of 2026): revenue, net loss, "
            "operating cash flow, capex, simple free cash flow, its operating result under the fund's house "
-           "rules, or its adjusted operating income with stock compensation added back")
+           "rules, or its adjusted operating income with stock compensation added back. NVIDIA: free cash "
+           "flow (FCF) or cash generation, for one quarter or compared across quarters")
     ask_label = "Source-checked figure"
     steps = (
         {"name": "House rule", "by": "Kernel", "kind": "check", "where": "ReportAnalyze.plan(), HOUSE_RULES",
@@ -949,8 +950,8 @@ class ReportMultiple(Plugin):
     confirm = False
     verified_by = ("the revenue must come from a completed source-checked run of this report, and the ratio "
                    "is Decimal division of that figure by the one the person supplied")
-    ask = ("Anthropic's price-to-sales (revenue multiple) at a valuation the person states, such as "
-           "'at a $300bn valuation', on the six-month revenue disclosed in its S-1")
+    ask = ("Anthropic's price-to-sales multiple, only when the question itself states a valuation, such as "
+           "'at a $300bn valuation'. Not for revenue alone")
     ask_label = "Multiple at a stated valuation"
     steps = (
         {"name": "Read input", "by": "Kernel", "kind": "code", "where": "multiple()",

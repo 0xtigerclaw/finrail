@@ -218,7 +218,7 @@ def empty(state: str = '', rid: str = '', error: str = '') -> str:
 def other_rails() -> str:
     return ("<section class='other-rails'><h2>The same kernel, elsewhere</h2><ul>"
             "<li><a href='/?q=Record%20NVIDIA%27s%20Q2%20free%20cash%20flow%20as%20%2424%2C077m'>Record a wrong NVIDIA figure and watch the claim check refuse it</a></li>"
-            "<li><a href='/?q=What%20was%20Anthropic%27s%20revenue%20in%20the%20first%20half%20of%202026%3F'>Check Anthropic’s S-1 revenue against the archived statement cell</a></li>"
+            "<li><a href='/?q=What%20revenue%20did%20Anthropic%20report%20in%20its%20S-1%3F'>Check Anthropic’s S-1 revenue against the archived statement cell</a></li>"
             "<li><a href='/reports'>Seven filings, every indexed file reconciled live against the corpus</a></li>"
             "<li><a href='/screen'>One publisher can report; only two can verify (synthetic fixture)</a></li>"
             "</ul></section>")

@@ -15,7 +15,8 @@ from finrail.core.errors import ContractViolation
 from finrail.plugin import Plugin
 
 NONE = "none"
-NONE_TEXT = "Something no workflow above covers: advice, forecasts, opinions, other companies"
+NONE_TEXT = ("Something no workflow above covers: advice, forecasts of periods not yet reported, opinions, or a company other than "
+             "NVIDIA, Nebius, ASML and Anthropic")
 NAMED = ("nvidia", "nvda", "nebius", "asml", "northwind", "anthropic", "s-1")
 
 
@@ -56,7 +57,8 @@ SPAN_MATTERS = ("finance.reports.analyze",)
 INSTRUCTIONS = (
     "An investment professional asked this question in a chat. Pick the one checked workflow "
     "that answers it. A short follow-up such as 'and Q1?' or 'compare that' continues the "
-    "previous workflow shown in the state. Pick none when no workflow answers it.")
+    "previous workflow shown in the state. Every filing offered is already published, so a figure "
+    "for a 2026 period it covers is reported history, not a forecast. Pick none when no workflow answers it.")
 
 
 
@@ -190,6 +192,16 @@ def route(question: str, previous: dict | None = None, ask=None) -> dict:
         # Every choice the run depends on must clear the bar, not just the workflow.
         gates = [("workflow", out["confidence"])]
         if pick["workflow"] in NEEDS_REPORT:
+            # Comparing both quarters runs both, so which one is labelled the report does not
+            # matter; what must clear the bar is the company. Sum Jev's report probabilities
+            # over that company's filings (falls back to the single report when none are given).
+            if pick["workflow"] in SPAN_MATTERS and pick["span"] == "both":
+                rp = (answers["report"].get("probabilities") or {}) if isinstance(answers.get("report"), dict) else {}
+                company = pick["report_id"].split("-")[0]
+                if rp:
+                    out["report_confidence"] = min(100, round(100 * sum(float(v) for k, v in rp.items()
+                                                                       if str(k).split("-")[0] == company)))
+                    out["report_confidence_of"] = "company"
             gates.append(("report", out["report_confidence"]))
         if pick["workflow"] in SPAN_MATTERS:
             gates.append(("span", out["span_confidence"]))

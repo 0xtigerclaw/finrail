@@ -277,13 +277,13 @@ def _jev_down(_body):
 
 
 def test_keyword_router_sends_anthropic_questions_to_the_right_workflow():
-    out = ask.route("What was Anthropic's revenue in the first half of 2026?", ask=_jev_down)
+    out = ask.route("What revenue did Anthropic report in its S-1?", ask=_jev_down)
     assert (out["workflow"], out["report_id"], out["figure"]) == ("finance.reports.analyze", REPORT, "revenue")
     out = ask.route("What does Anthropic's S-1 say about compute commitments?", ask=_jev_down)
     assert (out["workflow"], out["report_id"]) == ("finance.reports.search", REPORT)
     out = ask.route("At a $300bn valuation, what is Anthropic's price to sales?", ask=_jev_down)
     assert (out["workflow"], out["report_id"]) == ("finance.reports.multiple", REPORT)
-    out = ask.route("What was Anthropic's net loss in the first half of 2026?", ask=_jev_down)
+    out = ask.route("What net loss did Anthropic report in its S-1?", ask=_jev_down)
     assert (out["workflow"], out["figure"]) == ("finance.reports.analyze", "net_loss")
 
 
@@ -305,7 +305,7 @@ def test_ask_door_runs_the_revenue_check_and_the_multiple(state):
             return {"result": ask.route(payload["question"], ask=_jev_down)}
         return {"id": "run-1", "result": {"price_to_sales": "18.42", "valuation_usd_m": "300000", "revenue_usd_m": "16286",
                                           "revenue_run": "rev-1", "label": "Arithmetic on a figure you supplied."}}
-    turn = answer(dispatch, "What was Anthropic's revenue in the first half of 2026?", [])
+    turn = answer(dispatch, "What revenue did Anthropic report in its S-1?", [])
     assert turn["answer"]["kind"] == "fcf" and turn["answer"]["definition"] == "revenue"
     assert ("finance.reports.analyze", {"report_id": REPORT, "definition": "revenue"}) in calls
     turn = answer(dispatch, "At a $300bn valuation, what is Anthropic's price to sales?", [])
@@ -338,7 +338,7 @@ def test_ask_page_answers_an_anthropic_revenue_question_offline(state):
     from console.app import app
     rid, _value = _record()
     client = TestClient(app)
-    page = client.post("/ask", data={"question": "What was Anthropic's revenue in the first half of 2026?"}, follow_redirects=True).text
+    page = client.post("/ask", data={"question": "What revenue did Anthropic report in its S-1?"}, follow_redirects=True).text
     assert "Revenue: <b>$16,286m</b>" in page and "ties to the figure Anthropic reports" in page
     assert "finance.reports.analyze" in page and rid in page
     assert "price to sales" in page  # the follow-up chip offers the multiple on the checked revenue
