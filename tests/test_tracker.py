@@ -28,3 +28,27 @@ def test_load_never_sees_a_half_written_record(tmp_path, monkeypatch):
     finally:
         stop.set()
         worker.join()
+
+
+def test_concurrent_updates_keep_every_change(tmp_path, monkeypatch):
+    # `_spawn` records the worker's pid while that worker records its own progress. Each
+    # read the record, changed it and wrote it back, so one could erase the other.
+    monkeypatch.setenv("FINRAIL_STATE", str(tmp_path / "state"))
+    monkeypatch.setenv("FINRAIL_HOME", str(tmp_path / "home"))
+    from finrail.core import tracker
+
+    rid = tracker.save("finance.screen.fixture", "lost update", {"company_id": "04123456"})["id"]
+
+    def writer(name):
+        for i in range(100):
+            tracker.update(rid, **{f"{name}_{i}": True})
+
+    threads = [threading.Thread(target=writer, args=(name,)) for name in ("spawner", "worker")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    rec = tracker.load(rid)
+    missing = [f"{name}_{i}" for name in ("spawner", "worker") for i in range(100)
+               if f"{name}_{i}" not in rec]
+    assert not missing
