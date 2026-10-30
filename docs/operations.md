@@ -21,7 +21,7 @@ Point the platform's liveness probe at `/healthz` and its readiness or startup p
 |---|---|---|
 | `FINRAIL_RATE_PER_MINUTE` | `10` | Sustained provider-bound requests allowed per client per minute. |
 | `FINRAIL_RATE_BURST` | `5` | How many of those a client may make at once before the bucket is empty. |
-| `FINRAIL_DAILY_POST_CAP` | unset (no cap) | Provider-bound requests allowed per UTC day across all clients: the demo's budget. Replaces `FINRAIL_DEMO_POST_LIMIT`. |
+| `FINRAIL_DAILY_POST_CAP` | `300` in the Dockerfile, unset (no cap) elsewhere | Provider-bound requests allowed per UTC day across all clients: the demo's budget. Replaces `FINRAIL_DEMO_POST_LIMIT`. |
 | `FINRAIL_ROUTE_TIMEOUT_S` | `180` | Seconds a provider-bound route may run before the console answers `504`. |
 | `FINRAIL_CONSOLE_SHOW_PROMPTS` | off | `1` shows full model prompts and answers on the Ledger pages. Off, they stay on disk. |
 | `FINRAIL_STATE` | `~/.finrail` | State dir. The daily counter and the ledger live under it. |
@@ -34,7 +34,7 @@ A request is provider-bound when it is a `POST` to `/ask`, `/reports/*`, `/proof
 
 ## Rate limit
 
-Each client gets a token bucket: `FINRAIL_RATE_BURST` tokens to start, refilled at `FINRAIL_RATE_PER_MINUTE` per minute, one token per provider-bound request. An empty bucket answers `429` with a plain page and a `Retry-After` header saying when the next token arrives. The client key is the first hop of `X-Forwarded-For`, else the socket peer.
+Each client gets a token bucket: `FINRAIL_RATE_BURST` tokens to start, refilled at `FINRAIL_RATE_PER_MINUTE` per minute, one token per provider-bound request. An empty bucket answers `429` with a plain page and a `Retry-After` header saying when the next token arrives. The client key is the last hop of `X-Forwarded-For`, else the socket peer.
 
 The daily cap is one counter for the whole instance. When it is reached, every provider-bound request answers `429` with `Retry-After` set to the seconds until the UTC day turns. The counter is written to `<state>/console/daily_cap.json` on every increment, so a restart continues the day's count. Pages show the remaining allowance in the demo notice.
 
@@ -73,7 +73,7 @@ One JSON line per request on stdout, which Cloud Run collects as the request log
 | `method`, `path` | The request. Query strings are not logged: `/?q=` carries question text. |
 | `status` | The status sent, `500` when the route raised. |
 | `duration_ms` | Wall time from the first byte of the request to the last byte of the response. |
-| `client` | First hop of `X-Forwarded-For`, else the socket peer. |
+| `client` | Last hop of `X-Forwarded-For`, else the socket peer. |
 | `run` | The run ID a mutating route created, else `null`. |
 | `error` | Present on `5xx` only: the exception class, or `RouteTimeout` on a `504`. |
 
@@ -85,7 +85,7 @@ The log line is written whether the request was served, refused or timed out, an
 
 - **Token buckets** live in process memory. A second instance has its own, so a client's effective rate is the configured rate times the instance count. Restart empties them.
 - **The daily cap** is one file per state dir. Two instances keep two counts, so the effective daily budget is the cap times the instance count.
-- **Client identity** is the first hop of `X-Forwarded-For`. Behind Cloud Run the platform appends the true peer to whatever the client sent, so a client can choose its own first hop. For a stricter key, take the last hop that is not a trusted proxy.
+- **Client identity** is the last hop of `X-Forwarded-For`. Behind Cloud Run the platform appends the true peer to whatever the client sent, so the last hop is the one a caller cannot forge. Behind a further proxy of your own, that proxy's address becomes the key; trim it there.
 - **The ledger and run records** are the instance's local disk, as the Dockerfile says.
 
 Once there is a second instance, the buckets and the daily counter need a shared store (Memorystore or Firestore), and the client key needs the trusted-proxy rule above. Until then, keep the demo at one instance, which is also what keeps the ledger a judge reads the ledger the demo wrote.

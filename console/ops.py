@@ -115,17 +115,17 @@ def show_prompts() -> bool:
 
 # ── client identity ──────────────────────────────────────────────────────────
 def client_ip(scope: dict) -> str:
-    """The first hop of X-Forwarded-For, else the socket peer.
+    """The last hop of X-Forwarded-For, else the socket peer.
 
-    Behind Cloud Run the platform appends the real peer to whatever the client sent, so
-    the first hop is the client's own claim. That is what the task asked for; a stricter
-    deployment trims the list to the last untrusted hop (docs/operations.md).
+    Behind Cloud Run the platform appends the true peer to whatever the client sent, so
+    the last hop is the one the client cannot choose. Keying the bucket on the first hop
+    would let a caller get a fresh bucket per request by sending a made-up header.
     """
     for name, value in scope.get("headers") or ():
         if name == b"x-forwarded-for":
-            first = value.decode("latin-1").split(",")[0].strip()
-            if first:
-                return first
+            hops = [h.strip() for h in value.decode("latin-1").split(",") if h.strip()]
+            if hops:
+                return hops[-1]
     client = scope.get("client")
     return client[0] if client else "unknown"
 

@@ -12,6 +12,7 @@ ENV FINRAIL_STATE=/data/state \
     FINRAIL_HOME=/data/home \
     FINRAIL_ENGINE=nebius \
     FINRAIL_HOST=0.0.0.0 \
+    FINRAIL_DAILY_POST_CAP=300 \
     PYTHONUNBUFFERED=1
 
 # The server runs as an unprivileged user that owns only its state directory.

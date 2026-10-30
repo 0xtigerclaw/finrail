@@ -122,7 +122,7 @@ def test_every_request_writes_one_json_line_to_stdout(client, capsys):
     assert len(lines) == 1
     line = lines[0]
     assert line["method"] == "GET" and line["status"] == 200
-    assert line["client"] == "203.0.113.9"
+    assert line["client"] == "10.0.0.1"   # the last hop: the one the platform appended
     assert isinstance(line["duration_ms"], (int, float)) and line["duration_ms"] >= 0
     assert line["run"] is None and "error" not in line
     assert set(line) >= {"time", "method", "path", "status", "duration_ms", "client", "run"}
