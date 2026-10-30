@@ -237,7 +237,11 @@ def verdict(turn: dict) -> tuple[str, str]:
     if kind == 'screen':
         return ('fail', 'Could not run') if ans.get('error') else ('pass', 'Answered')
     if kind == 'search':
-        return ('fail', 'Could not run') if ans.get('error') else ('info', 'Excerpts, not a checked figure')
+        if ans.get('error'):
+            return 'fail', 'Could not run'
+        quoted = _quoted(ans)
+        return (('pass', 'Quoted from the filing') if quoted.get('quotes') else ('fail', 'Refused: excerpts only')
+                if quoted.get('refused') else ('info', 'Excerpts, not a checked figure'))
     if kind == 'web':
         return ('fail', 'Could not run') if ans.get('error') else ('pass', 'Claims checked')
     if kind == 'multiple':
@@ -247,6 +251,11 @@ def verdict(turn: dict) -> tuple[str, str]:
     if kind in ('none', 'scope'):
         return 'skip', 'Nothing ran'
     return 'fail', 'Could not run'
+
+
+def _quoted(ans: dict) -> dict:
+    """The search run's quoted answer: lead-in and quotes, or why it was refused. Empty for older runs."""
+    return ((_record(ans.get('run') or '') or {}).get('result') or {}).get('answer') or {}
 
 
 def _approve_ref(ans: dict) -> str:
@@ -311,7 +320,17 @@ def _short(turn: dict, cid: str) -> str:
         n = sum(c.values())
         return _web_summary(c)
     if kind == 'search':
-        return e(ans['error']) if ans.get('error') else "Here is what the filing says. These are excerpts, so no number here is checked."
+        if ans.get('error'):
+            return e(ans['error'])
+        quoted = _quoted(ans)
+        if quoted.get('quotes'):
+            # The lead-in is Nemotron's, with no digit in it; every quote is the filing's own sentence, attached by code.
+            return (f"{e(quoted['lead_in'])}" + ''.join(f"<blockquote class='excerpt quote'>{e(q['text'])}"
+                    f"<cite>Excerpt {e(q['evidence_id'])} · sentence {e(q['id'])} · {e(q['source_name'])}</cite></blockquote>"
+                    for q in quoted['quotes']) + "<p class='quote-note'>Quoted word for word; no number here is checked.</p>")
+        if quoted.get('refused'):
+            return f"The filing excerpts do not answer it in quotes I could check. {e(quoted['refused'])} The raw excerpts are in the trace."
+        return "Here is what the filing says. These are excerpts, so no number here is checked."
     if kind == 'scope':
         return ("Source-checked figures cover NVIDIA and Anthropic only. I can show what that filing says instead."
                 + _options(turn['q'], [CAPABILITY['search']], cid))
@@ -665,8 +684,19 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
         if ans.get('error'):
             failure, failed_at = e(ans['error']), 'retrieve'
         else:
-            facts['retrieve'] = f"{len(found.get('evidence') or [])} excerpts"
-            facts['check'] = f"Every excerpt came from {e(found.get('report_id', 'the selected report'))}’s files."
+            facts['Retrieve'] = f"{len(found.get('evidence') or [])} excerpts"
+            facts['Allowlist'] = f"Every excerpt came from {e(found.get('report_id', 'the selected report'))}’s files."
+            quoted = found.get('answer') or {}
+            if quoted:
+                facts['Number'] = f"Sentences numbered across {len(found.get('evidence') or [])} excerpts."
+            if quoted.get('quotes'):
+                facts['Pick'] = (f"Picked {', '.join(e(q['id']) for q in quoted['quotes'])} and wrote the lead-in. "
+                                 "No quote text came from the model.")
+                facts['Attach'] = (f"Every ID was in this retrieval; code attached {len(quoted['quotes'])} exact "
+                                   f"sentence{'s' if len(quoted['quotes']) != 1 else ''}. The lead-in has no digit.")
+            elif quoted.get('refused'):
+                failure = e(quoted['refused'])
+                failed_at = quoted.get('step') or 'Attach'
             evidence = ''.join(f"<blockquote class='excerpt'>{e(x['text'][:520])}{'…' if len(x['text']) > 520 else ''}"
                                f"<cite>{e(x.get('source_name') or x['source_uri'])}</cite></blockquote>" for x in (found.get('evidence') or [])[:3])
     return facts, failure, failed_at, evidence

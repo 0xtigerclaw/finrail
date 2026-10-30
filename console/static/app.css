@@ -807,6 +807,9 @@ td.wp-num { font-variant-numeric: tabular-nums; }
 .mini-foot { margin: 6px 0 0; color: var(--ink-secondary); font-size: 12px; }
 .excerpt { position: relative; margin: 0 0 10px; padding: 12px 14px; background: var(--surface); font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; line-height: 1.7; }
 .excerpt cite { display: block; margin-top: 8px; color: var(--ink-muted); font-family: inherit; font-size: 11px; font-style: normal; }
+.excerpt.quote { margin: 10px 0; border-left: 3px solid var(--line-strong); font-family: inherit; font-size: 14px; white-space: normal; }
+.excerpt.quote cite { font-family: var(--mono); }
+.quote-note { margin: 6px 0 0; color: var(--ink-muted); font-size: 12.5px; }
 .finding-list { margin: 0 0 12px; padding: 0; list-style: none; }
 .finding-list li { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 8px 0; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--line); }
 .synthetic-note { color: var(--ink-muted); font-size: 11px; }
