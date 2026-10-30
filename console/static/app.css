@@ -778,7 +778,9 @@ td.wp-num { font-variant-numeric: tabular-nums; }
 .ask-hero { max-width: 760px; margin: 14px auto 26px; }
 .ask-hero h1 { margin: 0 0 12px; font-family: var(--serif); font-size: 38px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
 .ask-hero .proof-lede { font-size: 15px; }
-.hero-how { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 0; }
+.how-it-works { margin: 40px 0 8px; padding-top: 24px; border-top: 1px solid var(--line); }
+.how-it-works h2 { margin: 0 0 12px; font-family: var(--serif); font-size: 22px; font-weight: 600; }
+.hero-how { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }
 .hero-how div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .hero-how dt { margin: 0 0 4px; color: var(--pencil); font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
 .hero-how dd { margin: 0; color: var(--ink-secondary); font-size: 13.5px; line-height: 1.45; }
