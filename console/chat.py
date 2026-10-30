@@ -779,7 +779,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
            ("Read", f"{e(engine)} is the core model. It reads the filing and picks the figures."),
            ("Rules", "Plugins hold your fund’s method as rules in code."),
            ("Check", "Code checks every figure against the filing, or refuses. The trace shows each step."))
-    return ("<header class='ask-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
+    return ("<header class='ask-hero'><p class='kicker'>Finance harness, inspired by DeepSeek Harness</p>"
             "<h1>Evaluate investment opportunities</h1>"
             "<p class='proof-lede'><b>In the corpus, ingested for RAG:</b> Anthropic’s S\u20111, and quarterly results from NVIDIA, Nebius and ASML.</p></header>"
             f"<div class='ask-layout'><div class='ask-chat'><section class='thread'{refresh}>{thread}<span id='latest'></span></section>"
