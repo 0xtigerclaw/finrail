@@ -29,9 +29,14 @@ HOUSE_Q = "Under our method, what was Anthropic's operating result in its S-1?"
 MONEY_Q = "Did Anthropic make money, according to its S-1?"
 #: Jev routes this to Tavily; Jev reads each press sentence; code checks it against the S-1.
 WEB_Q = "What does the web say about Anthropic's profit?"
-#: The starter chips: only the demo's questions, in the order the demo asks them
-#: (docs/demo-script.md). Every follow-up chip is padded from this list too.
-SUGGESTIONS = (MONEY_Q, HOUSE_Q, WEB_Q, ADD_BACK)
+#: The starter chips: the demo's questions first, in the order the demo asks them
+#: (docs/demo-script.md), then NVIDIA and Nebius questions for anyone trying it live.
+#: Follow-up chips are padded from this list, so the demo questions come first there too.
+SUGGESTIONS = (MONEY_Q, HOUSE_Q, WEB_Q, ADD_BACK,
+               "What was NVIDIA's free cash flow last quarter?",
+               "Record NVIDIA's Q2 free cash flow as $24,077m",
+               "What does the web say about NVIDIA's free cash flow?",
+               "What did Nebius say about capex in Q2?")
 #: The figure the router read, as the analyze definition it means for a report.
 ANTH_FIGURES = {'revenue': 'revenue', 'net_loss': 'net_loss', 'operating_cash_flow': 'operating_cash_flow',
                 'capex': 'capex', 'fcf': 'simple_fcf', 'house_operating_income': 'house_operating_income',
