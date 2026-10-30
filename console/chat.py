@@ -580,7 +580,7 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
                 facts['House rule'] = f"{e(v['house_rule']['id'])} applied: {e(v['house_rule']['text'])}"
             facts['Compute'] = f"{money(v['amount'])}{tie}"
         if failed:
-            failure = failed[0]
+            failure = e(failed[0])
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
             refused = any(str(x).startswith('ContractViolation') for r in recs if r for x in r.get('errors') or [])
             failed_at = 'House rule' if failure.startswith('House rule') else 'Check' if refused else 'retrieve'

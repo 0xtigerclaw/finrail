@@ -26,3 +26,6 @@ uv.lock
 
 .impeccable/review/
 .impeccable/mocks/
+
+# Local agent and preview config: holds personal account names and scratch paths.
+.claude/
