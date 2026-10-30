@@ -250,8 +250,7 @@ The entire build was done with four AI models working together:
 
 - Sol 6.1
 - Claude Opus 5.5, from Anthropic
-- NVIDIA Nemotron, via Nebius Token Factory
-- GLM-5.3, from Z.ai
+- NVIDIA Nemotron, GLM-5.3 via Nebius Token Factory
 
 These models wrote and reviewed the code. Separately, at runtime, the harness calls two models, each as a function: NVIDIA Nemotron 3.5 Super on Nebius, the default engine, selects filing rows and picks quoted sentences, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
 
