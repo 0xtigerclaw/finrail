@@ -127,6 +127,28 @@ Each answer offers the next question as a chip, so the story clicks through:
 
 The Rules page renders every capability's declared steps from the live registry. The Ledger shows every model and Jev call.
 
+## Screens
+
+**A figure under the fund's method.** −$567m under rule M-1, with the $2,185m gap to Anthropic's adjusted figure explained. The trace on the right shows each step and the rule that holds it.
+
+![Ask page: Anthropic's operating result under method rule M-1, minus 567 million dollars, with the harness trace](docs/img/method.png)
+
+**A quoted answer.** Nemotron picks sentence IDs. Code pastes the exact filing text, and refuses the answer if an ID is unknown.
+
+![Ask page: four sentences quoted word for word from Anthropic's S-1 about competition, each with its excerpt and sentence ID](docs/img/quoted.png)
+
+**The workpaper.** Every input traced to its table, row and column in the filing, recomputed in Decimal by code, and reconciled to the issuer's own figure.
+
+![Proof page: workpaper for the operating result under the fund's method, each line with its source cell and a check mark](docs/img/proof.png)
+
+**The rules.** Every capability's execution rules, verification and declared steps, rendered from the code that enforces them.
+
+![Rules page: a table of capabilities with their execution rules, verification and declared steps](docs/img/rules.png)
+
+**Console Screen.**
+
+![Console Screen](docs/img/console-screen.png)
+
 ## The capabilities
 
 | Pack | What it does | The rule it enforces |
