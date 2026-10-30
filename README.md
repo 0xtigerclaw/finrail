@@ -196,7 +196,7 @@ Every model call goes through one entry point, `finrail/core/llm.py`. The engine
 
 | Deployment | Configuration |
 | --- | --- |
-| Nebius (this submission) | `FINRAIL_ENGINE=nebius` and `NEBIUS_API_KEY`. Runs NVIDIA Nemotron (`nvidia/nemotron-3-super-120b-a12b`) on Nebius Token Factory. |
+| Nebius (this submission) | `FINRAIL_ENGINE=nebius` and `NEBIUS_API_KEY`. Runs NVIDIA Nemotron 3.5 Super (`nvidia/Nemotron-3.5-Super-VL`) on Nebius Token Factory, with a 32,768-token reply cap (`FINRAIL_ENGINE_MAX_TOKENS`). Nemotron 3 Super leaves Token Factory serverless on 9 November 2026. |
 | Meta | `FINRAIL_ENGINE=meta`, `FINRAIL_ENGINE_BASE_URL`, `FINRAIL_ENGINE_API_KEY`, `FINRAIL_MODEL`. Same capabilities, same checks. |
 | Local development | The default CLI engine. Never used in a judged deployment. |
 

@@ -17,13 +17,14 @@ from finrail.core import llm
 
 class _Stub(BaseHTTPRequestHandler):
     mode = "ok"
+    last = {}  # the last request body, so a test can see what was sent
 
     def log_message(self, *args):  # keep the suite quiet
         pass
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
-        self.rfile.read(length)
+        _Stub.last = json.loads(self.rfile.read(length) or b"{}")
         if self.mode == "unauthorized":
             body = b'{"error": {"message": "invalid api key"}}'
             self.send_response(401)
@@ -70,6 +71,32 @@ def test_http_engine_answers_and_records_usage(stub):
     out = llm.call(system="extract", prompt="who resigned?",
                    schema=SCHEMA, capability="test.extract")
     assert out == {"person": "Elena Marsh", "date": "12 March 2026"}
+
+
+def test_nebius_default_is_the_supported_model_with_room_to_think(stub, monkeypatch):
+    # Nemotron 3 Super leaves Token Factory serverless on 9 Nov 2026, and Nemotron 3.5
+    # came back empty on 4 of 70 analyze calls at the old 8,192-token cap.
+    monkeypatch.delenv("FINRAIL_MODEL", raising=False)
+    monkeypatch.delenv("FINRAIL_ENGINE_MAX_TOKENS", raising=False)
+    _Stub.mode = "ok"
+    llm.call(system="extract", prompt="who resigned?", schema=SCHEMA, capability="test.extract")
+    assert _Stub.last["model"] == "nvidia/Nemotron-3.5-Super-VL"
+    assert _Stub.last["max_tokens"] == 32768
+
+
+def test_reply_cap_and_model_are_configuration(stub, monkeypatch):
+    monkeypatch.setenv("FINRAIL_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+    monkeypatch.setenv("FINRAIL_ENGINE_MAX_TOKENS", "8192")
+    _Stub.mode = "ok"
+    llm.call(system="extract", prompt="who resigned?", schema=SCHEMA, capability="test.extract")
+    assert _Stub.last["model"] == "nvidia/nemotron-3-super-120b-a12b"
+    assert _Stub.last["max_tokens"] == 8192
+
+
+@pytest.mark.parametrize("raw", ["", "0", "-5", "lots", "8192.5"])
+def test_an_unusable_reply_cap_falls_back_to_the_default(monkeypatch, raw):
+    monkeypatch.setenv("FINRAIL_ENGINE_MAX_TOKENS", raw)
+    assert llm.max_tokens() == llm.MAX_TOKENS
 
 
 def test_bad_credentials_are_a_canonical_error_not_an_answer(stub):

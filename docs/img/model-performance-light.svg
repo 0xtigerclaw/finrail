@@ -5,8 +5,8 @@
 <text x="40" y="52" font-size="21" font-weight="650" fill="#1f2328" letter-spacing="-0.3">Model performance inside Finrail</text>
 <text x="40" y="78" font-size="13.5" fill="#59636e">Seven checked filing tasks (NVIDIA FCF ×2, Anthropic S-1 ×5). Same prompts, same retrieved excerpts, same code checks.</text>
 <rect x="24" y="138.0" width="912" height="48" rx="7" fill="#f6f8fa"/>
-<rect x="40" y="149" width="10" height="10" rx="3" fill="#2a78d6"/><text x="58" y="158" font-size="14" font-weight="600" fill="#1f2328">Nemotron 3 Super</text><text x="58" y="175" font-size="12" fill="#59636e">Nebius · current engine</text>
-<rect x="40" y="201" width="10" height="10" rx="3" fill="#1baf7a"/><text x="58" y="210" font-size="14" font-weight="600" fill="#1f2328">Nemotron 3.5 Super VL</text><text x="58" y="227" font-size="12" fill="#59636e">Nebius · replacement, 32k reply cap</text>
+<rect x="40" y="149" width="10" height="10" rx="3" fill="#2a78d6"/><text x="58" y="158" font-size="14" font-weight="600" fill="#1f2328">Nemotron 3 Super</text><text x="58" y="175" font-size="12" fill="#59636e">Nebius · retires 9 Nov 2026</text>
+<rect x="40" y="201" width="10" height="10" rx="3" fill="#1baf7a"/><text x="58" y="210" font-size="14" font-weight="600" fill="#1f2328">Nemotron 3.5 Super VL</text><text x="58" y="227" font-size="12" fill="#59636e">Nebius · default engine, 32k cap</text>
 <rect x="24" y="242.0" width="912" height="48" rx="7" fill="#f6f8fa"/>
 <rect x="40" y="253" width="10" height="10" rx="3" fill="#eb6834"/><text x="58" y="262" font-size="14" font-weight="600" fill="#1f2328">Claude Opus 5.5</text><text x="58" y="279" font-size="12" fill="#59636e">claude CLI</text>
 <text x="254" y="114" font-size="13.5" font-weight="650" fill="#1f2328">Passed the code checks</text><text x="254" y="131" font-size="11.5" fill="#818b98">dot and 95% interval</text>

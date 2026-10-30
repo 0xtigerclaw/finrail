@@ -208,6 +208,8 @@ Nebius names `nvidia/Nemotron-3.5-Super-VL` as the replacement, at the same pric
 2. **Switch to Nemotron 3.5 before 9 November, and raise Finrail's reply cap with it.** At
    32,768 tokens it passed 70 of 70. At today's 8,192, about 1 call in 17 comes back empty.
    The cap is the `max_tokens` constant in `_http_call` (`finrail/core/llm.py`).
+   Done after this report: the Nebius default is now Nemotron 3.5 with a 32,768-token cap,
+   and `FINRAIL_ENGINE_MAX_TOKENS` overrides the cap.
 3. **Show retries on the run record.** At these prices one retry after a refusal still leaves
    Nemotron far cheaper than Opus. Finrail's rule is never to retry silently, so the retry
    should be visible.
