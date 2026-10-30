@@ -6,7 +6,7 @@ Finrail is built for one domain: finance, where a number is acted on and a fluen
 
 **Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
-**Built with:** Sol 6.1, Claude Opus 5.5, NVIDIA Nemotron on Nebius Token Factory, and GLM-5.3. See [How it was built](#how-it-was-built).
+**Built with:** Sol 6.1, Claude Opus 5.5, NVIDIA Nemotron and GLM-5.3 on Nebius Token Factory. See [How it was built](#how-it-was-built).
 
 ![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
