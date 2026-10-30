@@ -49,6 +49,10 @@ FIGURES = {
 #: Set by hand for this router on ten sample investor questions (29 Oct), not measured
 #: like decide.MIN_CONF. Below it nothing runs and the person picks.
 ROUTE_MIN = 75
+#: Workflows that run on one report, and the one that also reads the span.
+NEEDS_REPORT = ("finance.reports.analyze", "finance.reports.search", "finance.reports.record",
+                "finance.reports.webclaims")
+SPAN_MATTERS = ("finance.reports.analyze",)
 INSTRUCTIONS = (
     "An investment professional asked this question in a chat. Pick the one checked workflow "
     "that answers it. A short follow-up such as 'and Q1?' or 'compare that' continues the "
@@ -79,16 +83,58 @@ def _body(question: str, previous: dict) -> dict:
                                            "for a multiple at a valuation."}}}
 
 
+#: Capitalised words a question about the covered companies may use. Any other one (a
+#: "Microsoft", a "Tesla") stops the keyword router from guessing a company.
+_PLAIN = set("""what how does do did is was were has have any and or but record compare show tell give find
+check please can could would should which who why where when the a an in on for of to about vs versus last
+latest same now then also ok okay write log put free cash flow fcf ocf capex revenue gaap usd us ceo cfo eps
+ai gpu ttm yoy qoq i we our their its it that this web press analysts say said""".split())
+_PERIOD_TOKEN = re.compile(r"^(q[1-4]|h[12]|fy\d{2,4}|\d.*)$", re.I)
+
+
+def _unknown_name(question: str) -> str:
+    for word in re.findall(r"\b[A-Z][A-Za-z0-9&.\-]*", question):
+        w = re.sub(r"['’]s$", "", word).rstrip(".").lower()
+        if w not in _PLAIN and w not in NAMED and not _PERIOD_TOKEN.match(w):
+            return word
+    return ""
+
+
+def _period_problem(question: str, report_id: str, span: str) -> str:
+    """Code's check that the quarter and year a question names are on file for the picked
+    company. A question about a period Finrail has no filing for is never run on another."""
+    company = report_id.split("-")[0]
+    on_file = [r for r in REPORTS if r.startswith(company + "-")]
+    quarters = {r.split("-")[1] for r in on_file}
+    year = report_id.split("-")[2].replace("FY", "")
+    q = question.lower()
+    named_q = {f"Q{n}" for n in re.findall(r"\bq([1-4])\b", q)}
+    named_q |= {f"Q{i}" for i, w in enumerate(("first", "second", "third", "fourth"), 1) if f"{w} quarter" in q}
+    fiscal = re.findall(r"\b(?:fy\s*'?|fiscal\s+(?:year\s+)?)(\d{4}|\d{2})\b", q)
+    years = {y if len(y) == 4 else "20" + y for y in fiscal}
+    years |= set(re.findall(r"\b(?:19|20)\d{2}\b", re.sub(r"\b(?:fy\s*'?|fiscal\s+(?:year\s+)?)(\d{4}|\d{2})\b", " ", q)))
+    period = ", ".join(REPORTS[r].split(",")[0] for r in on_file)
+    if named_q - quarters or years - {year}:
+        return f"It names a period Finrail has no filing for. On file: {period}."
+    if span == "one" and named_q and report_id.split("-")[1] not in named_q:
+        return f"It names {', '.join(sorted(named_q))} but the pick was {REPORTS[report_id].split(',')[0]}."
+    return ""
+
+
 def _keywords(question: str, previous: dict) -> dict:
-    """The fallback router: plain rules, used only when Jev cannot be reached."""
+    """The fallback router: plain rules, used only when Jev cannot be reached. It runs only
+    when the question names a covered company (or follows one) and a period on file."""
     q = question.lower()
     prev = previous or {}
-    company = ("NVDA" if "nvidia" in q else "NBIS" if "nebius" in q else "ASML" if "asml" in q
-               else "ANTH" if "anthropic" in q or "s-1" in q
-               else (prev.get("report_id") or "NVDA-Q2-FY2027").split("-")[0])
-    latest = {"NVDA": "NVDA-Q2-FY2027", "NBIS": "NBIS-Q2-2026", "ASML": "ASML-Q3-2026", "ANTH": "ANTH-S1-2026"}[company]
+    named = ("NVDA" if "nvidia" in q or "nvda" in q else "NBIS" if "nebius" in q else "ASML" if "asml" in q
+             else "ANTH" if "anthropic" in q or "s-1" in q else "")
+    stranger = _unknown_name(question)
+    company = named or ("" if stranger else (prev.get("report_id") or "").split("-")[0])
+    latest = {"NVDA": "NVDA-Q2-FY2027", "NBIS": "NBIS-Q2-2026", "ASML": "ASML-Q3-2026",
+              "ANTH": "ANTH-S1-2026"}.get(company, "NVDA-Q2-FY2027")
     quarter = re.search(r"\bq([1-4])\b", q)
-    report_id = next((r for r in REPORTS if r.startswith(company) and quarter and f"-Q{quarter.group(1)}-" in r), latest)
+    report_id = next((r for r in REPORTS if company and r.startswith(company) and quarter
+                      and f"-Q{quarter.group(1)}-" in r), latest)
     figure = ("adjusted_operating_income" if "add back" in q or "adjusted operating" in q else
               "house_operating_income" if "house" in q else
               "fcf" if "free cash" in q or "fcf" in q else
@@ -107,14 +153,21 @@ def _keywords(question: str, previous: dict) -> dict:
         workflow = fcf
     elif company == "ANTH" and figure != "none" and not any(w in q for w in ("say", "said", "about")):
         workflow = fcf
-    elif company and any(w in q for w in ("say", "said", "capex", "guidance", "revenue", "cash", "margin", "what")):
+    elif any(w in q for w in ("say", "said", "capex", "guidance", "revenue", "cash", "margin", "what")):
         workflow = "finance.reports.search"
     else:
         workflow = NONE
     span = "both" if any(w in q for w in ("compare", " vs", "versus", "change", "trend")) else "one"
     if span == "both" and prev.get("workflow") == fcf:
         workflow = fcf
-    return {"workflow": workflow, "report_id": report_id, "span": span, "figure": figure}
+    unsure = ""
+    if workflow in NEEDS_REPORT:
+        if not company:
+            unsure = (f"It names {stranger}, " if stranger else "It names no company, ") + \
+                     "and Finrail has filings for NVIDIA, Nebius, ASML and Anthropic only."
+        else:
+            unsure = _period_problem(question, report_id, span)
+    return {"workflow": workflow, "report_id": report_id, "span": span, "unsure": unsure, "figure": figure}
 
 
 def route(question: str, previous: dict | None = None, ask=None) -> dict:
@@ -132,12 +185,25 @@ def route(question: str, previous: dict | None = None, ask=None) -> dict:
             raise decide.JevError("answer outside the offered choices")
         probs = {k: round(float(v), 3) for k, v in (answers["workflow"].get("probabilities") or {}).items()}
         out = {**pick, "router": "jev", "router_model": decide.MODEL, "event": answers.get("_event", 0),
-               "confidence": conf("workflow"),
-               "report_confidence": conf("report"), "probabilities": probs}
+               "confidence": conf("workflow"), "report_confidence": conf("report"),
+               "span_confidence": conf("span"), "probabilities": probs}
+        # Every choice the run depends on must clear the bar, not just the workflow.
+        gates = [("workflow", out["confidence"])]
+        if pick["workflow"] in NEEDS_REPORT:
+            gates.append(("report", out["report_confidence"]))
+        if pick["workflow"] in SPAN_MATTERS:
+            gates.append(("span", out["span_confidence"]))
+        low = [(name, c) for name, c in gates if c < ROUTE_MIN]
+        out["unsure_of"] = low[0][0] if low else ""
+        out["unsure"] = (f"Jev was {low[0][1]}% sure of the {low[0][0]}, under the {ROUTE_MIN}% bar." if low else
+                         _period_problem(question, pick["report_id"], pick["span"]) if pick["workflow"] in NEEDS_REPORT else "")
+        if out["unsure"] and not low:
+            out["unsure_of"] = "period"
     except (decide.JevError, KeyError, TypeError, ValueError) as exc:
         out = {**_keywords(question, previous or {}), "router": "keywords", "confidence": None,
                "router_note": f"Jev unavailable ({str(exc)[:80]}); plain keyword rules routed this."}
-    out["sure"] = out["router"] == "keywords" or out["confidence"] >= ROUTE_MIN
+        out["unsure_of"] = "period" if out["unsure"] else ""
+    out["sure"] = not out["unsure"]
     out["min_conf"] = ROUTE_MIN
     out["ms"] = int((time.monotonic() - started) * 1000)
     return out
@@ -155,7 +221,8 @@ class FinanceRoute(Plugin):
         {"name": "Pick", "by": "Jev (TypeSafe)", "kind": "model", "where": "ask.route()",
          "rule": "Picks one workflow, one report, one or two quarters and which figure, each with a confidence. Cannot write."},
         {"name": "Bar", "by": "Kernel", "kind": "check", "where": "ask.route()",
-         "rule": f"Below {ROUTE_MIN}% sure nothing runs and the person picks. A pick outside the choices is discarded."},
+         "rule": f"The workflow, the report and the span must each be {ROUTE_MIN}% sure, and the quarter and year "
+                 "the question names must be on file. Otherwise nothing runs and the person picks."},
     )
 
     def run(self, question: str = "", previous_workflow: str = "", previous_report: str = ""):

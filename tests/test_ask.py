@@ -135,3 +135,45 @@ def test_followups_follow_the_answer():
     nxt = followups(record)
     assert nxt[0] == "What does the web say about NVIDIA's free cash flow?"
     assert not {q.lower() for q in nxt} & {t['q'].lower() for t in record}
+
+
+def _down(_body):
+    raise ask.decide.JevError("down")
+
+
+def test_fallback_asks_when_the_company_is_not_covered():
+    out = ask.route("Microsoft free cash flow in Q3 FY2025", ask=_down)
+    assert not out["sure"] and "Microsoft" in out["unsure"]
+    follow = ask.route("What about Tesla's capex?", {"workflow": "finance.reports.search", "report_id": "NBIS-Q2-2026"}, ask=_down)
+    assert not follow["sure"]
+
+
+def test_fallback_asks_when_the_period_is_not_on_file():
+    for q in ("NVIDIA Q3 free cash flow", "NVIDIA FY2025 free cash flow"):
+        out = ask.route(q, ask=_down)
+        assert not out["sure"] and "no filing for" in out["unsure"]
+    assert ask.route("and Q1?", {"workflow": "finance.reports.analyze", "report_id": "NVDA-Q2-FY2027"}, ask=_down)["sure"]
+
+
+def _jev(report_conf=0.99, span_conf=0.99, report="NVDA-Q2-FY2027"):
+    return lambda _b: {"workflow": {"choice": "finance.reports.analyze", "confidence": 0.99},
+                       "report": {"choice": report, "confidence": report_conf},
+                       "span": {"choice": "one", "confidence": span_conf}}
+
+
+def test_every_choice_the_run_depends_on_must_clear_the_bar():
+    assert ask.route("NVIDIA free cash flow", ask=_jev())["sure"]
+    low_report = ask.route("NVIDIA free cash flow", ask=_jev(report_conf=0.05))
+    assert not low_report["sure"] and low_report["unsure_of"] == "report"
+    low_span = ask.route("NVIDIA free cash flow", ask=_jev(span_conf=0.4))
+    assert not low_span["sure"] and low_span["unsure_of"] == "span"
+    wrong_quarter = ask.route("NVIDIA Q1 free cash flow", ask=_jev(report="NVDA-Q2-FY2027"))
+    assert not wrong_quarter["sure"] and wrong_quarter["unsure_of"] == "period"
+
+
+def test_an_unsure_report_runs_nothing_even_when_a_person_picks_the_workflow(client, monkeypatch):
+    monkeypatch.setattr(ask.decide, "asker", lambda **_kw: _jev(report_conf=0.05))
+    page = _ask(client, "NVIDIA free cash flow")
+    assert "5% sure of the report" in page and "Nothing ran" in page and "name='force'" not in page
+    page = _ask(client, "NVIDIA free cash flow", force="finance.reports.analyze")
+    assert "Nothing ran" in page

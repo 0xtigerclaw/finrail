@@ -986,20 +986,31 @@ class ReportRecord(Plugin):
     )
 
     def plan(self, report_id: str, statement: str):
-        from .claims import LABELS, read, stated_figure
+        from .claims import LABELS, parse_figure, read, stated_period
         item = report(report_id)
         if item["company"] != "NVIDIA":
             raise ContractViolation(f"claim check refused: only NVIDIA cash flow has source-checked figures; "
                                     f"{item['company']} figures can be searched, not recorded.")
-        found = stated_figure(statement)
-        if found is None:
+        figure = parse_figure(statement)
+        if figure.get("problem") == "no figure stated":
             raise ContractViolation("State the figure to record, for example $21,341m.")
+        if "problem" in figure:
+            raise ContractViolation(f"claim check refused: {figure['problem']}. Nothing was recorded.")
+        found = (figure["value"], figure["tolerance"])
         reading = read([statement], context=report_id, capability=self.name)
         r = reading["readings"][0]
+        if stated_period(statement) == "other":
+            raise ContractViolation("claim check refused: the figure is not for a quarter Finrail has checked. Nothing was recorded.")
+        if r.get("period_conflict"):
+            raise ContractViolation(f"claim check refused: the sentence names {r['period_conflict']} but Jev read "
+                                    f"{r['quarter']}. Nothing was recorded.")
         if not r["sure"] or r["line"] == "none":
-            what = "which cash-flow line" if r["line"] == "none" or (r["line_conf"] or 0) < 75 else "which quarter"
+            who = (f"Jev: {LABELS[r['line']]}, {r['line_conf']}% sure" if reading["reader"] == "jev"
+                   else "Jev unreachable; keyword rules need the line and the quarter named")
+            what = ("which cash-flow line" if r["line"] == "none" or (reading["reader"] == "jev" and r["line_conf"] < 75)
+                    else "which quarter")
             raise ContractViolation(f"claim check refused: could not tell {what} this figure is about "
-                                    f"(Jev: {LABELS[r['line']]}, {r['line_conf']}% sure). Nothing was recorded.")
+                                    f"({who}). Nothing was recorded.")
         if r["quarter"] == "other":
             raise ContractViolation("claim check refused: the figure is not for a quarter Finrail has checked. Nothing was recorded.")
         return {"report_id": r["quarter"], "period": report(r["quarter"])["report_period"], "line": r["line"],

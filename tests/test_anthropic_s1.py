@@ -403,7 +403,7 @@ def test_ask_door_answers_the_house_figure_then_refuses_the_add_back(state):
     rid, _value = _record("house_operating_income")
     client = TestClient(app)
     page = client.post("/ask", data={"question": "What is Anthropic's operating result under our house rules?"}, follow_redirects=True).text
-    assert "House operating result: <b>-$567m</b>" in page and "$1,618m adjusted" in page and "$2,185m gap" in page
+    assert "House operating result: <b>−$567m</b>" in page and "$1,618m adjusted" in page and "$2,185m gap" in page
     assert "Less Stock-based compensation expense" in page and rid in page
     assert "Add back stock compensation the way Anthropic does." in page  # the next chip sets up the refusal
     chat = page.split("name='chat' value='")[1].split("'")[0]

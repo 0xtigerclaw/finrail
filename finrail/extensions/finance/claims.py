@@ -37,24 +37,75 @@ _LINE_INSTRUCTIONS = ("Which cash-flow line is this sentence's figure about? Rea
 _QUARTER_INSTRUCTIONS = ("Which period is the figure for? If the sentence names no period, choose the one in "
                          "the context when given, else other.")
 
-_MONEY = re.compile(r"(?<![A-Za-z\d.,])(\$)?\s*(\d[\d,]*(?:\.(\d+))?)\s*(bn|billion|b|mn|million|m)?\b", re.I)
+_MONEY = re.compile(
+    r"(?<![A-Za-z\d.,])(?P<open>\(\s*)?(?P<neg>[-−–]\s*|(?:minus|negative)\s+)?"
+    r"(?P<cur>US\$|\$|€|£|¥|₹|(?:USD|EUR|GBP|JPY|CNY|INR|CHF)\b)?\s*(?P<neg2>[-−–]\s*)?"
+    r"(?P<num>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<dec>\d+))?)\s*"
+    r"(?P<unit>trillion|tn|billion|bn|b|million|mn|m)?\b\s*"
+    r"(?P<cur2>(?:USD|EUR|GBP|JPY|CNY|INR|CHF|dollars|euros|pounds|yen)\b)?(?P<close>\s*\))?", re.I)
+_USD = {"$", "us$", "usd", "dollars"}
+_SCALE = {"trillion": 1_000_000, "tn": 1_000_000, "billion": 1000, "bn": 1000, "b": 1000,
+          "million": 1, "mn": 1, "m": 1}
+
+
+def parse_figure(text: str) -> dict:
+    """The one money figure in a sentence, as typed: {"value", "tolerance"} in USD millions,
+    or {"problem": why it cannot be checked}. Code refuses rather than guesses: the figure
+    must be in US dollars, carry a unit (m or bn), and be the only amount stated. A minus
+    sign or brackets keep it negative. The tolerance is half the last typed digit:
+    "$21.3bn" is 21,300 ± 50, "$21,341m" is exact. "FY2027", "Q2" and "40%" are not amounts."""
+    found = []
+    for m in _MONEY.finditer(text or ""):
+        cur = (m["cur"] or m["cur2"] or "").lower()
+        if not (cur or m["unit"]):
+            continue  # a bare number: a year, a count, a percentage
+        found.append(m)
+    if not found:
+        return {"problem": "no figure stated"}
+    if len(found) > 1:
+        return {"problem": "more than one figure stated (" + ", ".join(f[0].strip() for f in found[:3]) + ")"}
+    m = found[0]
+    cur = (m["cur"] or m["cur2"] or "").lower()
+    if not cur:
+        return {"problem": f"no currency on {m[0].strip()}; write it in US dollars, for example $21,341m"}
+    if cur not in _USD:
+        return {"problem": f"{m[0].strip()} is not in US dollars; Finrail's checked figures are"}
+    if not m["unit"]:
+        return {"problem": f"no unit on {m[0].strip()}; write m or bn, for example $21,341m"}
+    scale = _SCALE[m["unit"].lower()]
+    step = Decimal(1).scaleb(-len(m["dec"] or ""))
+    value = Decimal(m["num"].replace(",", "")) * scale
+    if m["neg"] or m["neg2"] or (m["open"] and m["close"]):
+        value = -value
+    tolerance = (step * scale / 2) if (m["dec"] or scale > 1) else Decimal(0)
+    return {"value": value, "tolerance": tolerance}
 
 
 def stated_figure(text: str):
-    """(value, tolerance) in USD millions as typed, or None. A number with a $ or a unit
-    wins; a bare number counts only when nothing else is marked as money, so "FY2027" or
-    "in 2026" is never read as the amount. The tolerance is half the last typed digit:
-    "$21.3bn" is 21,300 ± 50, "$21,341m" is exact."""
-    found = [(bool(d or u), n, dec, u) for d, n, dec, u in _MONEY.findall(text or "")]
-    for marked, number, decimals, unit in sorted(found, key=lambda f: not f[0]):
-        value = Decimal(number.replace(",", ""))
-        if not marked and (value < 100 or 1900 <= value <= 2100):
-            continue
-        step = Decimal(1).scaleb(-len(decimals or ""))
-        if unit.lower() in ("bn", "billion", "b"):
-            return value * 1000, step * 1000 / 2
-        return value, (step / 2 if decimals else Decimal(0))
-    return None
+    """(value, tolerance) in USD millions, or None when `parse_figure` finds a problem."""
+    found = parse_figure(text)
+    return None if "problem" in found else (found["value"], found["tolerance"])
+
+
+_FISCAL = re.compile(r"\b(?:fy\s*'?|fiscal\s+(?:year\s+)?)(\d{4}|\d{2})\b", re.I)
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+_OTHER_PERIOD = re.compile(r"\b(q[34]|third quarter|fourth quarter|full[- ]year|annual|ttm|trailing|"
+                           r"h[12]|first half|second half|nine months|year[- ]to[- ]date|ytd|next quarter|outlook|guidance)\b", re.I)
+
+
+def stated_period(sentence: str) -> str:
+    """The checked quarter a sentence names in its own words, "other" when it names any
+    other period, or "" when it names none. Code reads this, so a model's pick can be
+    checked against it: "Q1 FY2025" is never NVIDIA's Q1 FY2027."""
+    s = _MONEY.sub(lambda m: " " if (m["cur"] or m["cur2"] or m["unit"]) else m[0], sentence or "").lower()
+    years = {y if len(y) == 4 else "20" + y for y in _FISCAL.findall(s)}
+    bare = set(_YEAR.findall(_FISCAL.sub(" ", s)))
+    if bare or years - {"2027"} or _OTHER_PERIOD.search(s):
+        return "other"
+    q1, q2 = re.search(r"\b(q1|first quarter)\b", s), re.search(r"\b(q2|second quarter)\b", s)
+    if q1 and q2:
+        return "other"
+    return "NVDA-Q1-FY2027" if q1 else "NVDA-Q2-FY2027" if q2 else ""
 
 
 def _body(sentences: list, context: str, titles: list | None = None) -> dict:
@@ -70,14 +121,16 @@ def _body(sentences: list, context: str, titles: list | None = None) -> dict:
 
 
 def _keywords(sentence: str, context: str) -> dict:
+    """The fallback reader. It is sure only when the sentence names both its line and its
+    quarter; a period taken from the context, or none, is not enough to decide on."""
     s = sentence.lower()
     line = ("free_cash_flow" if "free cash" in s or "fcf" in s else
             "operating_cash_flow" if "operating" in s or "from operations" in s else
             "cash_purchases" if "capex" in s or "capital expenditure" in s or "purchases" in s else
             "principal_payments" if "principal" in s else "none")
-    quarter = ("NVDA-Q1-FY2027" if re.search(r"\b(q1|first quarter)\b", s) else
-               "NVDA-Q2-FY2027" if re.search(r"\b(q2|second quarter)\b", s) else context or "other")
-    return {"line": line, "quarter": quarter, "line_conf": None, "quarter_conf": None}
+    stated = stated_period(sentence)
+    return {"line": line, "quarter": stated or context or "other", "line_conf": None, "quarter_conf": None,
+            "sure": line != "none" and bool(stated)}
 
 
 def read(sentences: list, context: str = "", ask=None, titles: list | None = None,
@@ -98,8 +151,14 @@ def read(sentences: list, context: str = "", ask=None, titles: list | None = Non
         reader, event = "jev", answers.get("_event", 0)
     except (decide.JevError, KeyError, TypeError, ValueError):
         readings, reader, event = [_keywords(s, context) for s in sentences], "keywords", 0
-    for r in readings:
-        r["sure"] = reader == "keywords" or (r["line_conf"] >= READ_MIN and r["quarter_conf"] >= READ_MIN)
+    for sentence, r in zip(sentences, readings):
+        if reader == "jev":
+            r["sure"] = r["line_conf"] >= READ_MIN and r["quarter_conf"] >= READ_MIN
+            # Code reads the period too. A sentence that names another quarter or year than
+            # the one picked is not decided, however sure the pick.
+            stated = stated_period(sentence)
+            if stated and stated != r["quarter"]:
+                r.update(sure=False, period_conflict=stated)
     return {"reader": reader, "readings": readings, "event": event}
 
 
@@ -113,7 +172,7 @@ def checked_line(rec: dict, line: str):
 
 def money(value) -> str:
     value = Decimal(value)
-    sign, value = ("-", -value) if value < 0 else ("", value)
+    sign, value = ("−" if value < 0 else ""), abs(value)
     return sign + (f"${int(value):,}m" if value == value.to_integral() else f"${value.normalize():,f}m")
 
 

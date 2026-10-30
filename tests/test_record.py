@@ -68,3 +68,25 @@ def test_the_checked_figure_waits_for_a_person(checked):
 def test_only_nvidia_figures_can_be_recorded(checked):
     with pytest.raises(FinrailError, match="only NVIDIA"):
         _record("ASML-Q3-2026", "Record ASML FCF as $3,000m")
+
+
+@pytest.mark.parametrize("figure, why", [
+    ("-$48,554m", "the claim says −$48,554m"),  # the sign is kept, so a negative never matches
+    ("EUR 48,554m", "not in US dollars"),
+    ("$48,554", "no unit"),
+    ("48,554m", "no currency"),
+    ("$48,554m or $48.6bn", "more than one figure"),
+])
+def test_a_figure_is_read_as_typed_or_refused(checked, figure, why):
+    report_id, value = checked
+    assert value["amount"] == "48554"
+    with pytest.raises(FinrailError, match="claim check refused") as refused:
+        _record(report_id, f"Record NVIDIA's Q1 free cash flow as {figure}")
+    assert why in str(refused.value)
+    assert not [x for x in tracker.recent(20) if tracker.awaiting(x)]
+
+
+def test_another_fiscal_year_is_not_this_quarter(checked):
+    report_id, _value = checked
+    with pytest.raises(FinrailError, match="not for a quarter Finrail has checked"):
+        _record(report_id, "Record NVIDIA Q1 FY2025 free cash flow as $48,554m")

@@ -67,3 +67,39 @@ def test_web_claims_are_read_by_jev_and_decided_by_code(tmp_path, monkeypatch):
     out = claims.check_web(item["source_id"], search=lambda q, c: [page], ask=_jev(picks))
     assert [c["verdict"] for c in out["claims"]] == ["matches", "matches", "wrong_line", "unchecked"]
     assert out["reader"] == "jev"
+
+
+def test_code_reads_sign_currency_unit_and_one_figure_only():
+    assert claims.parse_figure("FCF was -$48,554m") == {"value": Decimal(-48554), "tolerance": 0}
+    assert claims.parse_figure("capex of ($2,677m)")["value"] == -2677
+    assert "not in US dollars" in claims.parse_figure("FCF of EUR 48,554m")["problem"]
+    assert "not in US dollars" in claims.parse_figure("FCF of €48,554m")["problem"]
+    assert "no unit" in claims.parse_figure("FCF of $48,554")["problem"]
+    assert "more than one" in claims.parse_figure("FCF of $21.3bn, up from $15bn")["problem"]
+    assert claims.parse_figure("In FY2027 Q2, up 40%, FCF was $21.3bn")["value"] == 21300
+
+
+def test_code_reads_the_period_a_sentence_names():
+    assert claims.stated_period("Q1 FY2025 free cash flow was $48,554m") == "other"
+    assert claims.stated_period("Q2 2026 free cash flow") == "other"  # a calendar year is not FY2027
+    assert claims.stated_period("Q3 free cash flow") == "other"
+    assert claims.stated_period("Q2 fiscal 2027 FCF of $2,026m") == "NVDA-Q2-FY2027"
+    assert claims.stated_period("FCF was $21bn") == ""
+
+
+def test_the_fallback_reader_reads_the_year_and_needs_the_quarter_named():
+    no_jev = lambda _b: (_ for _ in ()).throw(claims.decide.JevError("down"))  # noqa: E731
+    out = claims.read(["Record NVIDIA Q1 FY2025 free cash flow as $48,554m",
+                       "Record NVIDIA's free cash flow as $48,554m",
+                       "Record NVIDIA's Q1 FY2027 free cash flow as $48,554m"], context="NVDA-Q1-FY2027", ask=no_jev)
+    first, unnamed, named = out["readings"]
+    assert first["quarter"] == "other"  # another fiscal year: never this quarter
+    assert not unnamed["sure"]
+    assert named["quarter"] == "NVDA-Q1-FY2027" and named["sure"]
+
+
+def test_a_sure_jev_pick_that_contradicts_the_stated_year_is_not_decided():
+    out = claims.read(["NVIDIA's Q1 fiscal 2025 free cash flow was $48.6bn"],
+                      ask=_jev([("free_cash_flow", "NVDA-Q1-FY2027", 0.99)]))
+    r = out["readings"][0]
+    assert r["period_conflict"] == "other" and not r["sure"]

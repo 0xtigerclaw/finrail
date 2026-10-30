@@ -120,7 +120,9 @@ def answer(dispatch, question: str, turns: list, force: str = '') -> dict:
         return {**turn, 'route': {}, 'answer': {'kind': 'error', 'error': out['error']}}
     route = out.get('result') or {}
     if force in workflows():
-        route = {**route, 'workflow': force, 'router': 'person', 'sure': True}
+        # A person's pick settles which workflow, never an unsure company, report or period.
+        route = {**route, 'workflow': force, 'router': 'person',
+                 'sure': route.get('unsure_of') in (None, '', 'workflow')}
     turn['route'] = route
     flow = KIND.get(route.get('workflow'), 'none')
     if not route.get('sure'):
@@ -293,6 +295,8 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'clarify':
         probs = route.get('probabilities') or {}
         top = [f for f, _p in sorted(probs.items(), key=lambda kv: -kv[1]) if f != NONE][:3] or [CAPABILITY['fcf'], CAPABILITY['search']]
+        if route.get('unsure_of') not in (None, '', 'workflow'):
+            return f"{e(route.get('unsure'))} Nothing ran. Ask again naming the company and the quarter."
         return (f"Jev was {e(route.get('confidence'))}% sure, under the {e(route.get('min_conf'))}% bar, so nothing ran. "
                 "Which did you mean?" + _options(turn['q'], top, cid))
     if kind == 'none':
@@ -459,14 +463,15 @@ def _route_step(route: dict) -> str:
                  + (f"<span class='probs'><span class='probs-label'>Also considered</span>{bars}</span>" if bars else '')) if route.get('router') == 'jev'
                 else f"Keyword rules picked <b>{e(label(flow))}</b>: Jev was unreachable, and this says so."
                 if route.get('router') == 'keywords' else f"You picked <b>{e(label(flow))}</b>.",
-        'Bar': ('Cleared.' if route.get('sure') else f"Under the bar at {e(route.get('confidence'))}%, so nothing ran.")
-               if route.get('router') == 'jev' else 'Not applied: the pick did not come from Jev.',
+        'Bar': (f"{e(route.get('unsure'))} Nothing ran." if not route.get('sure') else
+                'Cleared: workflow, report and span each over the bar, and the period is on file.'
+                if route.get('router') == 'jev' else
+                'Cleared: a covered company and a period on file. Keyword rules give no confidence.'
+                if route.get('router') == 'keywords' else 'Cleared: you picked the workflow.'),
     }
     out = ''
     for st in steps:
-        state = 'skip' if st['name'] == 'Bar' and route.get('router') == 'jev' and not route.get('sure') else 'pass'
-        if st['name'] == 'Bar' and route.get('router') != 'jev':
-            state = 'skip'
+        state = 'skip' if st['name'] == 'Bar' and not route.get('sure') else 'pass'
         out += _step(state, f"Route · {e(st['name'])} · {e(st['by'])}", seen.get(st['name']) or e(st['rule']),
                      f"{e(st['rule'])} <span class='where'>enforced in <code>{e(st['where'])}</code></span>")
     return out
