@@ -1,0 +1,16 @@
+{
+  "source_id": "ASML-Q2-2026",
+  "company": "ASML",
+  "format": "pdf",
+  "catalog_sha256": "71717aab1e6c76eaac0eb64d2c54f02954d0e162429d4f3b7fca4e188375cf3f",
+  "catalog_match": true,
+  "original": {
+    "url": "https://www.investor.asml.com/static-files/5dc79e92-9e59-4a06-af63-22eb4408af16",
+    "retrieved_at": "2026-10-30T19:03:00+00:00",
+    "sha256": "71717aab1e6c76eaac0eb64d2c54f02954d0e162429d4f3b7fca4e188375cf3f",
+    "bytes": 1364488,
+    "retrieved_url": "https://ourbrand.asml.com/asset/ffeb8813-403b-49df-83c0-01aae7533dd6/Financial-statements-US-GAAP-Q2-2026.pdf"
+  },
+  "note": "PDF; retrieval-only today: no statement profile, no tables. Nothing from the PDF is committed. The catalog url on investor.asml.com answers HTTP 403 Access Denied to non-browser clients; the bytes came from the catalog's retrieved_url and matched the catalog on 2026-10-30.",
+  "retrieval_only": true
+}
