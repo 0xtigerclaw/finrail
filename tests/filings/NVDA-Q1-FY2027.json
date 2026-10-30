@@ -1,0 +1,61 @@
+{
+  "source_id": "NVDA-Q1-FY2027",
+  "company": "NVIDIA",
+  "format": "html",
+  "catalog_sha256": "48870432aa2c453b53b498f4b425fb266bfcb8a0051e0de1c387585a39f7fcf9",
+  "catalog_match": false,
+  "original": {
+    "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-First-Quarter-Fiscal-2027/default.aspx",
+    "retrieved_at": "2026-10-30T19:15:00+00:00",
+    "sha256": "a5c5b1fb3990ce7b30edfdca2ec9e047ec76523099c92c5eaba281c8e4bb2af4",
+    "bytes": 323340,
+    "table_count": 12,
+    "nested_tables": [
+      11
+    ]
+  },
+  "note": "Catalog SHA-256 48870432 did not match the page on 2026-10-30. The page is an ASP.NET form whose chrome varies by client and between fetches: as served to the browser pane it hashed a5c5b1fb (323,340 bytes, identical on repeated fetches; the bytes sliced here), as served to urllib with a plain User-Agent 2f51974f and then 94c4e967 (318,622 bytes); tables 5 and 6 are byte-identical in all of them. investor.nvidia.com sometimes answers non-browser clients with a challenge page. The catalog hash was left as is.",
+  "slice": {
+    "file": "NVDA-Q1-FY2027.html",
+    "sha256": "bfbbdf2f331b64284bcb9985a2768ba904bda4b2f29178db3ad86efa76cbc946",
+    "bytes": 112938,
+    "tool": "scripts/slice_filing.py",
+    "prefix_bytes": 8192
+  },
+  "kept": [
+    {
+      "table": 5,
+      "slice_table": 5,
+      "original": {
+        "prose_start": 122010,
+        "table_start": 122023,
+        "table_end": 163450,
+        "sha256": "1c03921ec175126ec16d16320c3364d40198306b3b16f510dda4a729715a3bd0"
+      },
+      "slice": {
+        "start": 171,
+        "end": 41611
+      }
+    },
+    {
+      "table": 6,
+      "slice_table": 6,
+      "original": {
+        "prose_start": 163450,
+        "table_start": 163463,
+        "table_end": 234760,
+        "sha256": "022e657fb6800ef968a75399d56dcd3c3dd3c19e4a1c9d0582bd5981fad459cf"
+      },
+      "slice": {
+        "start": 41612,
+        "end": 112922
+      }
+    }
+  ],
+  "placeholders": [
+    1,
+    2,
+    3,
+    4
+  ]
+}

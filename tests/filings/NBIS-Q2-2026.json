@@ -1,0 +1,15 @@
+{
+  "source_id": "NBIS-Q2-2026",
+  "company": "Nebius",
+  "format": "pdf",
+  "catalog_sha256": "d3dd403297e2e1680317ba6597f79c35deb13d29188fc5647dcd132885510289",
+  "catalog_match": true,
+  "original": {
+    "url": "https://assets.nebius.com/assets/72a8c258-bbb7-4df7-ab9d-8698f6cb88fc/PR.pdf",
+    "retrieved_at": "2026-10-30T18:59:00+00:00",
+    "sha256": "d3dd403297e2e1680317ba6597f79c35deb13d29188fc5647dcd132885510289",
+    "bytes": 363991
+  },
+  "note": "PDF; retrieval-only today: no statement profile, no tables. Nothing from the PDF is committed; this sidecar records that the issuer's bytes matched the catalog on 2026-10-30.",
+  "retrieval_only": true
+}
