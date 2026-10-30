@@ -38,7 +38,7 @@ Finrail separates the work into three kinds of step and assigns each to the part
 
 Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under house rule HR-1 (stock compensation is a cost) the same archived cells give **−$567m**, and the $2,185m difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24,077m as NVIDIA's free cash flow is refused and names the line it actually came from.
 
-## Lineage: DeepSeek Harness
+## Inspired from DeepSeek Harness Architecture
 
 Finrail takes three principles from DeepSeek Harness and extends each for finance. No code is shared.
 
