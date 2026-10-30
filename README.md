@@ -1,6 +1,6 @@
 # Finrail
 
-**A harness for financial AI in which every figure is decided by code, checked against its source, and released by a person.**
+**A harness for financial AI in which every figure is decided by code, checked against its source, and approved only by a person.**
 
 Finrail is built for one domain: finance, where a number is acted on and a fluent wrong number is the most expensive kind. Its design descends from DeepSeek Harness. Every request flows through one deterministic dispatcher. A language model is a function that code calls, with typed inputs and a checked return. The interface is a plugin over that dispatcher, with no authority of its own.
 
