@@ -1,16 +1,18 @@
 # Finrail
 
-**The model suggests. Code checks every figure against the filing. A person releases.**
+**A harness for financial AI in which every figure is decided by code, checked against its source, and released by a person.**
 
-Finrail is an agent harness for finance. Every number it gives you is rebuilt from the exact cells of a real filing, in exact decimals, and refused if it does not reconcile. The model is never the one who decides.
+Finrail is built for one domain: finance, where a number is acted on and a fluent wrong number is the most expensive kind. Its design descends from DeepSeek Harness. Every request flows through one deterministic dispatcher. A language model is a function that code calls, with typed inputs and a checked return. The interface is a plugin over that dispatcher, with no authority of its own.
 
 **Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
 ![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
-## Why it exists
+## The problem
 
-Anthropic's S-1 (filed 26 October 2026) reports three true profit lines for the same six months:
+AI systems are beginning to write the figures that investment decisions rest on. Models are fluent, and fluency is not accuracy. In finance the dangerous error is not the visibly wrong answer. It is the plausible figure from the wrong line, the wrong period or the wrong definition, delivered with confidence.
+
+Anthropic's S-1 (filed 26 October 2026) shows how easily that happens. For the same six months it reports three true profit lines:
 
 | Line, six months to 30 June 2026 | Amount |
 | --- | ---: |
@@ -18,21 +20,52 @@ Anthropic's S-1 (filed 26 October 2026) reports three true profit lines for the 
 | Operating loss | −$693m |
 | Adjusted operating income, as Anthropic presents it | +$1,618m |
 
-An AI that picks one for your memo has made your investment decision for you. In Finrail, which line counts is the fund's method, and the method is code. Under house rule HR-1 (stock compensation is a cost) the same cells give **−$567m**, and the $2,185m gap to Anthropic's figure is explained to the dollar. Ask the harness to add the stock compensation back and it refuses before anything runs.
+A model that chooses one of these for an investment memo has made a methodological decision on the fund's behalf, without saying so. NVIDIA's Q2 FY2027 release shows the quieter version: free cash flow is $21,341m, and $24,077m two lines above it is operating cash flow. Both numbers are real. Only one is free cash flow.
 
-The same rail catches the quieter mistake. NVIDIA's Q2 FY2027 free cash flow is $21,341m. Ask Finrail to record it as $24,077m and it refuses: that is the operating cash flow line, a real number on the wrong line.
+## The approach
 
-## The core idea
+Finrail separates the work into three kinds of step and assigns each to the party able to guarantee it:
 
-Every step is one of three kinds, and knowing which is which is the design:
-
-| Kind | Decided by | Guarantee |
+| Kind | Performed by | Guarantee |
 | --- | --- | --- |
-| **Code** | A script: same input, same output | It always runs, or the action never runs. |
-| **Judgement** | A model | None, on purpose. This is the work a model is for. |
-| **Approval** | A named person | A gate. Nothing is recorded without it. |
+| **Code** | The dispatcher and the checks | Deterministic. It always runs, or the action does not run. |
+| **Judgement** | A model, called as a function | None, by design. Its output is a proposal that code verifies. |
+| **Approval** | A named person | A gate. Nothing is recorded without it, and no browser can pass it. |
 
-Judgement steps are allowed to be wrong, because they sit between code steps that cannot be skipped and an approval that a browser cannot forge.
+Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under house rule HR-1 (stock compensation is a cost) the same archived cells give **−$567m**, and the $2,185m difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24,077m as NVIDIA's free cash flow is refused and names the line it actually came from.
+
+## Lineage: DeepSeek Harness
+
+Finrail takes three principles from DeepSeek Harness and extends each for finance. No code is shared.
+
+| DeepSeek Harness established | Finrail adds, for finance |
+| --- | --- |
+| **Everything is a plugin.** | Every plugin also declares its trust rules in code: whether it reads or acts, whether a person must approve, how its result is verified (`verified_by`), how a person asks for it (`ask`), and each step it runs with the rule that holds it (`steps`). The router is a plugin. The web console is a plugin. |
+| **If the model saw it, it is a record.** | Every model call is written to the run ledger: each Nemotron call as a `model_call` event and each Jev call as a `decision_call` event, with what the model was shown and what it returned. |
+| **Canonical failures, no silent fallback.** | A failed engine call fails the run under a named code. A figure that does not reconcile to the filing produces no answer. There is no path on which an unverified number is shown. |
+
+## Three design principles
+
+### 1. Everything flows through code
+
+There is one execution path. The CLI, the web console and scheduled jobs all enter the same dispatcher, which plans a run, validates it against the capability's declared schema, stops for approval where the capability requires it, executes, verifies the result, and records every step in the ledger. No surface has a privileged route around it.
+
+For a financial figure, verification is specific. Code checks the SHA-256 of the archived filing, the exact row text, the period column and the units, recomputes the total in exact decimals, and requires it to equal the figure the issuer reports in the same filing. If any check fails, no answer is issued.
+
+### 2. The model is a function call
+
+A model in Finrail does not drive the system. Code calls it, with a typed request and a declared schema, and treats the return as a proposal:
+
+| Model | Called to | Returns | Never |
+| --- | --- | --- | --- |
+| **Jev (TypeSafe)** | Route a question; read which line and period a claim refers to | One of the choices offered, with a confidence | Writes text or a number. Below the 75% bar, nothing is decided and a person picks. |
+| **NVIDIA Nemotron on Nebius** | Select the filing rows a calculation needs | Row IDs | Types a quote or performs arithmetic. Code attaches the exact source text. |
+
+Every model call passes through one function, `finrail/core/llm.py`, which enforces the schema and records the call. On the HTTP engines used in deployment, tool use and open-ended sessions are refused under a named error. The other services are retrieval, not judgement: **Google Vertex AI RAG Engine** retrieves excerpts from one selected filing, and **Tavily** finds what the web says, which is treated as a claim to check, never as evidence.
+
+### 3. The interface is a plugin
+
+The web console is a plugin like any other (`finrail/extensions/console`). It declares its own libraries as requirements, so `finrail doctor` reports a missing one. It declares no capabilities and holds no rules: every page is rendered from the registry's declarations and every action dispatches through the same path as the CLI. Its pages are Ask, Filings, Proof, Ledger and Rules, and each shows the `finrail` command that does the same thing from a terminal. Disable the plugin and the console has no surface at all. Approval is the one thing it cannot do: the server cannot know who clicked, so its approve route always refuses and names the terminal command.
 
 ## How a question flows
 
@@ -65,19 +98,6 @@ flowchart TB
 
 Purple is judgement, blue is code, green is a person, red is a refusal.
 
-## Who does what
-
-| Part | Its one job | What it can never do |
-| --- | --- | --- |
-| **Jev (TypeSafe)** | Reads: picks which workflow answers a question, and which line and period a claim is about, with a confidence | Write text or a number. It picks only from the choices offered. Below the bar, nothing is decided. |
-| **NVIDIA Nemotron on Nebius** | Extracts: picks the filing rows for a calculation | Write a quote or do arithmetic. Code attaches the exact row text. |
-| **Google Vertex AI RAG Engine** | Retrieves excerpts from seven archived filings | Return a source outside the selected filing. |
-| **Tavily** | Finds what the web says about a company | Count as evidence. A web page is a claim to check. |
-| **Code** | Decides: checks every figure against the hash-checked archived cell, does the arithmetic, compares claims | Answer without reconciling. There is no fallback. |
-| **A person** | Releases a record | Be bypassed by a browser. Approval runs only from the operator's terminal. |
-
-Every Nemotron call is written to the ledger as a `model_call` event, and every Jev call as a `decision_call` event: what the model was shown and what it returned. If the model saw it, it is a record.
-
 ## What to try in the demo
 
 Each answer offers the next question as a chip, so the story clicks through:
@@ -92,14 +112,22 @@ The Rules page renders every capability's declared steps from the live registry.
 
 ## The capabilities
 
-Each capability is a plugin class that declares its trust rules in code: whether it reads or acts, whether a person must approve, how its result is verified, how a person asks for it, and the steps it runs. The router, the chat trace, the proof page and the Rules page are all drawn from those declarations, so nothing on screen claims more than the code enforces.
-
 | Pack | What it does | The rule it enforces |
 | --- | --- | --- |
 | `finance.reports` | Seven real filings: quarterly releases from NVIDIA, Nebius and ASML, and Anthropic's S-1. NVIDIA free cash flow and Anthropic's revenue, net loss, operating cash flow, capex and house operating result, rebuilt from the archived cells. Stated figures and web claims checked against them. A price-to-sales multiple at a valuation the person states. | Inputs must match the exact archived cell under the right period column, and the total must equal the figure the issuer reports, or no answer is issued. A recorded figure must equal the checked line, and a person releases it. A multiple is arithmetic on a supplied figure, never advice. |
 | `finance.screen` | Public-risk screening across leadership, regulatory, cyber and distress | A deterministic evidence gate is the sole authority for VERIFIED. A quote that is not verbatim in its source is discarded, never repaired. |
 | `finance.dataroom`, `finance.compute`, `finance.memo` | Claim check, deterministic metrics and hash-bound memo release over a synthetic data room | Figures must be carried by cited sources. Arithmetic is Python. Release is bound to the memo's hash. |
-| `tasks` | A generic non-finance pack | Proves the harness is not finance-only: an unmodified pack runs under the same rules. |
+| `tasks` | A minimal non-finance pack, kept as a control | Shows that the finance rules live in the finance packs, not in special cases inside the dispatcher. |
+
+## Check it yourself, without a model
+
+The rules do not depend on a model behaving. These tests feed the checker the wrong figure, the wrong column and a tampered input directly, with no keys and no network, and every one must be refused:
+
+```bash
+pytest tests/test_record.py tests/test_anthropic_s1.py::test_tamper_replays_are_refused_by_the_checker tests/test_public_reports.py -k "refused or waits"
+```
+
+They include the case above: $24,077m stated as free cash flow is refused and named as the operating cash flow line. Stated as operating cash flow, the same figure passes and waits for a person.
 
 ## Quickstart
 
@@ -123,22 +151,6 @@ Try the wrong figure from a terminal, after one `finance.reports.analyze` run fo
 finrail do finance.reports.record report_id=NVDA-Q2-FY2027 statement="Record NVIDIA's Q2 free cash flow as \$24,077m"
 ```
 
-## Check it yourself, without a model
-
-The rules do not depend on a model behaving. These tests feed the checker the wrong figure, the wrong column and a tampered input directly, with no keys and no network, and every one must be refused:
-
-```bash
-pytest tests/test_record.py tests/test_anthropic_s1.py::test_tamper_replays_are_refused_by_the_checker tests/test_public_reports.py -k "refused or waits"
-```
-
-They include the case above: $24,077m stated as free cash flow is refused and named as the operating cash flow line. Stated as operating cash flow, the same figure passes and waits for a person.
-
-## The console
-
-Ask is a chat on the left with the harness trace for each answer on the right. Filings lists the seven sources and reconciles every indexed file live against the corpus. Proof holds the workpaper and a tamper replay. Ledger shows runs, Nemotron calls and Jev calls. Rules shows every declaration.
-
-Every page shows the `finrail` command that does the same thing from a terminal. The harness is a CLI first, and the console is a shell over the same dispatcher. The console cannot approve anything: the server cannot know who clicked, so its approve route always refuses and names the terminal command.
-
 ## Engines
 
 Every model call goes through one entry point, `finrail/core/llm.py`. The engine is configuration, never a code branch.
@@ -153,7 +165,7 @@ There is no silent fallback. If the engine is down or returns something malforme
 
 ## Evaluation
 
-198 offline tests, no provider calls. They cover the source-cell checks and a tamper replay, the Anthropic S-1 figures and HR-1, the router bar on workflow, report, period and figure, a Jev pick outside the offered choices being discarded, the record check (operating cash flow stated as free cash flow is refused and named), web claims against stubbed Tavily pages, every Jev call reaching the ledger, the evidence gate (a fabricated quote is discarded, not repaired), the hash-bound memo release, and the engine seam's named failures.
+201 offline tests, no provider calls. They cover the source-cell checks and a tamper replay, the Anthropic S-1 figures and HR-1, the router bar on workflow, report, period and figure, a Jev pick outside the offered choices being discarded, the record check (operating cash flow stated as free cash flow is refused and named), web claims against stubbed Tavily pages, every Jev call reaching the ledger, the evidence gate (a fabricated quote is discarded, not repaired), the hash-bound memo release, the engine seam's named failures, and the console plugin refusing to start when disabled.
 
 ## Honest limitations
 
@@ -180,7 +192,7 @@ Finrail is the workflow layer on top of that record. Each capability is a comman
 
 ## A new, standalone project
 
-Finrail was created in October 2026. This repository is complete in itself and depends on no other codebase. DeepSeek Harness, which made everything a plugin, inspired the design. No code is shared.
+Finrail was created in October 2026. This repository is complete in itself and depends on no other codebase. DeepSeek Harness inspired the design. No code is shared.
 
 ## Licence
 

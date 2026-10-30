@@ -826,6 +826,11 @@ async def http_error(request: Request, exc: StarletteHTTPException):
 
 def main():
     import uvicorn
+    from finrail.extensions.console import enabled
+    if not enabled():
+        # The console is a plugin: turned off, it has no surface at all.
+        raise SystemExit("The console plugin is disabled. Turn it on with: "
+                         "finrail do plugin.enable name=console")
     port = os.environ.get("FINRAIL_PORT") or os.environ.get("PORT") or "8000"
     uvicorn.run(app, host=os.environ.get("FINRAIL_HOST", "127.0.0.1"),
                 port=int(port))
