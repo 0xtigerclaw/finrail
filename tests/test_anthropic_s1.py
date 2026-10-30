@@ -434,7 +434,7 @@ def test_house_run_carries_the_profit_lines_signed_as_the_filing_prints_them():
     item, _raw, cells, found, p = fixture("house_operating_income")
     out = r.check_and_compute(item, "house_operating_income", p, found, cells)
     lines = {line["key"]: (line["amount"], line["table"]) for line in out["lines"]}
-    assert lines == {"net_loss": ("-80748", 109), "fv_convertibles": ("-72388", 109),
+    assert lines == {"revenue": ("16286", 109), "net_loss": ("-80748", 109), "fv_convertibles": ("-72388", 109),
                      "aoi_operating_loss": ("-693", 61), "adjusted_operating_income": ("1618", 61)}
     assert r.replay(out)["amount"] == "-567"  # the lines are context; the checked figure is unchanged
 
@@ -483,3 +483,72 @@ def test_a_profit_question_with_no_figure_picked_gets_the_profit_lines(state):
     assert ("finance.reports.analyze", {"report_id": REPORT, "definition": "house_operating_income"}) in calls
     turn = answer(dispatch, "What revenue did Anthropic report in its S-1?", [])
     assert turn["route"]["figure"] == "revenue"
+
+
+# ── what the web says about Anthropic, read by Jev, decided by code ─────────────
+
+PRESS = {"url": "https://example.test/anthropic-s1", "publisher": "example.test", "source_tier": "press",
+         "title": "Anthropic files for IPO",
+         "content": ("Anthropic reported revenue of $16.3 billion in the first half of 2026. "
+                     "The company swung to an operating profit of $1.6 billion in the first half of 2026. "
+                     "Anthropic lost $80.7 billion in the first six months of 2026. "
+                     "Its annualised run-rate revenue reached $46 billion. "
+                     "Anthropic posted adjusted operating income of $1.6 billion for the first half of 2026. "
+                     "The filing runs to more than 400 pages.")}
+
+
+def _reader(picks):
+    def answer(body):
+        out = {}
+        for i, (line, period, conf) in enumerate(picks):
+            out[f"line_{i}"] = {"choice": line, "confidence": conf}
+            out[f"quarter_{i}"] = {"choice": period, "confidence": conf}
+        assert "operating_loss" in body["questions"]["line_0"]["criteria"]  # Anthropic's lines, not NVIDIA's
+        return out
+    return answer
+
+
+def test_web_claims_about_anthropic_are_read_by_jev_and_decided_by_code(state):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    picks = [("revenue", REPORT, 0.97), ("operating_loss", REPORT, 0.95), ("net_loss", REPORT, 0.96),
+             ("revenue", "other", 0.9), ("adjusted_operating_income", REPORT, 0.96)]
+    out = claims.check_web(REPORT, search=lambda q, c: [PRESS], ask=_reader(picks))
+    verdicts = [c["verdict"] for c in out["claims"]]
+    assert verdicts == ["matches", "wrong_line", "matches", "unchecked", "matches"]
+    mixup = out["claims"][1]
+    assert "operating result for the first half of 2026 is −$693m" in mixup["detail"]
+    assert "$1,600m is Anthropic's adjusted operating income ($1,618m)" in mixup["detail"]
+    assert out["reader"] == "jev" and out["counts"]["wrong_line"] == 1
+    assert len(out["claims"]) == 5  # the sentence with no money figure is never put to Jev
+
+
+def test_code_reads_the_period_so_a_run_rate_is_never_the_s1_half():
+    from finrail.extensions.finance import claims
+    assert claims.anthropic_period("Revenue of $16.3 billion in the first half of 2026.") == REPORT
+    assert claims.anthropic_period("Annualised run-rate revenue of $46 billion.") == "other"
+    assert claims.anthropic_period("Revenue of $4.6 billion in 2025.") == "other"
+    assert claims.anthropic_period("Revenue of $16.3 billion.") == ""
+    out = claims.read(["Its annualised run-rate revenue reached $46 billion in the first half."],
+                      ask=_reader([("revenue", REPORT, 0.99)]), company="Anthropic")
+    assert out["readings"][0]["sure"] is False and out["readings"][0]["period_conflict"] == "other"
+
+
+def test_without_jev_keyword_rules_read_anthropic_claims_and_say_so(state):
+    from finrail.extensions.finance import claims
+    _record("house_operating_income")
+    out = claims.check_web(REPORT, search=lambda q, c: [PRESS], ask=_jev_down)
+    assert out["reader"] == "keywords"
+    assert [c["verdict"] for c in out["claims"]][:3] == ["matches", "wrong_line", "matches"]
+
+
+def test_web_claims_about_anthropic_need_the_checked_lines_first(state):
+    from finrail.extensions.finance import claims
+    with pytest.raises(ContractViolation, match="Ask whether Anthropic made money first"):
+        claims.check_web(REPORT, search=lambda q, c: [PRESS], ask=_jev_down)
+
+
+def test_router_sends_the_web_question_to_tavily_without_jev():
+    from console.chat import WEB_Q
+    out = ask.route(WEB_Q, ask=_jev_down)
+    assert (out["workflow"], out["report_id"]) == ("finance.reports.webclaims", REPORT)

@@ -121,7 +121,7 @@ PROFILES = {
                 "house_rule": "HR-1",
                 # The profit lines a reader meets first, each read by code from its archived cell,
                 # shown beside the house figure: (key, plain-language name).
-                "show": (("net_loss", "Net loss"), ("fv_convertibles", "of which, non-cash charge on convertible notes"),
+                "show": (("revenue", "Revenue"), ("net_loss", "Net loss"), ("fv_convertibles", "of which, non-cash charge on convertible notes"),
                          ("aoi_operating_loss", "Operating loss"), ("adjusted_operating_income", "Anthropic's adjusted operating income")),
                 # Before the house rule is applied, Anthropic's own figure must be recomputed
                 # from its own bridge, every component an archived cell.

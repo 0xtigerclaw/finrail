@@ -87,6 +87,62 @@ def stated_figure(text: str):
     return None if "problem" in found else (found["value"], found["tolerance"])
 
 
+# ── Anthropic's S-1: the profit and revenue lines a press sentence may be about ──
+
+ANTHROPIC = "ANTH-S1-2026"
+ANTH_LINES = {
+    "revenue": "Revenue or sales",
+    "net_loss": "Net loss or net income: the bottom line, what the company lost or earned overall",
+    "operating_loss": "Operating result under GAAP: operating loss, or operating income or operating profit without 'adjusted'",
+    "adjusted_operating_income": "Adjusted operating income, adjusted or non-GAAP profit: the company's own measure with stock compensation added back",
+    "none": "None of these: valuation, funding, run-rate, compute spending, customers, a one-off charge or anything else",
+}
+ANTH_LABELS = {"revenue": "revenue", "net_loss": "net loss", "operating_loss": "operating result",
+               "adjusted_operating_income": "adjusted operating income", "none": "not a line Finrail checks"}
+ANTH_PERIODS = {
+    ANTHROPIC: "Anthropic's first half of 2026: the six months to 30 June 2026, as reported in its S-1",
+    "other": "Another period: one quarter, a full year, an annualised run-rate, a forecast, or no period stated",
+}
+_ANTH_LINE_INSTRUCTIONS = ("Which line of Anthropic's results is this sentence's figure about? Read the words, not the number. "
+                           "'Operating profit' or 'operating income' without 'adjusted' is the operating result; 'adjusted' "
+                           "or 'non-GAAP' is adjusted operating income; 'lost' or 'net loss' is the net loss.")
+_ANTH_PERIOD_INSTRUCTIONS = ("Which period is the figure for? The S-1 reports the first half of 2026, the six months to "
+                             "30 June 2026. A single quarter, a full year, an annualised run-rate or a forecast is another "
+                             "period. If the sentence names no period, choose other.")
+_ANTH_OTHER = re.compile(r"\b(run[- ]rate|annuali[sz]ed|arr|q[1-4]|quarter|full[- ]year|annual|guidance|forecast|"
+                         r"outlook|next year|second half|h2|nine months)\b", re.I)
+_ANTH_HALF = re.compile(r"\b(first half|h1|six months|first six months|half[- ]year)\b", re.I)
+
+
+def anthropic_period(sentence: str) -> str:
+    """The period a sentence names in its own words, read by code: the S-1's first half of
+    2026, "other", or "" when it names none."""
+    s = _MONEY.sub(lambda m: " " if (m["cur"] or m["cur2"] or m["unit"]) else m[0], sentence or "").lower()
+    years = set(_YEAR.findall(s))
+    if _ANTH_OTHER.search(s) or years - {"2026"}:
+        return "other"
+    return ANTHROPIC if _ANTH_HALF.search(s) else ""
+
+
+def _anth_keywords(sentence: str, context: str) -> dict:
+    s = sentence.lower()
+    line = ("adjusted_operating_income" if "adjusted" in s or "non-gaap" in s else
+            "operating_loss" if "operating" in s else
+            "net_loss" if "net loss" in s or "net income" in s or " lost " in f" {s} " else
+            "revenue" if "revenue" in s or "sales" in s else "none")
+    stated = anthropic_period(sentence)
+    return {"line": line, "quarter": stated or "other", "line_conf": None, "quarter_conf": None,
+            "sure": line != "none" and bool(stated)}
+
+
+#: What `read` offers Jev for each company, and how code reads the period and keywords.
+READERS = {
+    "NVIDIA": {"lines": None, "periods": None, "line_instructions": None, "period_instructions": None},
+    "Anthropic": {"lines": ANTH_LINES, "periods": ANTH_PERIODS, "line_instructions": _ANTH_LINE_INSTRUCTIONS,
+                  "period_instructions": _ANTH_PERIOD_INSTRUCTIONS},
+}
+
+
 _FISCAL = re.compile(r"\b(?:fy\s*'?|fiscal\s+(?:year\s+)?)(\d{4}|\d{2})\b", re.I)
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 _OTHER_PERIOD = re.compile(r"\b(q[34]|third quarter|fourth quarter|full[- ]year|annual|ttm|trailing|"
@@ -108,15 +164,16 @@ def stated_period(sentence: str) -> str:
     return "NVDA-Q1-FY2027" if q1 else "NVDA-Q2-FY2027" if q2 else ""
 
 
-def _body(sentences: list, context: str, titles: list | None = None) -> dict:
+def _body(sentences: list, context: str, titles: list | None = None, company: str = "NVIDIA") -> dict:
     """One question pair per sentence, each naming its sentence (and its page title, for
     the web), so the answers cannot blur together in a shared state."""
+    lines, periods, line_i, period_i = _offer(company)
     questions = {}
     for i, sentence in enumerate(sentences):
         title = (titles or [""] * len(sentences))[i]
         quoted = f'Sentence: "{sentence[:600]}". ' + (f'It comes from a page titled "{title[:200]}". ' if title else "")
-        questions[f"line_{i}"] = {"type": "choice", "criteria": LINES, "instructions": quoted + _LINE_INSTRUCTIONS}
-        questions[f"quarter_{i}"] = {"type": "choice", "criteria": QUARTERS, "instructions": quoted + _QUARTER_INSTRUCTIONS}
+        questions[f"line_{i}"] = {"type": "choice", "criteria": lines, "instructions": quoted + line_i}
+        questions[f"quarter_{i}"] = {"type": "choice", "criteria": periods, "instructions": quoted + period_i}
     return {"state": {"context_period": context or "-"}, "questions": questions}
 
 
@@ -133,30 +190,39 @@ def _keywords(sentence: str, context: str) -> dict:
             "sure": line != "none" and bool(stated)}
 
 
+def _offer(company: str) -> tuple:
+    r = READERS.get(company) or READERS["NVIDIA"]
+    return (r["lines"] or LINES, r["periods"] or QUARTERS, r["line_instructions"] or _LINE_INSTRUCTIONS,
+            r["period_instructions"] or _QUARTER_INSTRUCTIONS)
+
+
 def read(sentences: list, context: str = "", ask=None, titles: list | None = None,
-         capability: str = "") -> dict:
+         capability: str = "", company: str = "NVIDIA") -> dict:
     """{"reader": "jev" | "keywords", "readings": [{line, quarter, line_conf, quarter_conf, sure}]}"""
     if not sentences:
         return {"reader": "jev", "readings": []}
+    lines, periods, _li, _pi = _offer(company)
+    period_of = anthropic_period if company == "Anthropic" else stated_period
+    fallback = _anth_keywords if company == "Anthropic" else _keywords
     try:
-        answers = (ask or decide.asker(whole=True, timeout=20, capability=capability))(_body(sentences, context, titles))
+        answers = (ask or decide.asker(whole=True, timeout=20, capability=capability))(_body(sentences, context, titles, company))
         readings = []
         for i in range(len(sentences)):
             line, quarter = answers[f"line_{i}"]["choice"], answers[f"quarter_{i}"]["choice"]
-            if line not in LINES or quarter not in QUARTERS:
+            if line not in lines or quarter not in periods:
                 raise decide.JevError("answer outside the offered choices")
             readings.append({"line": line, "quarter": quarter,
                              "line_conf": decide.confidence(answers[f"line_{i}"]),
                              "quarter_conf": decide.confidence(answers[f"quarter_{i}"])})
         reader, event = "jev", answers.get("_event", 0)
     except (decide.JevError, KeyError, TypeError, ValueError):
-        readings, reader, event = [_keywords(s, context) for s in sentences], "keywords", 0
+        readings, reader, event = [fallback(s, context) for s in sentences], "keywords", 0
     for sentence, r in zip(sentences, readings):
         if reader == "jev":
             r["sure"] = r["line_conf"] >= READ_MIN and r["quarter_conf"] >= READ_MIN
             # Code reads the period too. A sentence that names another quarter or year than
             # the one picked is not decided, however sure the pick.
-            stated = stated_period(sentence)
+            stated = period_of(sentence)
             if stated and stated != r["quarter"]:
                 r.update(sure=False, period_conflict=stated)
     return {"reader": reader, "readings": readings, "event": event}
@@ -219,12 +285,93 @@ def web_sentences(pages: list) -> list:
     return out[:MAX_CLAIMS]
 
 
+_PROFIT_WORDS = re.compile(r"revenue|sales|net loss|net income|operating (?:loss|income|profit)|adjusted|non-gaap|"
+                           r"\bprofit|\blost\b|\bloss\b", re.I)
+
+
+def web_sentences_about(pages: list, words) -> list:
+    """`web_sentences` with the topic words given: verbatim sentences naming a line and one figure."""
+    out, seen = [], set()
+    for page in pages:
+        for sentence in re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", page.get("content") or "")):
+            sentence = sentence.strip()
+            key = sentence.lower()
+            if 20 <= len(sentence) <= 400 and key not in seen and words.search(sentence) and stated_figure(sentence):
+                seen.add(key)
+                out.append({"sentence": sentence, "url": page["url"], "publisher": page["publisher"],
+                            "title": page.get("title", ""), "source_tier": page.get("source_tier", "")})
+    return out[:MAX_CLAIMS]
+
+
+def anthropic_checked() -> tuple:
+    """({line: signed checked figure}, run id) from the completed house run on the S-1,
+    whose lines code read from the archived cells; ({}, "") when there is none."""
+    from .public_reports import checked_run
+    rec = checked_run(ANTHROPIC, "house_operating_income")
+    if not rec:
+        return {}, ""
+    by = {line["key"]: Decimal(line["amount"]) for line in rec["result"].get("lines") or []}
+    names = {"revenue": "revenue", "net_loss": "net_loss", "operating_loss": "aoi_operating_loss",
+             "adjusted_operating_income": "adjusted_operating_income"}
+    return {line: by[key] for line, key in names.items() if key in by}, rec["id"]
+
+
+def judge_anthropic(value: Decimal, tolerance: Decimal, line: str, truth: dict) -> dict:
+    """Code's verdict on one read Anthropic claim. Sizes are compared as typed; the sign is
+    the filing's, shown in the verdict, because press words carry it ("lost", "profit")."""
+    period = "the first half of 2026"
+    if line not in truth:
+        return {"verdict": "unchecked", "detail": f"{ANTH_LABELS[line].capitalize()} is not a line Finrail checked in the S-1."}
+    if abs(abs(value) - abs(truth[line])) <= tolerance:
+        exact = "" if tolerance == 0 else ", as rounded"
+        return {"verdict": "matches", "detail": f"Matches the S-1{exact}: {ANTH_LABELS[line]} for {period} is {money(truth[line])}."}
+    other = next((k for k in truth if k != line and abs(abs(value) - abs(truth[k])) <= tolerance), "")
+    hint = (f" {money(abs(value))} is Anthropic's {ANTH_LABELS[other]} ({money(truth[other])}), "
+            f"not its {ANTH_LABELS[line]}." if other else "")
+    return {"verdict": "wrong_line" if other else "wrong",
+            "detail": f"The S-1's {ANTH_LABELS[line]} for {period} is {money(truth[line])}; the claim says {money(abs(value))}.{hint}"}
+
+
+def _check_web_anthropic(item: dict, search=None, ask=None) -> dict:
+    from . import research
+    truth, run_id = anthropic_checked()
+    if not truth:
+        raise ContractViolation("There are no source-checked S-1 lines for Anthropic yet. Ask whether Anthropic made "
+                                "money first; nothing was searched.")
+    if not (search or research.configured()):
+        raise NotConfigured("Tavily is not configured on this instance.")
+    query = "Anthropic S-1 first half 2026 revenue net loss operating loss adjusted operating income"
+    pages = (search or research._search_one)(query, "financials")
+    found = web_sentences_about(pages, _PROFIT_WORDS)
+    reading = read([f["sentence"] for f in found], context="", ask=ask, titles=[f["title"] for f in found],
+                   capability=WebClaims.name, company="Anthropic")
+    claims = []
+    for f, r in zip(found, reading["readings"]):
+        value, tolerance = stated_figure(f["sentence"])
+        row = {**f, **r, "figure": money(value), "tolerance": str(tolerance), "line_label": ANTH_LABELS[r["line"]]}
+        if not r["sure"]:
+            row.update(verdict="unclear", detail="Jev was not sure which line or period this is about, so nothing was decided.")
+        elif r["line"] == "none":
+            row.update(verdict="unchecked", detail="Not about a line Finrail checks in the S-1.")
+        elif r["quarter"] != ANTHROPIC:
+            row.update(verdict="unchecked", detail="About a period other than the S-1's first half of 2026.")
+        else:
+            row.update(judge_anthropic(value, tolerance, r["line"], truth), checked_run=run_id)
+        claims.append(row)
+    counts = {k: sum(1 for c in claims if c["verdict"] == k)
+              for k in ("matches", "definition", "wrong", "wrong_line", "unclear", "unchecked")}
+    return {"report_id": item["source_id"], "query": query, "pages": len(pages), "reader": reading["reader"],
+            "jev_event": reading.get("event", 0), "claims": claims, "counts": counts, "checked_run": run_id}
+
+
 def check_web(report_id: str, search=None, ask=None) -> dict:
     from . import research
     from .public_reports import checked_fcf, report
     item = report(report_id)
+    if item["company"] == "Anthropic":
+        return _check_web_anthropic(item, search, ask)
     if item["company"] != "NVIDIA":
-        raise ContractViolation("Web claims are checked against NVIDIA's source-checked cash flow only.")
+        raise ContractViolation("Web claims are checked against NVIDIA's cash flow and Anthropic's S-1 only.")
     if not checked_fcf(report_id):
         raise ContractViolation(f"There is no source-checked cash flow for {item['report_period']} yet. "
                                 "Ask for its free cash flow first.")
@@ -258,21 +405,22 @@ def check_web(report_id: str, search=None, ask=None) -> dict:
 
 class WebClaims(Plugin):
     name = "finance.reports.webclaims"
-    description = ("Find what the web says about NVIDIA's cash flow with Tavily, have Jev read each claim, "
-                   "and check every figure against the source-checked filing.")
+    description = ("Find what the web says about NVIDIA's cash flow or Anthropic's S-1 results with Tavily, have Jev "
+                   "read each claim, and check every figure against the source-checked filing.")
     autonomous = True
     confirm = False
     reason = "it reads public pages and writes only its own result; a web page is never evidence"
     verified_by = "every verdict compares a figure code read with a line checked against the filing"
-    ask = "What the web, press or analysts say about NVIDIA's cash flow, checked against the filing"
+    ask = ("What the web, press or analysts say about NVIDIA's cash flow, or about Anthropic's revenue, profit or "
+           "loss, checked against the filing")
     ask_label = "Check web claims"
     steps = (
         {"name": "Find", "by": "Tavily", "kind": "retrieve", "where": "research._search_one()",
          "rule": "Discovery only. A web page is a claim to check, never evidence."},
         {"name": "Pick sentences", "by": "Kernel", "kind": "code", "where": "claims.web_sentences()",
-         "rule": "Keeps verbatim sentences that name a cash-flow line and state a figure."},
+         "rule": "Keeps verbatim sentences that name a checked line and state one figure."},
         {"name": "Read claims", "by": "Jev (TypeSafe)", "kind": "model", "where": "claims.read()",
-         "rule": "Picks which line and quarter each sentence is about. Cannot write a number."},
+         "rule": "Picks which line and period each sentence is about. Cannot write a number."},
         {"name": "Check", "by": "Kernel", "kind": "check", "where": "claims.judge()",
          "rule": "Compares each figure, as typed, with that line of the source-checked run."},
     )

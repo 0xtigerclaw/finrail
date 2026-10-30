@@ -151,6 +151,8 @@ def _keywords(question: str, previous: dict) -> dict:
         workflow = "finance.reports.record"
     elif "northwind" in q or "red flag" in q or "risk" in q:
         workflow = "finance.screen.fixture"
+    elif any(w in q for w in ("the web", "the press", "analysts say", "online", "media say", "news say")):
+        workflow = "finance.reports.webclaims"
     elif any(w in q for w in ("multiple", "price-to-sales", "price to sales", "p/s")) or ("valuation" in q and re.search(r"\$\s?\d", q)):
         workflow, figure = "finance.reports.multiple", "none"
     elif figure == "fcf" or (prev.get("workflow") == fcf and quarter):
