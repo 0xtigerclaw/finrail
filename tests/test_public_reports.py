@@ -222,3 +222,53 @@ def test_source_cells_reads_a_declared_dash_as_nil_in_the_first_column_layout(mo
     cells = r.source_cells(item, nil)
     assert cells['principal_payments']['value'] == '0' and 'read as nil' in cells['principal_payments']['column']
     assert cells['cash_purchases']['value'] == '1757'
+
+
+# ── a declared rounding tolerance: recorded when it is used, exact by default ──
+
+def _with_tolerance(monkeypatch, tolerance):
+    prof = copy.deepcopy(r.PROFILES['NVIDIA'])
+    if tolerance is not None:
+        prof['definitions']['issuer_fcf']['tolerance'] = tolerance
+    monkeypatch.setitem(r.PROFILES, 'NVIDIA', prof)
+
+
+def test_default_tolerance_is_exact_and_an_exact_match_records_difference_zero():
+    assert 'tolerance' not in r.PROFILES['NVIDIA']['definitions']['issuer_fcf']
+    out = compute()
+    assert out['reconciled']['difference'] == '0' and out['reconciled']['tolerance'] == '0'
+    assert out['reconciliation'] == 'Matches issuer-reported FCF' and 'tolerance' not in ' '.join(out['checks'])
+    item, _raw, cells, found, p = fixture()
+    cells['reported_fcf']['value'] = '48555'
+    with pytest.raises(ContractViolation, match='difference -1, declared tolerance 0'):
+        r.check_and_compute(item, 'issuer_fcf', p, found, cells)
+
+
+def test_a_difference_within_the_declared_tolerance_passes_and_is_recorded(monkeypatch):
+    _with_tolerance(monkeypatch, 1)
+    item, _raw, cells, found, p = fixture()
+    cells['reported_fcf']['value'] = '48553'
+    out = r.check_and_compute(item, 'issuer_fcf', p, found, cells)
+    assert out['amount'] == '48554' and out['reconciled']['value'] == '48553'
+    assert out['reconciled']['difference'] == '1' and out['reconciled']['tolerance'] == '1'
+    assert 'within the declared rounding tolerance of 1; difference 1' in out['reconciliation']
+    assert 'Reconciled within the declared rounding tolerance of 1' in out['checks']
+    exact = compute()
+    assert exact['reconciled']['difference'] == '0' and exact['reconciled']['tolerance'] == '1'
+    assert exact['reconciliation'] == 'Matches issuer-reported FCF'
+    assert r.replay(out)['amount'] == '48554'  # the recorded difference and tolerance do not leak into a replayed cell
+
+
+def test_a_difference_outside_the_declared_tolerance_is_refused(monkeypatch):
+    _with_tolerance(monkeypatch, 1)
+    item, _raw, cells, found, p = fixture()
+    cells['reported_fcf']['value'] = '48552'
+    with pytest.raises(ContractViolation, match='difference 2, declared tolerance 1'):
+        r.check_and_compute(item, 'issuer_fcf', p, found, cells)
+
+
+@pytest.mark.parametrize('bad', [-1, 'one', 'NaN'])
+def test_a_malformed_tolerance_is_refused_not_read_as_zero(monkeypatch, bad):
+    _with_tolerance(monkeypatch, bad)
+    with pytest.raises(ContractViolation, match='tolerance'):
+        compute()

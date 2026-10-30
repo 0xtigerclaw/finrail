@@ -551,6 +551,31 @@ def formula(spec: dict) -> str:
                     for i, (sign, key) in enumerate(spec["terms"]))
 
 
+def _tolerance(spec: dict) -> Decimal:
+    """The rounding a definition declares, in the table's units; nothing unless it says so.
+
+    Issuers round each component on its own, so a total recomputed from rounded parts can
+    sit one unit off the figure they print. A profile declares how far is still the same
+    figure (1 for whole millions); the default is exact, and a negative or malformed
+    declaration is refused rather than read as zero."""
+    raw = spec.get("tolerance", 0)
+    try:
+        value = Decimal(str(raw))
+    except InvalidOperation as exc:
+        raise ContractViolation(f"The definition's tolerance {raw!r} is not a number.") from exc
+    if not value.is_finite() or value < 0:
+        raise ContractViolation(f"The definition's tolerance {raw!r} must be zero or a positive number.")
+    return value
+
+
+def _within(computed: Decimal, reported: Decimal, tolerance: Decimal, refusal: str) -> Decimal:
+    """computed minus reported, when that is within the tolerance; otherwise the refusal, with the numbers."""
+    difference = computed - reported
+    if abs(difference) > tolerance:
+        raise ContractViolation(f"{refusal} (difference {difference}, declared tolerance {tolerance}); no verified answer was produced.")
+    return difference
+
+
 def check_and_compute(item: dict, definition: str, candidate: dict, found: dict, cells: dict) -> dict:
     prof = profile(item)
     spec = prof["definitions"].get(definition)
@@ -599,13 +624,19 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
     result = Decimal(0)
     for sign, key in spec["terms"]:
         result = result + amounts[key] if sign == "+" else result - amounts[key]
-    reconciled = None
+    reconciled, tolerance, reconciliation = None, _tolerance(spec), spec["reconciliation"]
     if spec["reconcile"]:
         target = cells.get(spec["reconcile"]) or {}
-        if "value" not in target or result != Decimal(target["value"]):
+        if "value" not in target:
             raise ContractViolation(f"Calculated {definition} does not reconcile to the figure the issuer reports in the same "
                                     "filing; no verified answer was produced.")
-        reconciled = {"key": spec["reconcile"], "label": prof["rows"][spec["reconcile"]]["label"], **target}
+        difference = _within(result, Decimal(target["value"]), tolerance,
+                             f"Calculated {definition} does not reconcile to the figure the issuer reports in the same filing")
+        reconciled = {"key": spec["reconcile"], "label": prof["rows"][spec["reconcile"]]["label"],
+                      **{k: v for k, v in target.items() if k not in ("difference", "tolerance")},
+                      "difference": str(difference), "tolerance": str(tolerance)}
+        if difference:
+            reconciliation += f" (within the declared rounding tolerance of {tolerance}; difference {difference})"
     if spec.get("verify"):
         # The issuer's own figure, recomputed by code from its own bridge. The target and any
         # term the model proposed were already checked against their cells above; the other
@@ -621,17 +652,20 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
             total = total + value if sign == "+" else total - value
             bridge.append({"key": key, "sign": sign, "label": prof["rows"][key]["label"], "amount": str(value),
                            **{k: v for k, v in (cells.get(key) or {}).items() if k in ("value", "table", "row_number", "html_cell", "column")}})
-        if total != amounts[ver["target"]]:
-            raise ContractViolation(f"{item['company']}'s {prof['rows'][ver['target']]['label']} does not recompute from its own "
-                                    "bridge in the same filing; no verified answer was produced.")
+        difference = _within(total, amounts[ver["target"]], tolerance,
+                             f"{item['company']}'s {prof['rows'][ver['target']]['label']} does not recompute from its own bridge in the same filing")
         reconciled = {"key": ver["target"], "label": ver["label"], "value": str(total),
-                      "table": cells[ver["target"]].get("table"), "bridge": bridge}
+                      "table": cells[ver["target"]].get("table"), "bridge": bridge,
+                      "difference": str(difference), "tolerance": str(tolerance)}
+        if difference:
+            reconciliation += f" (within the declared rounding tolerance of {tolerance}; difference {difference})"
     out = {"report_id": item["source_id"], "company": item["company"], "period": item["report_period"],
            "period_end": item["period_end"], "definition": definition, "metric": spec["label"],
            "amount": str(result), "currency": "USD", "unit": "million", "inputs": checked,
-           "formula": formula(spec), "reconciled": reconciled, "reconciliation": spec["reconciliation"],
+           "formula": formula(spec), "reconciled": reconciled, "reconciliation": reconciliation,
            "checks": ["Original report SHA-256", "Period and source column", "USD millions",
-                      "Verbatim retrieved quotes", "Exact archived source cells", "Decimal arithmetic"],
+                      "Verbatim retrieved quotes", "Exact archived source cells", "Decimal arithmetic"]
+                     + ([f"Reconciled within the declared rounding tolerance of {tolerance}"] if reconciled and tolerance else []),
            "source_sha256": item["sha256"], "source_url": item["url"], "retrieval": found}
     if "reported_fcf" in cells:  # NVIDIA's issuer figure, by the name the proof page knows
         out["reported_fcf"] = cells["reported_fcf"]["value"]
@@ -931,7 +965,7 @@ def replay(value: dict, attack: str = "") -> dict:
     cells = {i["metric"]: {k: i[k] for k in _CELL_KEYS if k in i} for i in value["inputs"]}
     if value.get("reconciled"):
         rec = value["reconciled"]
-        cells.setdefault(rec["key"], {k: v for k, v in rec.items() if k not in ("key", "label", "bridge")})
+        cells.setdefault(rec["key"], {k: v for k, v in rec.items() if k not in ("key", "label", "bridge", "difference", "tolerance")})
         for part in rec.get("bridge") or []:
             cells.setdefault(part["key"], {"value": part.get("value", part["amount"])})
     if value.get("reported_fcf") is not None:
