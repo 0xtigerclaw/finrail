@@ -233,11 +233,11 @@ class FinanceRoute(Plugin):
     verified_by = "the pick must be one of the offered workflows, or nothing runs"
     steps = (
         {"name": "Offer", "by": "Kernel", "kind": "code", "where": "ask.workflows()",
-         "rule": "Offers only the capabilities that declare ask, read from the registry. Nothing else is reachable."},
+         "rule": "Offers only the workflows declared askable in code. Nothing else can be reached."},
         {"name": "Pick", "by": "Jev (TypeSafe)", "kind": "model", "where": "ask.route()",
          "rule": "Picks one workflow, one report, one or two quarters and which figure, each with a confidence. Cannot write."},
         {"name": "Bar", "by": "Kernel", "kind": "check", "where": "ask.route()",
-         "rule": f"The workflow, the report and the span must each be {ROUTE_MIN}% sure, and the quarter and year "
+         "rule": f"The workflow, the report and the period must each be {ROUTE_MIN}% sure, and the quarter and year "
                  "the question names must be on file. Otherwise nothing runs and the person picks."},
     )
 

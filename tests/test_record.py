@@ -71,7 +71,7 @@ def test_only_nvidia_figures_can_be_recorded(checked):
 
 
 @pytest.mark.parametrize("figure, why", [
-    ("-$48,554m", "the claim says −$48,554m"),  # the sign is kept, so a negative never matches
+    ("-$48,554m", "The claim says −$48,554m"),  # the sign is kept, so a negative never matches
     ("EUR 48,554m", "not in US dollars"),
     ("$48,554", "no unit"),
     ("48,554m", "no currency"),

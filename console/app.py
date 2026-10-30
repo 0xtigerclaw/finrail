@@ -179,7 +179,7 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
            f"{'More: ' + _e(dict((k, l) for k, _h, l in MORE)[active]) if more_active else 'More'}</summary>"
            f"<div class='nav-menu'><p class='nav-label'>Approvals and system</p>{more}</div></details>")
     limit = max(0, int(os.environ.get('FINRAIL_DEMO_POST_LIMIT') or 0))
-    allowance = (f"{max(0, limit - _POSTS['count'])} of {limit} demo actions remaining on this instance. " if limit else '')
+    allowance = (f"{max(0, limit - _POSTS['count'])} of {limit} demo actions left. " if limit else '')
     subtitle = f"<p class='page-lede'>{_e(lede)}</p>" if lede else ''
     page_header = (f"<div class='page-header'><div><h1 class='page-title'>{_e(title)}</h1>{subtitle}</div>"
                    f"<div class='page-actions'>{actions}</div></div>") if header else ''
@@ -202,8 +202,8 @@ def _page(title: str, body: str, active: str = '', lede: str = '', actions: str 
         "<button type='button' class='nav-backdrop' data-nav-backdrop tabindex='-1' aria-label='Close navigation' hidden></button>"
         f"<main class='app-main' id='main-content' tabindex='-1'>{page_header}"
         f"{body}<details class='demo-notice'><summary>{icon('info',16)}About this demo</summary>"
-        f"<p>{_e(allowance)}Filings are published NVIDIA, Nebius, ASML and Anthropic disclosures. Only the Northwind screening fixture is labelled synthetic data. This is a shared demo; records reset when the instance restarts. "
-        "Approvals execute only from the operator’s terminal. No browser action can release a decision.</p></details>"
+        f"<p>{_e(allowance)}The filings are real NVIDIA, Nebius, ASML and Anthropic disclosures. Only the Northwind screening company is synthetic, and it is labelled. "
+        "This demo is shared, and its records reset when the server restarts. Approvals run only from the operator’s terminal. Nothing in a browser can release a decision.</p></details>"
         "<footer class='workspace-footer'>Evidence before answers. Human authority before action.</footer></main></div>"
         "<div id='ui-status' class='sr-only' role='status' aria-live='polite' aria-atomic='true'></div></body></html>",
         status_code=status_code)
@@ -779,7 +779,7 @@ def rules():
         steps = ' → '.join(f"{st['name']} ({st['by']})" for st in ruleset.get('steps') or [])
         asked = f"<span class='company-meta'>Asked as: {_e(cap.ask_label)}</span>" if cap.ask else ''
         rows += (f"<tr><td><strong>{_e(cap.name)}</strong>{asked}</td><td><code>{_e(flags)}</code></td>"
-                 f"<td>{_e(ruleset.get('verified_by') or 'Not declared')}</td><td>{_e(steps or '—')}</td><td>{_e(ruleset.get('reason') or '—')}</td></tr>")
+                 f"<td>{_e(ruleset.get('verified_by') or ('Nothing to verify: it reads only' if ruleset.get('read_only') else 'Not declared'))}</td><td>{_e(steps or '—')}</td><td>{_e(ruleset.get('reason') or '—')}</td></tr>")
     body = panel('Rules, rendered from the declarations',table(['Capability','Execution rules','Verification','Declared steps','Reason'],rows,'Declared governance rules'))
     from finrail.extensions.finance.public_reports import HOUSE_RULES
     house = ''.join(f"<tr><td><strong>{_e(r['id'])}</strong>{' <span class=company-meta>illustrative</span>' if r.get('illustrative') else ''}</td>"
