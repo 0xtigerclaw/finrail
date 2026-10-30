@@ -86,7 +86,7 @@ def workpaper(rec: dict, model_call: dict | None) -> str:
                      f"{e(part['label'])}</td><td class='wp-ref'>T{e(part.get('table', '?'))} · R{e(part.get('row_number', '?'))}</td>"
                      f"<td class='wp-num'>{_money(part['amount'], part['sign'] == '-')}</td><td class='wp-ticks'>{TICK}</td></tr>")
         hr = v['house_rule']
-        rows += (f"<tr class='wp-rule'><td class='wp-label' colspan='4'><b>House rule {e(hr['id'])}{' (illustrative)' if hr.get('illustrative') else ''}:</b> "
+        rows += (f"<tr class='wp-rule'><td class='wp-label' colspan='4'><b>Method rule {e(hr['id'])}{' (illustrative)' if hr.get('illustrative') else ''}:</b> "
                  f"{e(hr['text'])}</td></tr>")
     elif issuer and not v.get('reconciled'):
         rows += (f"<tr class='wp-issuer'><td class='wp-label'>Issuer-reported free cash flow</td><td class='wp-ref'>Same filing, table 6</td>"
@@ -95,7 +95,7 @@ def workpaper(rec: dict, model_call: dict | None) -> str:
     if model_call:
         data = model_call.get('data') or {}
         proposer = (data.get('engine_model') or data.get('model') or 'model not named').split('/')[-1] + ' on Nebius'
-    verdict = (f"House rule {e(v['house_rule']['id'])} applied. {e(v['company'])}’s adjusted figure recomputes from its own bridge. "
+    verdict = (f"Method rule {e(v['house_rule']['id'])} applied. {e(v['company'])}’s adjusted figure recomputes from its own bridge. "
                "The gap is stock compensation."
                if v.get('house_rule') else
                f"Reconciled. The recomputed total equals {e(v['company'])}’s own figure in the same filing." if issuer
@@ -159,7 +159,7 @@ def rail(rec: dict, model_call: dict | None) -> str:
             'Compute': f"{money(v['amount'])} in Decimal" + (", the issuer’s adjusted figure less stock compensation" if v.get('house_rule')
                          else ", equal to the issuer’s figure" if v.get('reconciled') or v.get('definition') == 'issuer_fcf' else '')}
     if v.get('house_rule'):
-        seen['House rule'] = f"{v['house_rule']['id']} applied before anything ran."
+        seen['Method rule'] = f"{v['house_rule']['id']} applied before anything ran."
     registry.load()
     kinds = {'retrieve': 'plugin', 'model': 'model'}
     items = ''.join(
@@ -215,7 +215,7 @@ def empty(state: str = '', rid: str = '', error: str = '') -> str:
                 "<p role='status'>Retrieving, proposing, checking. This page refreshes on its own and never re-submits.</p></section>")
     note = f"<div class='alert' role='alert'>{e(error)}</div>" if error else ''
     return ("<section class='workpaper wp-pending'><p class='wp-ref-line'>W/P OP-1 · Not yet run on this server</p>"
-            "<h2>Anthropic house operating result, six months to 30 June 2026</h2>"
+            "<h2>Anthropic operating result under our method, six months to 30 June 2026</h2>"
             "<p>One model call on Nemotron picks the rows. Every other step is code. About a minute.</p>" + note +
             "<form method='post' action='/proof/run' class='break-actions'>"
             "<input type='hidden' name='definition' value='house_operating_income'>"

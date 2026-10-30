@@ -346,7 +346,7 @@ def test_ask_page_answers_an_anthropic_revenue_question_offline(state):
     assert "price to sales" in page  # the follow-up chip offers the multiple on the checked revenue
 
 
-# ── the house rule and the stock-compensation reconciliation ───────────────────
+# ── the method rule and the stock-compensation reconciliation ───────────────────
 
 def test_house_figure_removes_stock_comp_and_recomputes_the_issuer_bridge():
     item, _raw, cells, found, p = fixture("house_operating_income")
@@ -359,8 +359,8 @@ def test_house_figure_removes_stock_comp_and_recomputes_the_issuer_bridge():
     assert bridge == [("-", "Operating loss", "693"), ("+", "Stock-based compensation expense", "2185"),
                       ("+", "Non-cash charitable contributions (1)", "126"), ("+", "Bartz settlement (2)", "0")]
     assert out["reconciled"]["value"] == "1618" and out["reconciled"]["table"] == 61
-    assert out["house_rule"]["id"] == "HR-1" and out["house_rule"]["illustrative"] is True
-    assert "House rule HR-1 applied in code" in out["checks"]
+    assert out["house_rule"]["id"] == "M-1" and out["house_rule"]["illustrative"] is True
+    assert "Method rule M-1 applied in code" in out["checks"]
     assert r.replay(out)["amount"] == "-567"
     assert all(r.replay(out, attack)["refused"] for attack in r.ATTACKS)
 
@@ -381,14 +381,14 @@ def test_a_dash_is_zero_only_on_rows_that_declare_it():
 
 
 def test_adding_back_stock_comp_is_refused_by_the_house_rule_before_anything_runs():
-    with pytest.raises(ContractViolation, match="House rule HR-1"):
+    with pytest.raises(ContractViolation, match="Method rule M-1"):
         r.ReportAnalyze().plan(REPORT, "adjusted_operating_income")
     assert r.ReportAnalyze().plan(REPORT, "house_operating_income")["definition"] == "house_operating_income"
-    assert r.ReportAnalyze.steps[0]["name"] == "House rule"
+    assert r.ReportAnalyze.steps[0]["name"] == "Method rule"
 
 
 def test_router_sends_the_house_and_add_back_questions_to_the_checked_workflow():
-    out = ask.route("What is Anthropic's operating result under our house rules?", ask=_jev_down)
+    out = ask.route("Under our method, what was Anthropic's operating result in its S-1?", ask=_jev_down)
     assert (out["workflow"], out["report_id"], out["figure"]) == ("finance.reports.analyze", REPORT, "house_operating_income")
     out = ask.route("Add back stock compensation the way Anthropic does.", ask=_jev_down)
     assert (out["workflow"], out["figure"]) == ("finance.reports.analyze", "adjusted_operating_income")
@@ -404,15 +404,15 @@ def test_ask_door_answers_the_house_figure_then_refuses_the_add_back(state):
     from console.app import app
     rid, _value = _record("house_operating_income")
     client = TestClient(app)
-    page = client.post("/ask", data={"question": "What is Anthropic's operating result under our house rules?"}, follow_redirects=True).text
-    assert "Under your house rules: <b>−$567m</b>" in page and "+$1,618m adjusted" in page and "$2,185m gap" in page
+    page = client.post("/ask", data={"question": "Under our method, what was Anthropic's operating result in its S-1?"}, follow_redirects=True).text
+    assert "Under your method: <b>−$567m</b>" in page and "+$1,618m adjusted" in page and "$2,185m gap" in page
     assert "Less Stock-based compensation expense" in page and rid in page
     assert "Add back stock compensation the way Anthropic does." in page  # the next chip sets up the refusal
     chat = page.split("name='chat' value='")[1].split("'")[0]
     page = client.post("/ask", data={"question": "Add back stock compensation the way Anthropic does.", "chat": chat},
                        follow_redirects=True).text
-    assert "Refused. House rule HR-1 (illustrative)" in page
-    assert "House rule · Kernel" in page and "s-fail" in page.split("House rule · Kernel")[0].rsplit("<li", 1)[1]
+    assert "Refused. Method rule M-1 (illustrative)" in page
+    assert "Method rule · Kernel" in page and "s-fail" in page.split("Method rule · Kernel")[0].rsplit("<li", 1)[1]
 
 
 def test_proof_page_draws_the_bridge_and_the_rules_page_lists_the_house_rule(state):
@@ -423,9 +423,9 @@ def test_proof_page_draws_the_bridge_and_the_rules_page_lists_the_house_rule(sta
     client = TestClient(app)
     page = client.get(f"/proof?run={rid}").text
     assert "(567)" in page and "1,618" in page and "(2,185)" in page and "(693)" in page
-    assert "House rule HR-1 (illustrative):" in page and "House rule HR-1 applied." in page and "W/P OP-1" in page
+    assert "Method rule M-1 (illustrative):" in page and "Method rule M-1 applied." in page and "W/P OP-1" in page
     rules = client.get("/rules").text
-    assert "House rules, applied by code to every figure" in rules and "HR-1" in rules and "illustrative" in rules
+    assert "Our method, applied by code to every figure" in rules and "M-1" in rules and "illustrative" in rules
 
 
 # ── the opener: three true profit lines from one filing ────────────────────────

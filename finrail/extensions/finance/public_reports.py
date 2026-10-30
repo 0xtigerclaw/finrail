@@ -116,27 +116,27 @@ PROFILES = {
                            "terms": (("+", "operating_cash_flow"), ("-", "cash_purchases")), "reconcile": None,
                            "reconciliation": "Different definition: Anthropic reports no free cash flow, so there is no issuer figure to match"},
             "house_operating_income": {
-                "label": "House operating result, six months ended 30 June 2026 (house rule HR-1: stock compensation is a cost)",
+                "label": "Operating result under our method, six months ended 30 June 2026 (method rule M-1: stock compensation is a cost)",
                 "terms": (("+", "adjusted_operating_income"), ("-", "stock_comp")), "reconcile": None,
-                "house_rule": "HR-1",
+                "house_rule": "M-1",
                 # The profit lines a reader meets first, each read by code from its archived cell,
                 # shown beside the house figure: (key, plain-language name).
                 "show": (("revenue", "Revenue"), ("net_loss", "Net loss"), ("fv_convertibles", "of which, non-cash charge on convertible notes"),
                          ("aoi_operating_loss", "Operating loss"), ("adjusted_operating_income", "Anthropic's adjusted operating income")),
-                # Before the house rule is applied, Anthropic's own figure must be recomputed
+                # Before the method rule is applied, Anthropic's own figure must be recomputed
                 # from its own bridge, every component an archived cell.
                 "verify": {"target": "adjusted_operating_income",
                            "label": "Anthropic's Adjusted Operating Income, recomputed from its own bridge",
                            "terms": (("-", "aoi_operating_loss"), ("+", "stock_comp"), ("+", "aoi_charitable"),
                                      ("+", "aoi_settlement"))},
-                "reconciliation": ("Anthropic's adjusted figure recomputes exactly from its own bridge; the house figure "
-                                   "differs from it only by stock compensation, which house rule HR-1 never adds back"),
+                "reconciliation": ("Anthropic's adjusted figure recomputes exactly from its own bridge; our figure "
+                                   "differs from it only by stock compensation, which method rule M-1 never adds back"),
                 "query": ("Adjusted Operating Income (Loss) reconciliation, Six Months Ended June 30, 2026: Operating loss; "
                           "Stock-based compensation expense; Non-cash charitable contributions; Adjusted Operating Income (Loss)."),
             },
         },
         # Asking for the issuer's add-back is refused before anything runs: the rule is code.
-        "refused": {"adjusted_operating_income": "HR-1"},
+        "refused": {"adjusted_operating_income": "M-1"},
         "query": ("Consolidated Statements of Operations and Consolidated Statements of Cash Flows, Six Months Ended "
                   "June 30, 2026: Revenue; Net loss; Net cash provided by (used in) operating activities; "
                   "Purchases of property and equipment."),
@@ -144,17 +144,17 @@ PROFILES = {
                        "six months ended June 30, 2025 comparative."),
     },
 }
-#: The fund's house rules: standing policy, applied by code to every figure a definition
+#: The fund's method rules: standing policy, applied by code to every figure a definition
 #: names. Illustrative until the fund supplies its own; every output that uses one says so.
 HOUSE_RULES = {
-    "HR-1": {"id": "HR-1", "illustrative": True,
+    "M-1": {"id": "M-1", "illustrative": True,
              "title": "Stock compensation is a cost",
              "text": ("Stock-based compensation is an operating cost and is never added back. Where an issuer's "
-                      "adjusted figure adds it back, the house shows that figure only beside its own, reconciled "
+                      "adjusted figure adds it back, our method shows that figure only beside its own, reconciled "
                       "to the dollar."),
-             "refusal": ("House rule HR-1 (illustrative) counts stock compensation as an operating cost, so it is "
-                         "never added back. Ask for the house operating result instead: it shows Anthropic's adjusted "
-                         "figure beside it, reconciled to the dollar. Changing a house rule is a code change a person "
+             "refusal": ("Method rule M-1 (illustrative) counts stock compensation as an operating cost, so it is "
+                         "never added back. Ask for the operating result under our method instead: it shows Anthropic's adjusted "
+                         "figure beside it, reconciled to the dollar. Changing the method is a code change a person "
                          "approves. Nothing ran.")},
 }
 #: NVIDIA's rows and definitions, by name, for code that still speaks of them.
@@ -606,7 +606,7 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
         out["house_rule"] = {k: rule[k] for k in ("id", "title", "text", "illustrative")}
         out["issuer_figure"] = {"label": prof["rows"][spec["terms"][0][1]]["label"], "amount": str(amounts[spec["terms"][0][1]])}
         out["difference"] = [{"label": prof["rows"][k]["label"], "amount": str(amounts[k])} for k in removed]
-        out["checks"] = out["checks"] + ["Issuer bridge recomputed", f"House rule {rule['id']} applied in code"]
+        out["checks"] = out["checks"] + ["Issuer bridge recomputed", f"Method rule {rule['id']} applied in code"]
     if spec.get("show"):
         # Signed as the filing prints them. Lines a replay does not carry are left out, never guessed.
         out["lines"] = []
@@ -734,13 +734,13 @@ class ReportAnalyze(Plugin):
     verified_by = ("the total is recomputed in Decimal from hash-checked source cells "
                    "and must equal the figure the issuer reports in the same filing, or no answer is issued")
     ask = ("One figure checked against its filing. Anthropic (S-1, first half of 2026): revenue, net loss, "
-           "operating cash flow, capex, simple free cash flow, its operating result under the fund's house "
-           "rules, or its adjusted operating income with stock compensation added back. NVIDIA: free cash "
+           "operating cash flow, capex, simple free cash flow, its operating result under the fund's own "
+           "method, or its adjusted operating income with stock compensation added back. NVIDIA: free cash "
            "flow (FCF) or cash generation, for one quarter or compared across quarters")
     ask_label = "Source-checked figure"
     steps = (
-        {"name": "House rule", "by": "Kernel", "kind": "check", "where": "ReportAnalyze.plan(), HOUSE_RULES",
-         "rule": "The fund's house rules are constants in code. HR-1 (illustrative): stock compensation is a cost, "
+        {"name": "Method rule", "by": "Kernel", "kind": "check", "where": "ReportAnalyze.plan(), HOUSE_RULES",
+         "rule": "The fund's method rules are constants in code. M-1 (illustrative): stock compensation is a cost, "
                  "never added back. A request that breaks a rule is refused before anything runs."},
         {"name": "Retrieve", "by": "Google Vertex RAG", "kind": "retrieve", "where": "retrieve()",
          "rule": "Searches only this filing's indexed files. A source outside the allowlist refuses the run."},

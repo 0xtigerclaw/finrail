@@ -24,7 +24,7 @@ from .views import long_date, e, icon, badge
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
 SUGGESTIONS = (
     "Did Anthropic make money, according to its S-1?",
-    "What is Anthropic's operating result under our house rules?",
+    "Under our method, what was Anthropic's operating result in its S-1?",
     "What does the web say about Anthropic's profit?",
     "What revenue did Anthropic report in its S-1?",
     "What does Anthropic's S-1 say about compute commitments?",
@@ -33,9 +33,9 @@ SUGGESTIONS = (
     "Record NVIDIA's Q2 free cash flow as $24,077m",
     "What did Nebius say about capex in Q2?",
 )
-#: Asking for the issuer's stock-compensation add-back: the demo's house-rule refusal.
+#: Asking for the issuer's stock-compensation add-back: the demo's method-rule refusal.
 ADD_BACK = "Add back stock compensation the way Anthropic does."
-HOUSE_Q = "What is Anthropic's operating result under our house rules?"
+HOUSE_Q = "Under our method, what was Anthropic's operating result in its S-1?"
 #: The demo's opener: three true profit lines from one filing, shown side by side.
 MONEY_Q = "Did Anthropic make money, according to its S-1?"
 #: Jev routes this to Tavily; Jev reads each press sentence; code checks it against the S-1.
@@ -263,7 +263,7 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'fcf':
         done, running, failed = _fcf_state(ans)
         if failed:
-            if failed[0].startswith('House rule'):
+            if failed[0].startswith('Method rule'):
                 return f"Refused. {e(failed[0])}"
             return f"Not verified. No answer issued: {e(failed[0])}"
         if running:
@@ -280,7 +280,7 @@ def _short(turn: dict, cid: str) -> str:
             return _lines_reply(v['lines'])
         if v.get('house_rule'):
             sbc = v['difference'][0]['amount']
-            return (f"Under your house rules: <b>{money(v['amount'])}</b> for the six months to 30 June 2026. "
+            return (f"Under your method: <b>{money(v['amount'])}</b> for the six months to 30 June 2026. "
                     f"Anthropic reports +{money(v['issuer_figure']['amount'])} adjusted. The {money(sbc)} gap is stock "
                     f"compensation, which rule {e(v['house_rule']['id'])} counts as a cost. "
                     "Anthropic’s own figure recomputes exactly from its bridge.")
@@ -533,7 +533,7 @@ def _fcf_card(rec: dict) -> str:
         f"<td class='wp-num'>{int(i['amount']):,}</td><td class='wp-ticks'>{TICK}</td></tr>" for i in v['inputs'])
     tied = v.get('reconciled') or v.get('definition') == 'issuer_fcf'
     total = 'Free cash flow' if 'fcf' in v.get('definition', '') else v['metric'].split(',')[0]
-    foot = (f"House rule {e(v['house_rule']['id'])} (illustrative): {e(v['house_rule']['text'])} Anthropic’s own bridge recomputes to "
+    foot = (f"Method rule {e(v['house_rule']['id'])} (illustrative): {e(v['house_rule']['text'])} Anthropic’s own bridge recomputes to "
             f"{int(v['reconciled']['value']):,} in code" if v.get('house_rule')
             else f"Ties to {e(v['company'])}’s own {e(v['reconciled']['label'].lower())} of {int(v['reconciled']['value']):,} in the same filing" if v.get('reconciled')
             else f"Ties to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if tied else e(v.get('reconciliation', '')))
@@ -603,13 +603,13 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
             if v.get('house_rule'):
                 tie = (f". Anthropic’s adjusted figure recomputes from its own bridge to {money(v['reconciled']['value'])}. "
                        f"The {money(v['difference'][0]['amount'])} of stock compensation stays a cost")
-                facts['House rule'] = f"{e(v['house_rule']['id'])} applied before anything ran."
+                facts['Method rule'] = f"{e(v['house_rule']['id'])} applied before anything ran."
             facts['Compute'] = f"{money(v['amount'])}{tie}."
         if failed:
             failure = e(failed[0])
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
             refused = any(str(x).startswith('ContractViolation') for r in recs if r for x in r.get('errors') or [])
-            failed_at = 'House rule' if failure.startswith('House rule') else 'Check' if refused else 'retrieve'
+            failed_at = 'Method rule' if failure.startswith('Method rule') else 'Check' if refused else 'retrieve'
         evidence = ''.join((_lines_card(r) if (turn.get('route') or {}).get('figure') == 'made_money' else '') + _fcf_card(r) for r in done)
     elif kind == 'record':
         if ans.get('stated'):
@@ -747,7 +747,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
              + _step('skip', 'Verdict', 'An answer, a refusal, or a wait for a person.') + "</ol></div>")
     return ("<header class='ask-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
             "<h1>Your fund’s method, run as code on every filing.</h1>"
-            "<p class='proof-lede'>A model finds the numbers. Code checks each one against the filing and applies your house rules, "
+            "<p class='proof-lede'>A model finds the numbers. Code checks each one against the filing and applies your method, "
             f"or refuses. Jev routes each question and {e(engine)} reads the filing. The trace on the right shows every step.</p></header>"
             f"<div class='ask-layout'><div class='ask-chat'><section class='thread'{refresh}>{thread}<span id='latest'></span></section>"
             f"{starter}{composer}" + ("<p class='new-chat'><a href='/'>Start a new conversation</a></p>" if turns else '')

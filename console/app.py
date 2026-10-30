@@ -784,10 +784,10 @@ def rules():
     from finrail.extensions.finance.public_reports import HOUSE_RULES
     house = ''.join(f"<tr><td><strong>{_e(r['id'])}</strong>{' <span class=company-meta>illustrative</span>' if r.get('illustrative') else ''}</td>"
                     f"<td>{_e(r['title'])}</td><td>{_e(r['text'])}</td></tr>" for r in HOUSE_RULES.values())
-    body += panel('House rules, applied by code to every figure',
+    body += panel('Our method, applied by code to every figure',
                   "<p class='section-description'>The fund's standing method, written as constants in code. No model and no analyst can "
                   "change one from the browser; a change is a code change a person approves.</p>"
-                  + table(['Rule', 'Title', 'What code enforces'], house, 'House rules'))
+                  + table(['Rule', 'Title', 'What code enforces'], house, 'Method rules'))
     return _page('Governance rules',body+_cli_equiv('finrail rules'),'rules','One declaration site per capability. The same rules apply in the browser and CLI.')
 
 
