@@ -152,9 +152,10 @@ HOUSE_RULES = {
              "text": ("Stock-based compensation is an operating cost and is never added back. Where an issuer's "
                       "adjusted figure adds it back, the house shows that figure only beside its own, reconciled "
                       "to the dollar."),
-             "refusal": ("House rule HR-1 (illustrative): stock-based compensation is an operating cost and is never "
-                         "added back. The house figure, with Anthropic's adjusted figure reconciled beside it, is the "
-                         "house operating result. Changing a house rule is a code change a person approves. Nothing ran.")},
+             "refusal": ("House rule HR-1 (illustrative) counts stock compensation as an operating cost, so it is "
+                         "never added back. Ask for the house operating result instead: it shows Anthropic's adjusted "
+                         "figure beside it, reconciled to the dollar. Changing a house rule is a code change a person "
+                         "approves. Nothing ran.")},
 }
 #: NVIDIA's rows and definitions, by name, for code that still speaks of them.
 ROWS = {key: spec["label"] for key, spec in PROFILES["NVIDIA"]["rows"].items() if not spec.get("reconciles")}

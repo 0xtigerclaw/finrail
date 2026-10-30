@@ -89,7 +89,7 @@ def test_trace_is_drawn_from_the_capability_declaration(client, monkeypatch):
         {"name": "Recount", "by": "Kernel", "kind": "check", "where": "recount()", "rule": "Count again."}))
     page = _ask(client, "Any regulatory red flags on Northwind?")
     assert "Tally · Abacus" in page and "enforced in <code>tally()</code>" in page
-    assert "Declares 2 steps" in page
+    assert "The 2 steps below are its own declaration" in page
 
 
 def test_every_jev_call_is_written_to_the_ledger(tmp_path, monkeypatch):
@@ -116,10 +116,10 @@ def test_every_jev_call_is_written_to_the_ledger(tmp_path, monkeypatch):
 
 def test_every_answer_offers_followups_never_the_same_question(client):
     page = _ask(client, "Should we buy NVIDIA?")
-    assert "Ask next" in page and "Try one" not in page
+    assert "Ask next" in page and "Start here" not in page
     chips = page.split("class='suggestions'")[1].split("</form>")[0]
     assert "name='question'" in chips and "Should we buy NVIDIA?" not in chips
-    assert "What was NVIDIA&#x27;s free cash flow last quarter?" in chips
+    assert "Did Anthropic make money, according to its S-1?" in chips
 
 
 def test_followups_follow_the_answer():

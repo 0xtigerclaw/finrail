@@ -405,7 +405,7 @@ def test_ask_door_answers_the_house_figure_then_refuses_the_add_back(state):
     rid, _value = _record("house_operating_income")
     client = TestClient(app)
     page = client.post("/ask", data={"question": "What is Anthropic's operating result under our house rules?"}, follow_redirects=True).text
-    assert "House operating result: <b>−$567m</b>" in page and "$1,618m adjusted" in page and "$2,185m gap" in page
+    assert "Under your house rules: <b>−$567m</b>" in page and "+$1,618m adjusted" in page and "$2,185m gap" in page
     assert "Less Stock-based compensation expense" in page and rid in page
     assert "Add back stock compensation the way Anthropic does." in page  # the next chip sets up the refusal
     chat = page.split("name='chat' value='")[1].split("'")[0]
@@ -423,7 +423,7 @@ def test_proof_page_draws_the_bridge_and_the_rules_page_lists_the_house_rule(sta
     client = TestClient(app)
     page = client.get(f"/proof?run={rid}").text
     assert "(567)" in page and "1,618" in page and "(2,185)" in page and "(693)" in page
-    assert "House rule HR-1 (illustrative):" in page and "House rule applied." in page
+    assert "House rule HR-1 (illustrative):" in page and "House rule HR-1 applied." in page and "W/P OP-1" in page
     rules = client.get("/rules").text
     assert "House rules, applied by code to every figure" in rules and "HR-1" in rules and "illustrative" in rules
 
@@ -453,7 +453,7 @@ def test_ask_door_opens_with_three_true_lines_then_the_house_figure(state):
     rid, _value = _record("house_operating_income")
     client = TestClient(app)
     page = client.post("/ask", data={"question": MONEY_Q}, follow_redirects=True).text
-    assert "Three true answers, one filing." in page and "Which one goes in the memo is a method decision." in page
+    assert "Three true answers, one filing." in page and "Which one belongs in your memo depends on your method." in page
     ladder = page.split("class='line-ladder'")[1].split("</table>")[0]
     for name, amount, cell in (("Net loss", "−$80,748m", "T109 · R"), ("of which non-cash", "−$72,388m", "T109 · R"),
                                ("Operating loss", "−$693m", "T61 · R"), ("Adjusted operating income", "+$1,618m", "T61 · R")):
@@ -570,7 +570,7 @@ def test_more_than_nearly_and_about_are_read_as_stated(state, sentence, verdict)
     out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("net_loss", REPORT, 0.97)]))
     assert out["claims"][0]["verdict"] == verdict, out["claims"][0]["detail"]
     if verdict == "wrong" and "more than" in sentence:
-        assert "the claim says more than $" in out["claims"][0]["detail"]
+        assert "The claim says more than $" in out["claims"][0]["detail"]
 
 
 def test_the_convertible_notes_charge_is_its_own_checked_line(state):
@@ -601,7 +601,7 @@ def test_a_sentence_with_no_period_is_ruled_out_by_code_not_by_jev(state):
 def test_web_summary_names_only_what_happened():
     from console.chat import _web_summary
     assert _web_summary({"matches": 1}) == "Tavily found <b>1</b> claim on the web. <b>1</b> matches the filing."
-    assert ("<b>2</b> match the filing, <b>1</b> is loosely rounded and <b>1</b> puts a figure on the wrong line"
+    assert ("<b>2</b> match the filing. <b>1</b> is loosely rounded. <b>1</b> puts a figure on the wrong line."
             in _web_summary({"matches": 2, "loose": 1, "wrong_line": 1, "definition": 0}))
 
 
@@ -612,7 +612,7 @@ def test_a_quarter_named_in_the_sentence_is_ruled_out_by_code_even_when_jev_is_u
     page = {**PRESS, "content": "It narrowed every quarter of 2026, & in the second quarter Anthropic reported $974M of "
                                 "operating income, an 8.4% GAAP margin & 19% adjusted."}
     out = claims.check_web(REPORT, search=lambda q, c: [page], ask=_reader([("operating_loss", "other", 0.70)]))
-    assert out["claims"][0]["verdict"] == "unchecked" and "other than the S-1's first half" in out["claims"][0]["detail"]
+    assert out["claims"][0]["verdict"] == "unchecked" and "names another period" in out["claims"][0]["detail"]
 
 
 def test_web_search_runs_both_queries_and_merges_pages_by_url(state):
