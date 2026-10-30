@@ -76,7 +76,7 @@ A model in Finrail does not drive the system. Code calls it, with a typed reques
 | Model | Called to | Returns | Never |
 | --- | --- | --- | --- |
 | **Jev (TypeSafe)** | Route a question; read which line and period a claim refers to | One of the choices offered, with a confidence | Writes text or a number. Below the 75% bar, nothing is decided and a person picks. |
-| **NVIDIA Nemotron on Nebius** | Select the filing rows a calculation needs; answer a filing topic question by picking the sentences that answer it | Row IDs; sentence IDs (such as `E2.S4`) and a one-line lead-in with no digits | Types a quote or performs arithmetic. Code attaches the exact source text, and an unknown ID, a digit in the lead-in or an empty pick refuses the answer. |
+| **NVIDIA Nemotron 3.5 Super on Nebius** (the default engine) | Select the filing rows a calculation needs; answer a filing topic question by picking the sentences that answer it | Row IDs; sentence IDs (such as `E2.S4`) and a one-line lead-in with no digits | Types a quote or performs arithmetic. Code attaches the exact source text, and an unknown ID, a digit in the lead-in or an empty pick refuses the answer. |
 
 Every model call passes through one function, `finrail/core/llm.py`, which enforces the schema and records the call. On the HTTP engines used in deployment, tool use and open-ended sessions are refused under a named error. The other services are retrieval, not judgement: **Google Vertex AI RAG Engine** retrieves excerpts from one selected filing, and **Tavily** finds what the web says, which is treated as a claim to check, never as evidence.
 
@@ -249,7 +249,7 @@ The entire build was done with four AI models working together:
 - NVIDIA Nemotron, via Nebius Token Factory
 - GLM-5.3, from Z.ai
 
-These models wrote and reviewed the code. Separately, at runtime, the harness calls two models, each as a function: NVIDIA Nemotron on Nebius selects filing rows, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
+These models wrote and reviewed the code. Separately, at runtime, the harness calls two models, each as a function: NVIDIA Nemotron 3.5 Super on Nebius, the default engine, selects filing rows and picks quoted sentences, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
 
 ## A new, standalone project
 

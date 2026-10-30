@@ -96,3 +96,12 @@ def test_demo_seed_makes_screen_run_completable(client, monkeypatch):
     assert "fixture" in outcome.text.lower()
     assert "reported" in outcome.text.lower()
     assert "rejected" in outcome.text.lower()
+
+
+def test_masthead_names_the_configured_nemotron_version(monkeypatch):
+    from console import app as console_app
+    monkeypatch.setattr(console_app.llm, "engine", lambda: "nebius")
+    for model, label in (("nvidia/Nemotron-3.5-Super-VL", "NVIDIA Nemotron 3.5 Super on Nebius"),
+                         ("nvidia/nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super on Nebius")):
+        monkeypatch.setattr(console_app.llm, "_http_config", lambda model=model: ("u", "k", model))
+        assert console_app._engine_short() == label
