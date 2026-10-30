@@ -751,7 +751,7 @@ def page(cid: str, turns: list, engine: str, selected: int | None = None, prefil
            ("Check", "Code checks every figure against the filing, or refuses. The trace shows each step."))
     return ("<header class='ask-hero'><p class='kicker'>A research harness for funds, inspired by DeepSeek Harness</p>"
             "<h1>Evaluate investment opportunities</h1>"
-            "<p class='proof-lede'><b>On file:</b> Anthropic’s S\u20111, and quarterly results from NVIDIA, Nebius and ASML.</p>"
+            "<p class='proof-lede'><b>In the corpus, ingested for RAG:</b> Anthropic’s S\u20111, and quarterly results from NVIDIA, Nebius and ASML.</p>"
             "<dl class='hero-how' aria-label='How it works'>"
             + ''.join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in how) + "</dl></header>"
             f"<div class='ask-layout'><div class='ask-chat'><section class='thread'{refresh}>{thread}<span id='latest'></span></section>"
