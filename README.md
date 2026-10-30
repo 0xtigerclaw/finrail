@@ -6,6 +6,8 @@ Finrail is built for one domain: finance, where a number is acted on and a fluen
 
 **Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
+**Built with:** Sol 6.1, Claude Opus 5.5, NVIDIA Nemotron on Nebius Token Factory, and GLM-5.3. See [How it was built](#how-it-was-built).
+
 ![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
 ## The problem
@@ -189,6 +191,17 @@ Finrail is the workflow layer on top of that record. Each capability is a comman
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it is put together. |
 | [docs/public-reports.md](docs/public-reports.md) | The filings, the RAG corpus and operator ingestion. |
 | [docs/demo-script.md](docs/demo-script.md) | The demo video, beat by beat. |
+
+## How it was built
+
+The entire build was done with four AI models working together:
+
+- Sol 6.1
+- Claude Opus 5.5, from Anthropic
+- NVIDIA Nemotron, via Nebius Token Factory
+- GLM-5.3, from Z.ai
+
+These models wrote and reviewed the code. Separately, at runtime, the harness calls two models, each as a function: NVIDIA Nemotron on Nebius selects filing rows, and Jev (TypeSafe) makes typed choices. Code decides everything else, and a person releases.
 
 ## A new, standalone project
 
