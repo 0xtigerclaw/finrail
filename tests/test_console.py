@@ -19,12 +19,19 @@ def client():
     return TestClient(app)
 
 
-def test_home_shows_counts_and_cli(client):
+def test_home_is_the_ask_door(client):
     page = client.get("/")
     assert page.status_code == 200
-    assert "suggest evidence" in page.text
-    assert "Start the demo" in page.text
+    assert "Only checked code answers it" in page.text
+    assert "DeepSeek Harness" in page.text
+    assert "What was NVIDIA" in page.text
     assert "/cli" in page.text
+
+
+def test_proof_page_offers_a_live_run_on_a_fresh_instance(client):
+    page = client.get("/proof")
+    assert "Every plugin declares its trust rules" in page.text
+    assert "Run the proof live" in page.text
 
 
 def test_cli_page_generated_from_registry(client):
@@ -58,7 +65,7 @@ def test_approvals_empty_state_has_next_action(client):
     page = client.get("/approvals")
     assert page.status_code == 200
     assert "Nothing is waiting" in page.text
-    assert "/dataroom" in page.text
+    assert "Open Ask" in page.text
 
 
 def test_demo_seed_makes_screen_run_completable(client, monkeypatch):
@@ -68,4 +75,24 @@ def test_demo_seed_makes_screen_run_completable(client, monkeypatch):
     assert "operator (public demo seed)" in page.text
     run = client.post("/screen/run", data={"company_id": "04123456"})
     assert run.status_code == 200
-    assert "done" in run.text
+
+    # Submission starts one background run. Follow its read-only detail page;
+    # polling must never replay the POST or start a second screen.
+    import re
+    import time
+
+    link = re.search(r"(?:data-refresh-url|href)=['\"](/runs/[0-9a-f]+)['\"]", run.text)
+    assert link, "The submitted workflow must link to its real run"
+    deadline = time.monotonic() + 5
+    while True:
+        outcome = client.get(link.group(1))
+        assert outcome.status_code == 200
+        if "Completed" in outcome.text or "Failed" in outcome.text:
+            break
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    assert "Completed" in outcome.text
+    assert "fixture" in outcome.text.lower()
+    assert "reported" in outcome.text.lower()
+    assert "rejected" in outcome.text.lower()

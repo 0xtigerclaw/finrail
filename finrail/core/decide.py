@@ -97,15 +97,43 @@ def key() -> str:
     return door()["key"]
 
 
-def asker(timeout: int = 15, tries: int = 2, whole: bool = False):
+def asker(timeout: int = 15, tries: int = 2, whole: bool = False, capability: str = ""):
     """The real caller through whichever door is open, with the body's model set to
-    that door's id, so a body built for one door is sent correctly through the other."""
+    that door's id, so a body built for one door is sent correctly through the other.
+
+    Every call is written to the ledger as one `decision_call` event: the questions and
+    state Jev was shown, what it picked, how sure it was, the model and the door. The
+    same rule as the engine seam's model_call: if the model saw it, it is a record. The
+    answers carry `_event`, the event's seq, so a caller can point a person at it."""
     d = door()
     ask = http_ask(d["key"], url=d["url"], timeout=timeout, tries=tries, whole=whole)
 
     def through(body: dict) -> dict:
-        return ask({**body, "model": d["model"]})
+        sent = {**body, "model": d["model"]}
+        started = time.monotonic()
+        try:
+            answers = ask(sent)
+        except JevError as exc:
+            _log_decision(capability, d, sent, None, started, str(exc))
+            raise
+        seq = _log_decision(capability, d, sent, answers, started, "")
+        return {**answers, "_event": seq} if isinstance(answers, dict) else answers
     return through
+
+
+def _log_decision(capability: str, d: dict, body: dict, answers, started: float, error: str) -> int:
+    """One `decision_call` event. Never raises; returns its seq, or 0."""
+    try:
+        from . import events
+        from .llm import _log_thread
+        thread, rid = _log_thread()
+        return events.append(thread, "decision_call", {
+            "capability": capability, "model": d["model"], "door": d["url"].split("//")[-1].split("/")[0],
+            "state": body.get("state") or {}, "questions": body.get("questions") or {},
+            "answers": answers or {}, "error": error,
+            "duration_ms": int((time.monotonic() - started) * 1000)}, run=rid)
+    except Exception:                                              # noqa: BLE001
+        return 0
 
 
 def confidence(answer: dict) -> int:

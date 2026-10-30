@@ -319,13 +319,26 @@ class Plugin:
     #: worked?" is a rule with consequences and belongs where the other rules are.
     verified_by = ""
 
+    #: How a person asks for this, in one line, and a short label for it. A capability
+    #: with `ask` is offered to the Ask door's router; one without is never routed to.
+    #: The router reads these from the registry, so a new pack is askable with no
+    #: console code.
+    ask = ""
+    ask_label = ""
+
+    #: What happens inside a run, in order: each step names who acts, the rule that holds
+    #: it and where in code that rule is enforced. The console draws its trace from this
+    #: and nothing else, so the trace cannot say more than the capability declares.
+    #: kind is one of: retrieve, model, code, check, approve.
+    steps: tuple = ()
+
     def validate(self, proposal: dict) -> list:
         """Return a list of problems. A non-empty list blocks execution — this is where
         hallucinated ids and invented paths die."""
         return []
 
     def render(self, proposal: dict) -> str:
-        return json.dumps(proposal, indent=2, default=str)
+        return json.dumps(proposal, indent=2, default=str, ensure_ascii=False)
 
     def execute(self, proposal: dict) -> dict:
         raise NotImplementedError(f"{self.name}: no executor")
@@ -348,7 +361,8 @@ class Plugin:
                 "background": self.background,
                 "session_kind": self.session_kind, "verbatim": self.verbatim,
                 "reason": self.reason, "description": self.description,
-                "verified_by": self.verified_by,
+                "verified_by": self.verified_by, "ask": self.ask,
+                "steps": [dict(step) for step in self.steps],
                 "verifies": type(self).verify is not Plugin.verify}
 
     def __repr__(self):

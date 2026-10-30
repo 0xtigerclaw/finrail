@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "provenance": "Illustrative synthetic workspace. Manually authored examples, not historical model execution.",
+  "memo": {
+    "title": "Meridian Components — preliminary investment review (synthetic demo)",
+    "sections": [
+      {
+        "heading": "Business and revenue",
+        "body": "Meridian Components Ltd is a fictional precision-parts manufacturer. Revenue FY2025 was EUR 48.2m, up from EUR 41.7m in FY2024. The company employs 212 FTE. Management guides to flat volumes in FY2026.",
+        "citations": ["im-2026"]
+      },
+      {
+        "heading": "Customer concentration and contract terms",
+        "body": "Its largest customer accounted for 18% of FY2025 revenue. The supply agreement runs to 31 December 2027, with pricing fixed to 30 June 2026 and a 90-day termination notice period thereafter. Customer concentration and the termination clause require commercial diligence.",
+        "citations": ["im-2026", "contract-acme"]
+      },
+      {
+        "heading": "Capital structure and covenant",
+        "body": "The board noted gross debt of EUR 18.5m and cash of EUR 3.2m at the FY2025 year end. The leverage covenant is set at a maximum of 3.0x. No dividend was declared. Derived leverage and headroom are reported separately by deterministic analysis.",
+        "citations": ["board-2026-03"]
+      }
+    ],
+    "gaps": [
+      "The draft note's 24.5% EBITDA margin is unsupported and is excluded from the investment case. Use deterministic analysis for the calculated margin.",
+      "Audited statements, a quality-of-earnings review, and the detailed debt agreement have not been supplied.",
+      "Customer-level retention, order-book conversion, and evidence supporting management's outlook remain open diligence items.",
+      "Northwind screening findings belong to a separate synthetic company and are not evidence for Meridian."
+    ]
+  },
+  "supported_record": {
+    "title": "Meridian FY2025 revenue — illustrative demo proposal",
+    "claim": "Meridian revenue FY2025 was EUR 48.2m, up from EUR 41.7m in FY2024.",
+    "figure": "48.2",
+    "source_doc": "im-2026"
+  },
+  "blocked_record": {
+    "title": "Unsupported EBITDA margin — illustrative blocked claim",
+    "claim": "Meridian achieved a 24.5% EBITDA margin in FY2025.",
+    "figure": "24.5%",
+    "source_doc": "draft-note"
+  }
+}
