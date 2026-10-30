@@ -40,7 +40,7 @@ Judgement is permitted to be wrong because it sits between code that cannot be s
 
 ## Inspired from DeepSeek Harness Architecture
 
-Finrail takes three principles from DeepSeek Harness and extends each for finance. No code is shared.
+Finrail takes three principles from DeepSeek Harness and extends each for finance. 
 
 | DeepSeek Harness established | Finrail adds, for finance |
 | --- | --- |
