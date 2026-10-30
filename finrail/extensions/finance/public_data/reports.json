@@ -1,0 +1,179 @@
+{
+  "as_of": "2026-10-29",
+  "reports": [
+    {
+      "source_id": "NBIS-Q1-2026",
+      "company": "Nebius",
+      "report_period": "Q1 2026",
+      "published_at": "2026-05-13",
+      "retrieved_at": "2026-10-29T19:12:16.224699+00:00",
+      "url": "https://assets.nebius.com/assets/6fc0ea6c-0884-4a1f-bed8-1f797eb9628f/Financial%20results_Q1%202026.pdf",
+      "retrieved_url": "https://assets.nebius.com/assets/6fc0ea6c-0884-4a1f-bed8-1f797eb9628f/Financial%20results_Q1%202026.pdf",
+      "local_file": "raw/NBIS-Q1-2026.pdf",
+      "sha256": "72d293b8d9c16dd33c6a12864a03dac391bbd52430d0619d69cae2951b83c7b9",
+      "format": "pdf",
+      "source_type": "issuer_financial_statements",
+      "audit_status": "unaudited",
+      "pages": 11,
+      "period_end": "2026-03-31",
+      "source_date_label": "March 31,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/NBIS-Q1-2026.pdf",
+      "parsed_object": "2026-10-29/parsed/NBIS-Q1-2026.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/raw/NBIS-Q1-2026.pdf",
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/NBIS-Q1-2026.txt"
+      ],
+      "rag_file_ids": [
+        "5819943676142092826",
+        "5819943690734183163"
+      ],
+      "object_generation": "1793302833337219",
+      "parsed_object_generation": "1793302835827715"
+    },
+    {
+      "source_id": "NBIS-Q2-2026",
+      "company": "Nebius",
+      "report_period": "Q2 2026",
+      "published_at": "2026-08-12",
+      "retrieved_at": "2026-10-29T19:12:16.218037+00:00",
+      "url": "https://assets.nebius.com/assets/72a8c258-bbb7-4df7-ab9d-8698f6cb88fc/PR.pdf",
+      "retrieved_url": "https://assets.nebius.com/assets/72a8c258-bbb7-4df7-ab9d-8698f6cb88fc/PR.pdf",
+      "local_file": "raw/NBIS-Q2-2026.pdf",
+      "sha256": "d3dd403297e2e1680317ba6597f79c35deb13d29188fc5647dcd132885510289",
+      "format": "pdf",
+      "source_type": "issuer_financial_statements",
+      "audit_status": "unaudited",
+      "pages": 10,
+      "period_end": "2026-06-30",
+      "source_date_label": "June 30,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/NBIS-Q2-2026.pdf",
+      "parsed_object": "2026-10-29/parsed/NBIS-Q2-2026.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/raw/NBIS-Q2-2026.pdf",
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/NBIS-Q2-2026.txt"
+      ],
+      "rag_file_ids": [
+        "5819943682443663853",
+        "5819943693256061957"
+      ],
+      "object_generation": "1793302840447573",
+      "parsed_object_generation": "1793302842969916"
+    },
+    {
+      "source_id": "NVDA-Q1-FY2027",
+      "company": "NVIDIA",
+      "report_period": "Q1 FY2027",
+      "published_at": "2026-05-20",
+      "retrieved_at": "2026-10-29T19:12:16.217625+00:00",
+      "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-First-Quarter-Fiscal-2027/default.aspx",
+      "retrieved_url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-First-Quarter-Fiscal-2027/default.aspx",
+      "local_file": "raw/NVDA-Q1-FY2027.html",
+      "sha256": "48870432aa2c453b53b498f4b425fb266bfcb8a0051e0de1c387585a39f7fcf9",
+      "format": "html",
+      "source_type": "issuer_earnings_release",
+      "audit_status": "unaudited",
+      "period_end": "2026-04-26",
+      "source_date_label": "April 26,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/NVDA-Q1-FY2027.html",
+      "parsed_object": "2026-10-29/parsed/NVDA-Q1-FY2027.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/NVDA-Q1-FY2027.txt"
+      ],
+      "rag_file_ids": [
+        "5819943678802272863"
+      ],
+      "object_generation": "1793302845343971",
+      "parsed_object_generation": "1793302847660205"
+    },
+    {
+      "source_id": "NVDA-Q2-FY2027",
+      "company": "NVIDIA",
+      "report_period": "Q2 FY2027",
+      "published_at": "2026-08-26",
+      "retrieved_at": "2026-10-29T19:12:16.224753+00:00",
+      "url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/default.aspx",
+      "retrieved_url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/default.aspx",
+      "local_file": "raw/NVDA-Q2-FY2027.html",
+      "sha256": "844d0018c3dd72d42b0872a80f9a8c53e0e761ff3cf595ef42edca024fb5de8d",
+      "format": "html",
+      "source_type": "issuer_earnings_release",
+      "audit_status": "unaudited",
+      "period_end": "2026-07-26",
+      "source_date_label": "July 26,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/NVDA-Q2-FY2027.html",
+      "parsed_object": "2026-10-29/parsed/NVDA-Q2-FY2027.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/NVDA-Q2-FY2027.txt"
+      ],
+      "rag_file_ids": [
+        "5819943674925431547"
+      ],
+      "object_generation": "1793302850153094",
+      "parsed_object_generation": "1793302852651305"
+    },
+    {
+      "source_id": "ASML-Q2-2026",
+      "company": "ASML",
+      "report_period": "Q2 2026",
+      "published_at": "2026-07-15",
+      "retrieved_at": "2026-10-29T19:12:16.261187+00:00",
+      "url": "https://www.investor.asml.com/static-files/5dc79e92-9e59-4a06-af63-22eb4408af16",
+      "retrieved_url": "https://ourbrand.asml.com/asset/ffeb8813-403b-49df-83c0-01aae7533dd6/Financial-statements-US-GAAP-Q2-2026.pdf",
+      "local_file": "raw/ASML-Q2-2026.pdf",
+      "sha256": "71717aab1e6c76eaac0eb64d2c54f02954d0e162429d4f3b7fca4e188375cf3f",
+      "format": "pdf",
+      "source_type": "issuer_financial_statements",
+      "audit_status": "unaudited",
+      "pages": 12,
+      "period_end": "2026-06-28",
+      "source_date_label": "June 28,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/ASML-Q2-2026.pdf",
+      "parsed_object": "2026-10-29/parsed/ASML-Q2-2026.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/raw/ASML-Q2-2026.pdf",
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/ASML-Q2-2026.txt"
+      ],
+      "rag_file_ids": [
+        "5819943676922962523",
+        "5819943682597376131"
+      ],
+      "object_generation": "1793302856136421",
+      "parsed_object_generation": "1793302856930334"
+    },
+    {
+      "source_id": "ASML-Q3-2026",
+      "company": "ASML",
+      "report_period": "Q3 2026",
+      "published_at": "2026-10-14",
+      "retrieved_at": "2026-10-29T19:12:16.264095+00:00",
+      "url": "https://www.investor.asml.com/static-files/d310262b-d037-485d-83b5-92c93cc462f0",
+      "retrieved_url": "https://live.euronext.com/sites/default/files/company_press_releases/attachments/2026/10/14/cpr01_notified_Financial%20statements%20US%20GAAP%20Q3%202026.pdf",
+      "local_file": "raw/ASML-Q3-2026.pdf",
+      "sha256": "562ba8423b4cdb74f48c0d033f9c1571c314f525f252cffce245ad532b03e2a9",
+      "format": "pdf",
+      "source_type": "issuer_financial_statements",
+      "audit_status": "unaudited",
+      "pages": 12,
+      "period_end": "2026-09-27",
+      "source_date_label": "September 27,",
+      "bucket": "finrail-reports-petrosoft-2202",
+      "object": "2026-10-29/raw/ASML-Q3-2026.pdf",
+      "parsed_object": "2026-10-29/parsed/ASML-Q3-2026.txt",
+      "indexed_uris": [
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/raw/ASML-Q3-2026.pdf",
+        "gs://finrail-reports-petrosoft-2202/2026-10-29/parsed/ASML-Q3-2026.txt"
+      ],
+      "rag_file_ids": [
+        "5819943677702540771",
+        "5819943720685616249"
+      ],
+      "object_generation": "1793302860420793",
+      "parsed_object_generation": "1793302862981513"
+    }
+  ]
+}

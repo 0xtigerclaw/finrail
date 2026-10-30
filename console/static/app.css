@@ -611,3 +611,17 @@ span.demo-record, p.demo-record { display: block; margin: 5px 0; padding: 0; bor
 .memo-section { margin: 24px 0; }
 .memo-section p { max-width: 72ch; color: var(--ink-secondary); line-height: 1.8; }
 .memo-section a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Public reports inherit the investment workspace's surfaces and controls. */
+.source-excerpt { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 440px; overflow-y: auto; color: var(--ink); background: var(--paper); padding: 16px; border-radius: 8px; line-height: 1.7; }
+.report-evidence { margin-top: 12px; }
+.report-answer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.report-answer h3 { margin: 0 0 8px; font-size: 20px; }
+.report-answer p { margin: 0; }
+.report-amount { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.report-amount span { display: block; color: var(--ink-secondary); font-size: 13px; font-weight: 400; }
+.report-formula { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 16px 0; }
+.report-formula span { color: var(--ink-secondary); }
+.report-checks { padding: 0; display: flex; flex-wrap: wrap; gap: 12px 20px; list-style: none; margin: 20px 0; }
+.report-checks li { display: flex; align-items: center; gap: 6px; margin: 0; }
+.report-checks svg { color: var(--success); }

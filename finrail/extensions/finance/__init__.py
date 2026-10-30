@@ -15,7 +15,7 @@ Four packs, one rule each, all declared on the capability classes below:
 
 The demonstration data room is synthetic (fixtures/dataroom.json): one
 fictional target, Meridian Components, plus one archived fixture screen.
-Nothing here reads a real corpus.
+The reports pack additionally retrieves archived public-company disclosures.
 """
 
 from __future__ import annotations
@@ -720,7 +720,10 @@ class MemoRelease(Plugin):
         return (ok, f"released artefact re-read; hash match: {ok}")
 
 
+from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze
+
 COMMANDS = [ScreenCandidates, ScreenEntity, ScreenRun, ScreenFixture,
             ScreenArchive,
             DataroomSearch, DataroomRecord, DataroomPropose,
-            ComputeMetric, ComputeScenario, MemoDraft, MemoRelease]
+            ComputeMetric, ComputeScenario, MemoDraft, MemoRelease,
+            ReportCatalog, ReportSearch, ReportAnalyze]
