@@ -35,7 +35,7 @@ def _table(caption_lines, unit, *rows):
     return "".join(_line(t) for t in caption_lines) + "<table>" + PERIODS + YEARS.format(unit=unit) + "".join(rows) + "</table>"
 
 
-def s1_html(*, year="2026", revenue="$ 16,286", total="$ 16,286", unit_caption=True) -> bytes:
+def s1_html(*, year="2026", revenue="$ 16,286", total="$ 16,286", unit_caption=True, adjusted="$ 1,618", charitable="126") -> bytes:
     unit = "(In millions, except share amounts which are in thousands, and per share data)" if unit_caption else "(per share data)"
     operations = _table(["F-7", "Anthropic, PBC", "Consolidated Statements of Operations", unit], "",
                         _row("Revenue", "$ 41", "$ 386", "$ 4,585", "$ 1,163", revenue),
@@ -54,9 +54,16 @@ def s1_html(*, year="2026", revenue="$ 16,286", total="$ 16,286", unit_caption=T
     note = _table(["The following table presents consumption-based and subscription-based revenue (in millions):"], "",
                   _row("Consumption-based", "$ 39", "$ 288", "$ 3,796", "$ 983", "$ 13,064"),
                   _row("Total", "$ 41", "$ 386", "$ 4,585", "$ 1,163", total))
+    bridge = _table(["Adjusted Operating Income (Loss)", "The following table presents a reconciliation of operating loss:"],
+                    "(in millions, except for percentages)",
+                    _row("Operating loss", "$ (551)", "$ (2,980)", "$ (8,060)", "$ (2,135)", "$ (693)"),
+                    _row("Stock-based compensation expense", "29", "192", "1,165", "286", "2,185"),
+                    _row("Non-cash charitable contributions (1)", "—", "—", "541", "—", charitable),
+                    _row("Bartz settlement (2)", "—", "—", "1,500", "—", "—"),
+                    _row("Adjusted Operating Income (Loss)", "$ (522)", "$ (2,788)", "$ (4,854)", "$ (1,849)", adjusted))
     parts = []
     for number in range(1, 121):
-        parts.append({72: summary, 109: operations, 114: cash, 120: note}.get(number, "<table></table>"))
+        parts.append({61: bridge, 72: summary, 109: operations, 114: cash, 120: note}.get(number, "<table></table>"))
     page = '<div style="height:792pt;width:612pt">' + _line("Table of Contents") + _line("including to fund our substantial compute commitments, and our ability") + "</div>"
     html = "<html><body>" + page + '<div style="height:792pt;width:612pt">' + "".join(parts) + "</div></body></html>"
     return html.replace("2026", year).encode()
@@ -335,3 +342,85 @@ def test_ask_page_answers_an_anthropic_revenue_question_offline(state):
     assert "Revenue: <b>$16,286m</b>" in page and "ties to the figure Anthropic reports" in page
     assert "finance.reports.analyze" in page and rid in page
     assert "price to sales" in page  # the follow-up chip offers the multiple on the checked revenue
+
+
+# ── the house rule and the stock-compensation reconciliation ───────────────────
+
+def test_house_figure_removes_stock_comp_and_recomputes_the_issuer_bridge():
+    item, _raw, cells, found, p = fixture("house_operating_income")
+    assert cells["aoi_settlement"]["value"] == "0"  # a printed dash, read as nil only because the row says so
+    out = r.check_and_compute(item, "house_operating_income", p, found, cells)
+    assert out["amount"] == "-567" and out["formula"] == "adjusted_operating_income - stock_comp"
+    assert out["issuer_figure"] == {"label": "Adjusted Operating Income (Loss)", "amount": "1618"}
+    assert out["difference"] == [{"label": "Stock-based compensation expense", "amount": "2185"}]
+    bridge = [(b["sign"], b["label"], b["amount"]) for b in out["reconciled"]["bridge"]]
+    assert bridge == [("-", "Operating loss", "693"), ("+", "Stock-based compensation expense", "2185"),
+                      ("+", "Non-cash charitable contributions (1)", "126"), ("+", "Bartz settlement (2)", "0")]
+    assert out["reconciled"]["value"] == "1618" and out["reconciled"]["table"] == 61
+    assert out["house_rule"]["id"] == "HR-1" and out["house_rule"]["illustrative"] is True
+    assert "House rule HR-1 applied in code" in out["checks"]
+    assert r.replay(out)["amount"] == "-567"
+    assert all(r.replay(out, attack)["refused"] for attack in r.ATTACKS)
+
+
+def test_an_issuer_bridge_that_does_not_recompute_is_refused():
+    item, _raw, cells, found, p = fixture("house_operating_income", charitable="127")
+    with pytest.raises(ContractViolation, match="does not recompute from its own bridge"):
+        r.check_and_compute(item, "house_operating_income", p, found, cells)
+
+
+def test_a_dash_is_zero_only_on_rows_that_declare_it():
+    period, year = "Six Months Ended June 30,", "2026"
+    rows = [["", period], ["", "2025", "2026"], ["Line", "1", "—"]]
+    spans = [[1, 2], [1, 1, 1], [1, 1, 1]]
+    with pytest.raises(ContractViolation, match="not a number"):
+        r._cell_under(rows, spans, "Line", period, year)
+    assert r._cell_under(rows, spans, "Line", period, year, blank_is_zero=True)["signed_value"] == 0
+
+
+def test_adding_back_stock_comp_is_refused_by_the_house_rule_before_anything_runs():
+    with pytest.raises(ContractViolation, match="House rule HR-1"):
+        r.ReportAnalyze().plan(REPORT, "adjusted_operating_income")
+    assert r.ReportAnalyze().plan(REPORT, "house_operating_income")["definition"] == "house_operating_income"
+    assert r.ReportAnalyze.steps[0]["name"] == "House rule"
+
+
+def test_router_sends_the_house_and_add_back_questions_to_the_checked_workflow():
+    out = ask.route("What is Anthropic's operating result under our house rules?", ask=_jev_down)
+    assert (out["workflow"], out["report_id"], out["figure"]) == ("finance.reports.analyze", REPORT, "house_operating_income")
+    out = ask.route("Add back stock compensation the way Anthropic does.", ask=_jev_down)
+    assert (out["workflow"], out["figure"]) == ("finance.reports.analyze", "adjusted_operating_income")
+
+
+def _record_house(state):
+    return _record("house_operating_income")
+
+
+def test_ask_door_answers_the_house_figure_then_refuses_the_add_back(state):
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+    from console.app import app
+    rid, _value = _record("house_operating_income")
+    client = TestClient(app)
+    page = client.post("/ask", data={"question": "What is Anthropic's operating result under our house rules?"}, follow_redirects=True).text
+    assert "House operating result: <b>-$567m</b>" in page and "$1,618m adjusted" in page and "$2,185m gap" in page
+    assert "Less Stock-based compensation expense" in page and rid in page
+    assert "Add back stock compensation the way Anthropic does." in page  # the next chip sets up the refusal
+    chat = page.split("name='chat' value='")[1].split("'")[0]
+    page = client.post("/ask", data={"question": "Add back stock compensation the way Anthropic does.", "chat": chat},
+                       follow_redirects=True).text
+    assert "Refused. House rule HR-1 (illustrative)" in page
+    assert "House rule · Kernel" in page and "s-fail" in page.split("House rule · Kernel")[0].rsplit("<li", 1)[1]
+
+
+def test_proof_page_draws_the_bridge_and_the_rules_page_lists_the_house_rule(state):
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+    from console.app import app
+    rid, _value = _record("house_operating_income")
+    client = TestClient(app)
+    page = client.get(f"/proof?run={rid}").text
+    assert "(567)" in page and "1,618" in page and "(2,185)" in page and "(693)" in page
+    assert "House rule HR-1 (illustrative):" in page and "House rule applied." in page
+    rules = client.get("/rules").text
+    assert "House rules, applied by code to every figure" in rules and "HR-1" in rules and "illustrative" in rules

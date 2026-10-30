@@ -2,6 +2,7 @@
 from .views import e, badge, icon, panel, table, raw
 from urllib.parse import quote
 
+from finrail.extensions.finance.claims import money
 from finrail.extensions.finance.public_reports import PROFILES, catalog, checked_fcf, checked_run
 
 
@@ -51,7 +52,10 @@ def reconciled_line(value) -> str:
 
 
 def proof_rail(value):
-    if reconciled(value):
+    if value.get('house_rule'):
+        verdict, verdict_detail = 'House rule applied', (f"{value['house_rule']['id']}: {value['house_rule']['text']} "
+                                                         f"Anthropic's bridge recomputes to {int(value['reconciled']['value']):,}.")
+    elif reconciled(value):
         verdict, verdict_detail = 'Reconciled', reconciled_line(value)
     else:
         verdict, verdict_detail = 'Definition labelled', value.get('reconciliation', '') + ', and the answer says so'
@@ -93,7 +97,7 @@ def result_html(value):
     rows = ''.join(f"<tr><td>{e(v['metric'].replace('_',' ').capitalize())}<span class='company-meta'>HTML table {v['table']}, row {v['row_number']} · {e(v.get('column', 'current period'))}</span></td>"
                    f"<td class='num'>{e(format(int(v['amount']), ','))}</td><td>{e(v['evidence_id'])}</td></tr>" for v in value['inputs'])
     body = (f"<div class='report-answer'><div><h3>{e(value['metric'])}</h3><p>{e(value['company'])} · {e(value['period'])} · period ended {e(value['period_end'])}</p></div>"
-            f"<p class='report-amount'>${int(value['amount']):,}<span>USD millions</span></p></div>"
+            f"<p class='report-amount'>{money(value['amount'])}<span>USD millions</span></p></div>"
             + proof_rail(value)
             + f"<p>{badge('checked','Source cells checked')} {e(reconciled_line(value))}</p>"
             + table(['Input', 'USD millions', 'Citation'], rows, 'Verified inputs')
@@ -110,7 +114,8 @@ def result_html(value):
 COMPANIES = ('NVIDIA', 'Nebius', 'ASML', 'Anthropic')
 ASKS = {'NVIDIA': ("What was NVIDIA's free cash flow in {q}?",), 'Nebius': ("What did Nebius say about capex in {q}?",),
         'ASML': ("What did ASML say about guidance in {q}?",),
-        'Anthropic': ("What was Anthropic's revenue in the first half of 2026?",
+        'Anthropic': ("What is Anthropic's operating result under our house rules?",
+                      "What was Anthropic's revenue in the first half of 2026?",
                       "What does Anthropic's S-1 say about compute commitments?")}
 #: The figure shown as checked on a filing card, per company: (definition, label).
 CARD_CHECK = {'NVIDIA': ('issuer_fcf', 'Free cash flow'), 'Anthropic': ('revenue', 'Revenue')}

@@ -18,6 +18,7 @@ from finrail.core import registry
 from finrail.extensions.finance.ask import NONE, REPORTS, workflows
 from finrail.extensions.finance.public_reports import PROFILES, checked_fcf, report, stated_millions
 from finrail.extensions.finance.claims import money
+from finrail.extensions.finance.public_reports import HOUSE_RULES
 from .views import e, icon, badge
 
 NVDA = ('NVDA-Q1-FY2027', 'NVDA-Q2-FY2027')
@@ -29,10 +30,15 @@ SUGGESTIONS = (
     "Record NVIDIA's Q2 free cash flow as $24,077m",
     "What was Anthropic's revenue in the first half of 2026?",
     "What does Anthropic's S-1 say about compute commitments?",
+    "What is Anthropic's operating result under our house rules?",
 )
+#: Asking for the issuer's stock-compensation add-back: the demo's house-rule refusal.
+ADD_BACK = "Add back stock compensation the way Anthropic does."
+HOUSE_Q = "What is Anthropic's operating result under our house rules?"
 #: The figure the router read, as the analyze definition it means for a report.
 ANTH_FIGURES = {'revenue': 'revenue', 'net_loss': 'net_loss', 'operating_cash_flow': 'operating_cash_flow',
-                'capex': 'capex', 'fcf': 'simple_fcf'}
+                'capex': 'capex', 'fcf': 'simple_fcf', 'house_operating_income': 'house_operating_income',
+                'adjusted_operating_income': 'adjusted_operating_income'}
 # How this door calls each askable capability: which parameters it fills from the route.
 # What each one is called, how it is asked for and what it does inside a run come from
 # the capability's own declaration (`ask_label`, `ask`, `steps`), never from here.
@@ -180,7 +186,7 @@ def _fcf_state(ans: dict) -> tuple[list, list, list]:
     done, running, failed = [], [], []
     for rid in ans.get('runs', []):
         if rid.startswith('error:'):
-            failed.append(rid[6:])
+            failed.append(rid[6:].removeprefix(CAPABILITY['fcf'] + ': ').removeprefix('ContractViolation: '))
             continue
         rec = _record(rid)
         if not rec:
@@ -233,6 +239,8 @@ def _short(turn: dict, cid: str) -> str:
     if kind == 'fcf':
         done, running, failed = _fcf_state(ans)
         if failed:
+            if failed[0].startswith('House rule'):
+                return f"Refused. {e(failed[0])}"
             return f"Not verified. No answer issued: {e(failed[0])}"
         if running:
             company = 'Anthropic’s S-1' if (route.get('report_id') or '').startswith('ANTH') else 'NVIDIA’s filing'
@@ -244,10 +252,15 @@ def _short(turn: dict, cid: str) -> str:
             return (f"Free cash flow went from <b>${int(a['amount']):,}m</b> ({e(a['period'])}) to <b>${int(b['amount']):,}m</b> "
                     f"({e(b['period'])}), {'down' if diff < 0 else 'up'} ${abs(int(diff)):,}m ({pct:+}%). Both tie to NVIDIA’s reported figures.")
         v = done[0]['result']
+        if v.get('house_rule'):
+            sbc = v['difference'][0]['amount']
+            return (f"House operating result: <b>{money(v['amount'])}</b> for {e(v['period'])}. Anthropic reports "
+                    f"{money(v['issuer_figure']['amount'])} adjusted, and its bridge recomputes exactly; the {money(sbc)} gap is stock "
+                    f"compensation, which house rule {e(v['house_rule']['id'])} never adds back.")
         tie = (f"It ties to the figure {e(v['company'])} reports in the same filing." if v.get('reconciled') or v.get('definition') == 'issuer_fcf'
                else e(v.get('reconciliation', '')) + '.')
         what = v['metric'].split(',')[0] if (v.get('company') != 'NVIDIA') else 'Free cash flow'
-        return f"{e(what)}: <b>${int(v['amount']):,}m</b> for {e(v['period'])}. {tie}"
+        return f"{e(what)}: <b>{money(v['amount'])}</b> for {e(v['period'])}. {tie}"
     if kind == 'multiple':
         if ans.get('error'):
             return f"Refused. Nothing was computed. {e(ans['error'])}"
@@ -306,7 +319,11 @@ def followups(turns: list) -> list[str]:
     nebius = "What did Nebius say about capex in Q2?"
     out: list = []
     anthropic_multiple = "At a $300bn valuation, what is Anthropic's price to sales?"
-    if kind == 'fcf' and rid.startswith('ANTH'):
+    if kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'house_operating_income':
+        out = [ADD_BACK, "What was Anthropic's revenue in the first half of 2026?", anthropic_multiple]
+    elif kind == 'fcf' and rid.startswith('ANTH') and ans.get('definition') == 'adjusted_operating_income':
+        out = [HOUSE_Q, "What was Anthropic's revenue in the first half of 2026?"]
+    elif kind == 'fcf' and rid.startswith('ANTH'):
         out = [anthropic_multiple if ans.get('definition') == 'revenue' else "What was Anthropic's revenue in the first half of 2026?",
                "What was Anthropic's net loss in the first half of 2026?", "What does Anthropic's S-1 say about compute commitments?"]
     elif kind == 'fcf':
@@ -404,15 +421,18 @@ def _model_line(rid: str) -> str:
 
 def _fcf_card(rec: dict) -> str:
     v = rec['result']
+    less = {key for sign, key in (PROFILES.get(v.get('company'), {}).get('definitions', {}).get(v.get('definition'), {}).get('terms') or ()) if sign == '-'}
     rows = ''.join(
-        f"<tr><td>{e(i['row'])}</td><td class='wp-ref'>T{e(i.get('table'))}·R{e(i.get('row_number'))}</td>"
+        f"<tr><td>{'Less ' if i['metric'] in less else ''}{e(i['row'])}</td><td class='wp-ref'>T{e(i.get('table'))}·R{e(i.get('row_number'))}</td>"
         f"<td class='wp-num'>{int(i['amount']):,}</td><td class='wp-ticks'>{TICK}</td></tr>" for i in v['inputs'])
     tied = v.get('reconciled') or v.get('definition') == 'issuer_fcf'
     total = 'Free cash flow' if 'fcf' in v.get('definition', '') else v['metric'].split(',')[0]
-    foot = (f"Ties to {e(v['company'])}’s own {e(v['reconciled']['label'].lower())} of {int(v['reconciled']['value']):,} in the same filing" if v.get('reconciled')
+    foot = (f"House rule {e(v['house_rule']['id'])} (illustrative): {e(v['house_rule']['text'])} Anthropic’s own bridge recomputes to "
+            f"{int(v['reconciled']['value']):,} in code" if v.get('house_rule')
+            else f"Ties to {e(v['company'])}’s own {e(v['reconciled']['label'].lower())} of {int(v['reconciled']['value']):,} in the same filing" if v.get('reconciled')
             else f"Ties to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if tied else e(v.get('reconciliation', '')))
     return (f"<div class='mini-wp'><div class='mini-head'><span>{e(v['period'])} · period ended {e(v['period_end'])}</span>"
-            f"<strong>${int(v['amount']):,}m</strong></div><table class='mini-table'><tbody>{rows}"
+            f"<strong>{money(v['amount'])}</strong></div><table class='mini-table'><tbody>{rows}"
             f"<tr class='wp-total'><td>{e(total)}, recomputed</td><td class='wp-ref'>Decimal</td><td class='wp-num'><span class='double'>{int(v['amount']):,}</span></td>"
             f"<td class='wp-ticks'><span class='tick-letter'>Σ</span>{'<span class=tick-letter>R</span>' if tied else ''}</td></tr></tbody></table>"
             f"<p class='mini-foot'>{foot} · "
@@ -473,12 +493,16 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
             tie = (f", equal to the {e(v['reconciled']['label'])} the filing reports ({int(v['reconciled']['value']):,})" if v.get('reconciled')
                    else f", equal to NVIDIA’s reported ${int(v['reported_fcf']):,}m" if v.get('reported_fcf') and v.get('definition') == 'issuer_fcf'
                    else f"; {e(v.get('reconciliation', ''))}")
-            facts['Compute'] = f"${int(v['amount']):,}m{tie}"
+            if v.get('house_rule'):
+                tie = (f"; Anthropic’s {e(v['issuer_figure']['label'])} recomputes from its own bridge to {int(v['reconciled']['value']):,}, "
+                       f"and the {money(v['difference'][0]['amount'])} of stock compensation is not added back")
+                facts['House rule'] = f"{e(v['house_rule']['id'])} applied: {e(v['house_rule']['text'])}"
+            facts['Compute'] = f"{money(v['amount'])}{tie}"
         if failed:
             failure = failed[0]
             recs = [_record(r) for r in ans.get('runs', []) if not r.startswith('error:')]
             refused = any(str(x).startswith('ContractViolation') for r in recs if r for x in r.get('errors') or [])
-            failed_at = 'check' if refused else 'retrieve'
+            failed_at = 'House rule' if failure.startswith('House rule') else 'Check' if refused else 'retrieve'
         evidence = ''.join(_fcf_card(r) for r in done)
     elif kind == 'record':
         if ans.get('stated'):
@@ -543,7 +567,11 @@ def _facts(turn: dict) -> tuple[dict, str, str, str]:
 def _declared_steps(cap: str, verdict_state: str, facts: dict, failure: str, failed_at: str) -> str:
     registry.load()
     steps = registry.command(cap).steps
-    stop = next((i for i, st in enumerate(steps) if st['kind'] == failed_at), 0) if verdict_state == 'fail' else None
+    # A failure names the step that stopped the run, by name where it can, else by kind.
+    stop = (next((i for i, st in enumerate(steps) if st['name'] == failed_at), None)
+            if verdict_state == 'fail' else None)
+    if verdict_state == 'fail' and stop is None:
+        stop = next((i for i, st in enumerate(steps) if st['kind'] == failed_at), 0)
     first_model = next((i for i, st in enumerate(steps) if st['kind'] == 'model'), 0)
     out = ''
     for i, st in enumerate(steps):

@@ -91,6 +91,21 @@ never be taken for it; the column is marked unaudited in the filing):
 | `operating_cash_flow` | table 114, "Net cash provided by (used in) operating activities" | "Operating activities" in the MD&A cash flow summary (table 72) |
 | `capex` | table 114, "Purchases of property and equipment" | nothing: the S-1 totals it nowhere else, and the answer says so |
 | `simple_fcf` | operating cash flow minus purchases of property and equipment | nothing: Anthropic does not define free cash flow, and the answer says so |
+| `house_operating_income` | Adjusted Operating Income (Loss) less stock-based compensation, both from Anthropic's own reconciliation (table 61) | Anthropic's adjusted figure, recomputed by code from its own bridge: operating loss, stock compensation, donation-matching charges and the settlement line (a printed dash, read as nil only because that row declares it) |
+
+### House rule HR-1 and the stock-compensation reconciliation
+
+House rules are the fund's standing method, declared as constants in
+`public_reports.HOUSE_RULES` and listed on the Rules page. There is one, and it is
+**illustrative** until the fund supplies its own: *HR-1, stock-based compensation is an
+operating cost and is never added back.* Every output that uses it says so.
+
+For the six months ended 30 June 2026 Anthropic reports Adjusted Operating Income of
+$1,618m. Code first recomputes that figure from Anthropic's own bridge (−693 + 2,185 +
+126 + 0 = 1,618), then applies HR-1: the house operating result is 1,618 − 2,185 =
+−$567m. The $2,185m gap is stock compensation and nothing else. Asking for the
+add-back (`definition=adjusted_operating_income`) is refused by the plan before any
+retrieval or model call, with the rule's text; changing a rule is a code change.
 
 The unit line sits in the caption above each F-page statement, so the caption is checked
 with the header. Table numbers are positions in the hash-checked file and are stable.

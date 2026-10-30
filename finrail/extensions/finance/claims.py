@@ -113,7 +113,8 @@ def checked_line(rec: dict, line: str):
 
 def money(value) -> str:
     value = Decimal(value)
-    return f"${int(value):,}m" if value == value.to_integral() else f"${value.normalize():,f}m"
+    sign, value = ("-", -value) if value < 0 else ("", value)
+    return sign + (f"${int(value):,}m" if value == value.to_integral() else f"${value.normalize():,f}m")
 
 
 def judge(value: Decimal, tolerance: Decimal, line: str, rec: dict) -> dict:

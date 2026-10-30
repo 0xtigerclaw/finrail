@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from finrail.core import registry, tracker
 from finrail.extensions.finance.public_reports import ATTACKS, PROFILES
+from finrail.extensions.finance.claims import money
 from .views import e, icon
 
 ANALYZE = 'finance.reports.analyze'
@@ -42,8 +43,8 @@ def latest(run_id: str = '') -> dict | None:
 
 
 def _money(value, negative=False) -> str:
-    text = f"{int(value):,}"
-    return f"({text})" if negative else text
+    text = f"{abs(int(value)):,}"
+    return f"({text})" if negative or int(value) < 0 else text
 
 
 def hero() -> str:
@@ -75,14 +76,24 @@ def workpaper(rec: dict, model_call: dict | None) -> str:
         r = v['reconciled']
         rows += (f"<tr class='wp-issuer'><td class='wp-label'>Issuer figure: {e(r['label'])}</td><td class='wp-ref'>Same filing, table {e(r.get('table', '?'))}</td>"
                  f"<td class='wp-num'>{_money(r['value'])}</td><td class='wp-ticks'>{_mark('R', 'Reconciled to the issuer-reported figure')}</td></tr>")
-    elif issuer:
+    if v.get('house_rule'):
+        for part in v['reconciled'].get('bridge') or []:
+            rows += (f"<tr class='wp-bridge'><td class='wp-label'><span class=wp-less>{'Less' if part['sign'] == '-' else 'Add'}</span>"
+                     f"{e(part['label'])}</td><td class='wp-ref'>T{e(part.get('table', '?'))} · R{e(part.get('row_number', '?'))}</td>"
+                     f"<td class='wp-num'>{_money(part['amount'], part['sign'] == '-')}</td><td class='wp-ticks'>{TICK}</td></tr>")
+        hr = v['house_rule']
+        rows += (f"<tr class='wp-rule'><td class='wp-label' colspan='4'><b>House rule {e(hr['id'])}{' (illustrative)' if hr.get('illustrative') else ''}:</b> "
+                 f"{e(hr['text'])}</td></tr>")
+    elif issuer and not v.get('reconciled'):
         rows += (f"<tr class='wp-issuer'><td class='wp-label'>Issuer-reported free cash flow</td><td class='wp-ref'>Same filing, table 6</td>"
                  f"<td class='wp-num'>{_money(v['reported_fcf'])}</td><td class='wp-ticks'>{_mark('R', 'Reconciled to the issuer-reported figure')}</td></tr>")
     proposer = 'model call not in this ledger'
     if model_call:
         data = model_call.get('data') or {}
         proposer = (data.get('engine_model') or data.get('model') or 'model not named').split('/')[-1] + ' on Nebius'
-    verdict = (f"Reconciled. The recomputed total equals {e(v['company'])}’s own figure in the same filing." if issuer
+    verdict = (f"House rule applied. {e(v['company'])}’s adjusted figure recomputes from its own bridge; the gap is stock compensation."
+               if v.get('house_rule') else
+               f"Reconciled. The recomputed total equals {e(v['company'])}’s own figure in the same filing." if issuer
                else f"Different definition. {e(v.get('reconciliation', ''))}, and the answer says so.")
     legend = ("<dl class='wp-legend'>"
               f"<div><dt>{TICK}</dt><dd>Agreed to the archived source cell (file SHA-256 checked)</dd></div>"
@@ -139,7 +150,10 @@ def rail(rec: dict, model_call: dict | None) -> str:
             'Propose': f"Picked {len(v['inputs'])} row IDs and their values{tokens}",
             'Bind': f"Attached the exact retrieved text of {len(v['inputs'])} rows",
             'Check': f"{len(v['checks'])} checks passed",
-            'Compute': f"${int(v['amount']):,}m in Decimal" + (", equal to the issuer’s figure" if v.get('reconciled') or v.get('definition') == 'issuer_fcf' else '')}
+            'Compute': f"{money(v['amount'])} in Decimal" + (", the issuer’s adjusted figure less stock compensation" if v.get('house_rule')
+                         else ", equal to the issuer’s figure" if v.get('reconciled') or v.get('definition') == 'issuer_fcf' else '')}
+    if v.get('house_rule'):
+        seen['House rule'] = f"{v['house_rule']['id']} applied: {v['house_rule']['text']}"
     registry.load()
     kinds = {'retrieve': 'plugin', 'model': 'model'}
     items = ''.join(

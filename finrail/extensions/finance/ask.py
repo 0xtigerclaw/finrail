@@ -42,6 +42,8 @@ FIGURES = {
     "capex": "Capital expenditure, purchases of property and equipment",
     "revenue": "Revenue or sales",
     "net_loss": "Net loss or net income, the bottom line",
+    "house_operating_income": "The operating result under the fund's own house rules or house method",
+    "adjusted_operating_income": "Adjusted operating income with stock compensation added back, as the company presents it",
     "none": "No single figure: a topic, a sentence to record, a valuation multiple, or anything else",
 }
 #: Set by hand for this router on ten sample investor questions (29 Oct), not measured
@@ -87,7 +89,9 @@ def _keywords(question: str, previous: dict) -> dict:
     latest = {"NVDA": "NVDA-Q2-FY2027", "NBIS": "NBIS-Q2-2026", "ASML": "ASML-Q3-2026", "ANTH": "ANTH-S1-2026"}[company]
     quarter = re.search(r"\bq([1-4])\b", q)
     report_id = next((r for r in REPORTS if r.startswith(company) and quarter and f"-Q{quarter.group(1)}-" in r), latest)
-    figure = ("fcf" if "free cash" in q or "fcf" in q else
+    figure = ("adjusted_operating_income" if "add back" in q or "adjusted operating" in q else
+              "house_operating_income" if "house" in q else
+              "fcf" if "free cash" in q or "fcf" in q else
               "operating_cash_flow" if "operating cash" in q or "cash from operations" in q else
               "capex" if "capex" in q or "capital expenditure" in q or "purchases of property" in q else
               "revenue" if "revenue" in q or "sales" in q else
