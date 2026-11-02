@@ -85,7 +85,7 @@ def isolated_console(tmp_path, monkeypatch):
     monkeypatch.setenv("FINRAIL_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("FINRAIL_ENGINE", "claude-cli")
     for key in ("NEBIUS_API_KEY", "FINRAIL_ENGINE_API_KEY", "TAVILY_API_KEY",
-                "FINRAIL_DEMO_ENTITY", "FINRAIL_DEMO_POST_LIMIT",
+                "FINRAIL_DEMO_ENTITY", "FINRAIL_DAILY_POST_CAP",
                 "FINRAIL_DEMO_WORKSPACE"):
         monkeypatch.delenv(key, raising=False)
     from finrail.core import llm
@@ -95,7 +95,6 @@ def isolated_console(tmp_path, monkeypatch):
 
     monkeypatch.setattr(llm, "call", no_provider)
     console = importlib.import_module("console.app")
-    monkeypatch.setitem(console._POSTS, "count", 0)
     return console
 
 
@@ -300,8 +299,11 @@ def test_search_text_cannot_become_page_markup(client):
     assert not any("onerror" in node.attrs for node in document.find_all())
 
 
-def test_model_call_filter_preserves_evidence_after_other_activity(client):
+def test_model_call_filter_preserves_evidence_after_other_activity(client, monkeypatch):
     from finrail.core import events, tracker
+    # Prompts are hidden unless the operator opts in (console/ops.py); this test is
+    # about the call staying visible, so opt in.
+    monkeypatch.setenv("FINRAIL_CONSOLE_SHOW_PROMPTS", "1")
     record = tracker.save(
         "finance.memo.draft", "Draft a synthetic memo", {},
         status=tracker.PENDING, kind="judged", source="console",

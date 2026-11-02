@@ -22,141 +22,190 @@ from finrail.plugin import Plugin
 
 DATA = Path(__file__).parent / "public_data" / "reports.json"
 
-# ── what each issuer's statements look like, declared in code ───────────────
+# ── what each issuer's statements look like, declared in data files ─────────
 # A profile says which archived HTML tables hold the statements, the exact row label
 # of each figure and the sign the source shows it with, how the current-period column
-# is found, and which definitions may be computed from those rows. Nothing here is a
-# number: every value is read from the hash-checked archived cell at run time.
+# is found, and which definitions may be computed from those rows. Nothing in it is a
+# figure: every value is read from the hash-checked archived cell at run time.
+#
+# Profiles live in profiles/<Company>.json, one file per issuer, and the fund's method
+# rules in profiles/house_rules.json. They are data, not code, so an analyst can add an
+# issuer or a definition without a Python change; the schema below is what makes that
+# safe: an unknown key, a missing one, a row a definition names that no table carries,
+# all refuse at load with the file and the key named, so a typo cannot become a silent
+# default. Every file carries a version; a version this code does not know refuses too.
 #
 # column kinds:
-#   first  the first numeric cell after the label (NVIDIA's release: current quarter
+#   first  the first figure cell after the label (NVIDIA's release: current quarter
 #          first, comparative second; the header's date row is checked separately).
 #   under  the cell that sits, by column span, under the header cell `period` and the
 #          year of the report's period end (an S-1 table: fiscal years first, then the
 #          six-month comparative, then the current six months).
-PROFILES = {
-    "NVIDIA": {
-        "period": "quarter",
-        "default": "issuer_fcf",
-        "extraction": "tables",
-        "column": {"kind": "first", "note": "first numeric column; current quarter (three months)"},
-        "tables": {5: {"header": ("Three Months Ended", "millions")},
-                   6: {"header": ("Three Months Ended", "$ in millions")}},
-        "rows": {
-            "operating_cash_flow": {"table": 5, "label": "Net cash provided by operating activities", "sign": "+"},
-            "cash_purchases": {"table": 5, "label": "Purchases related to property and equipment and intangible assets", "sign": "-"},
-            "principal_payments": {"table": 5, "label": "Principal payments on property and equipment and intangible assets", "sign": "-"},
-            "reported_fcf": {"table": 6, "label": "Free cash flow", "sign": "+", "reconciles": True},
-        },
-        "definitions": {
-            "issuer_fcf": {"label": "NVIDIA free cash flow",
-                           "terms": (("+", "operating_cash_flow"), ("-", "cash_purchases"), ("-", "principal_payments")),
-                           "reconcile": "reported_fcf", "reconciliation": "Matches issuer-reported FCF"},
-            "simple_fcf": {"label": "Simple free cash flow (excludes related principal payments)",
-                           "terms": (("+", "operating_cash_flow"), ("-", "cash_purchases")),
-                           "reconcile": None, "reconciliation": "Different definition: related principal payments excluded"},
-        },
-        "refused": {},
-        "query": ("Three Months Ended cash flows: Net cash provided by operating activities; Purchases related to "
-                  "property and equipment and intangible assets; Principal payments on property and equipment and intangible assets."),
-        "model_note": ("Use ONLY the first numeric/current-quarter column under Three Months Ended, never "
-                       "the year-to-date or comparative column."),
-    },
-    "Anthropic": {
-        "period": "six months",
-        "default": "revenue",
-        "extraction": "document",
-        "column": {"kind": "under", "period": "Six Months Ended June 30,",
-                   "note": "column under 'Six Months Ended June 30,' and the period-end year; not the comparative six months or a fiscal year"},
-        # Table numbers are positions in the hash-checked S-1 HTML: 109 is the Consolidated
-        # Statements of Operations, 114 the Consolidated Statements of Cash Flows, 72 the
-        # MD&A cash-flow summary, 120 the revenue disaggregation note, 61 Anthropic's own
-        # Adjusted Operating Income reconciliation. The unit line sits in the caption above
-        # the F-page tables, so captions are checked as well as headers.
-        "tables": {61: {"header": ("Six Months Ended June 30,", "millions")},
-                   109: {"header": ("Six Months Ended June 30,", "millions")},
-                   114: {"header": ("Six Months Ended June 30,", "millions")},
-                   72: {"header": ("Six Months Ended June 30,", "millions")},
-                   120: {"header": ("Six Months Ended June 30,", "millions")}},
-        "rows": {
-            "revenue": {"table": 109, "label": "Revenue", "sign": "+"},
-            "net_loss": {"table": 109, "label": "Net loss", "sign": "-"},
-            "operating_cash_flow": {"table": 114, "label": "Net cash provided by (used in) operating activities", "sign": "+"},
-            "cash_purchases": {"table": 114, "label": "Purchases of property and equipment", "sign": "-"},
-            "revenue_total": {"table": 120, "label": "Total", "sign": "+", "reconciles": True},
-            "cash_flow_net_loss": {"table": 114, "label": "Net loss", "sign": "-", "reconciles": True},
-            "summary_operating_cash_flow": {"table": 72, "label": "Operating activities", "sign": "+", "reconciles": True},
-            # Anthropic's own non-GAAP bridge (table 61). The model selects the two rows the
-            # house figure is computed from; code reads the rest to recompute Anthropic's figure.
-            "adjusted_operating_income": {"table": 61, "label": "Adjusted Operating Income (Loss)", "sign": "+"},
-            "stock_comp": {"table": 61, "label": "Stock-based compensation expense", "sign": "+"},
-            "aoi_operating_loss": {"table": 61, "label": "Operating loss", "sign": "-", "reconciles": True},
-            "aoi_charitable": {"table": 61, "label": "Non-cash charitable contributions (1)", "sign": "+", "reconciles": True},
-            "aoi_settlement": {"table": 61, "label": "Bartz settlement (2)", "sign": "+", "reconciles": True,
-                               "blank_is_zero": True},
-            # The non-cash charge that makes up most of the net loss, read by code for the profit lines.
-            "fv_convertibles": {"table": 109, "label": "Change in fair value of convertible notes, derivative liabilities, and SAFEs",
-                                "sign": "-", "reconciles": True},
-        },
-        "definitions": {
-            "revenue": {"label": "Revenue, six months ended 30 June 2026", "terms": (("+", "revenue"),),
-                        "reconcile": "revenue_total",
-                        "reconciliation": "Matches the total of the S-1's revenue disaggregation note"},
-            "net_loss": {"label": "Net loss, six months ended 30 June 2026", "terms": (("+", "net_loss"),),
-                         "reconcile": "cash_flow_net_loss",
-                         "reconciliation": "Matches the net loss the S-1's cash flow statement starts from"},
-            "operating_cash_flow": {"label": "Operating cash flow, six months ended 30 June 2026",
-                                    "terms": (("+", "operating_cash_flow"),), "reconcile": "summary_operating_cash_flow",
-                                    "reconciliation": "Matches the S-1's MD&A cash flow summary"},
-            "capex": {"label": "Capital expenditure (purchases of property and equipment), six months ended 30 June 2026",
-                      "terms": (("+", "cash_purchases"),), "reconcile": None,
-                      "reconciliation": "Single archived cell; the S-1 totals it nowhere else"},
-            "simple_fcf": {"label": "Simple free cash flow (operating cash flow minus purchases of property and equipment; "
-                                    "Anthropic does not define free cash flow)",
-                           "terms": (("+", "operating_cash_flow"), ("-", "cash_purchases")), "reconcile": None,
-                           "reconciliation": "Different definition: Anthropic reports no free cash flow, so there is no issuer figure to match"},
-            "house_operating_income": {
-                "label": "Operating result under our method, six months ended 30 June 2026 (method rule M-1: stock compensation is a cost)",
-                "terms": (("+", "adjusted_operating_income"), ("-", "stock_comp")), "reconcile": None,
-                "house_rule": "M-1",
-                # The profit lines a reader meets first, each read by code from its archived cell,
-                # shown beside the house figure: (key, plain-language name).
-                "show": (("revenue", "Revenue"), ("net_loss", "Net loss"), ("fv_convertibles", "of which, non-cash charge on convertible notes"),
-                         ("aoi_operating_loss", "Operating loss"), ("adjusted_operating_income", "Anthropic's adjusted operating income")),
-                # Before the method rule is applied, Anthropic's own figure must be recomputed
-                # from its own bridge, every component an archived cell.
-                "verify": {"target": "adjusted_operating_income",
-                           "label": "Anthropic's Adjusted Operating Income, recomputed from its own bridge",
-                           "terms": (("-", "aoi_operating_loss"), ("+", "stock_comp"), ("+", "aoi_charitable"),
-                                     ("+", "aoi_settlement"))},
-                "reconciliation": ("Anthropic's adjusted figure recomputes exactly from its own bridge; our figure "
-                                   "differs from it only by stock compensation, which method rule M-1 never adds back"),
-                "query": ("Adjusted Operating Income (Loss) reconciliation, Six Months Ended June 30, 2026: Operating loss; "
-                          "Stock-based compensation expense; Non-cash charitable contributions; Adjusted Operating Income (Loss)."),
-            },
-        },
-        # Asking for the issuer's add-back is refused before anything runs: the rule is code.
-        "refused": {"adjusted_operating_income": "M-1"},
-        "query": ("Consolidated Statements of Operations and Consolidated Statements of Cash Flows, Six Months Ended "
-                  "June 30, 2026: Revenue; Net loss; Net cash provided by (used in) operating activities; "
-                  "Purchases of property and equipment."),
-        "model_note": ("Use ONLY the last column, Six Months Ended June 30, 2026, never a fiscal year column or the "
-                       "six months ended June 30, 2025 comparative."),
-    },
+PROFILES_DIR = Path(__file__).parent / "profiles"
+HOUSE_RULES_FILE = "house_rules.json"
+PROFILE_VERSIONS = (1,)
+
+#: Which keys each block may carry: (required, optional). Everything else is refused.
+_SCHEMA = {
+    "profile": ({"version", "company", "period", "default", "extraction", "column", "tables", "rows",
+                 "definitions", "query", "model_note"}, {"refused", "notes", "edgar_cik"}),
+    "column": ({"kind", "note"}, {"period"}),
+    "table": ({"header"}, {"note"}),
+    "row": ({"table", "label", "sign"}, {"reconciles", "blank_is_zero"}),
+    "definition": ({"label", "terms", "reconcile", "reconciliation"}, {"tolerance", "house_rule", "show", "verify", "query"}),
+    "verify": ({"target", "label", "terms"}, set()),
+    "rules": ({"version", "rules"}, set()),
+    "rule": ({"id", "illustrative", "title", "text", "refusal"}, set()),
 }
-#: The fund's method rules: standing policy, applied by code to every figure a definition
-#: names. Illustrative until the fund supplies its own; every output that uses one says so.
-HOUSE_RULES = {
-    "M-1": {"id": "M-1", "illustrative": True,
-             "title": "Stock compensation is a cost",
-             "text": ("Stock-based compensation is an operating cost and is never added back. Where an issuer's "
-                      "adjusted figure adds it back, our method shows that figure only beside its own, reconciled "
-                      "to the dollar."),
-             "refusal": ("Method rule M-1 (illustrative) counts stock compensation as an operating cost, so it is "
-                         "never added back. Ask for the operating result under our method instead: it shows Anthropic's adjusted "
-                         "figure beside it, reconciled to the dollar. Changing the method is a code change a person "
-                         "approves. Nothing ran.")},
-}
+
+
+def _keys(file: Path, block: dict, kind: str, where: str) -> None:
+    """Refuse an unknown or a missing key, naming the file, the block and the key."""
+    if not isinstance(block, dict):
+        raise ContractViolation(f"{file.name}: {where} must be an object.")
+    required, optional = _SCHEMA[kind]
+    for key in block:
+        if key not in required and key not in optional:
+            raise ContractViolation(f"{file.name}: unknown key {key!r} in {where}.")
+    for key in sorted(required):
+        if key not in block:
+            raise ContractViolation(f"{file.name}: missing required key {key!r} in {where}.")
+
+
+def _terms(file: Path, terms, rows: dict, where: str) -> list:
+    if not isinstance(terms, list) or not terms:
+        raise ContractViolation(f"{file.name}: {where} terms must be a non-empty list of [sign, row].")
+    out = []
+    for term in terms:
+        if not (isinstance(term, list) and len(term) == 2 and term[0] in ("+", "-") and term[1] in rows):
+            raise ContractViolation(f"{file.name}: {where} term {term!r} is not [\"+\" or \"-\", a row key].")
+        out.append((term[0], term[1]))
+    return out
+
+
+def _version(file: Path, doc: dict) -> None:
+    if doc.get("version") not in PROFILE_VERSIONS:
+        raise ContractViolation(f"{file.name}: version {doc.get('version')!r} is not one this code reads "
+                                f"({', '.join(map(str, PROFILE_VERSIONS))}).")
+
+
+def load_profile(file: Path) -> dict:
+    """One issuer's profile from its JSON file, checked against the schema.
+
+    Table numbers come back as ints (JSON keys are strings) and terms as (sign, row)
+    pairs, so code that iterates them reads the same shapes it did when they were
+    literals. The file's stem must be the company it declares, so a profile cannot be
+    found under one name and apply to another."""
+    try:
+        doc = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ContractViolation(f"{file.name}: could not be read as JSON ({exc}).") from exc
+    _keys(file, doc, "profile", "the profile")
+    _version(file, doc)
+    if doc["company"] != file.stem:
+        raise ContractViolation(f"{file.name}: company {doc['company']!r} does not match the file name.")
+    _keys(file, doc["column"], "column", "column")
+    if doc["column"]["kind"] not in ("first", "under"):
+        raise ContractViolation(f"{file.name}: column.kind must be 'first' or 'under'.")
+    if doc["column"]["kind"] == "under" and not doc["column"].get("period"):
+        raise ContractViolation(f"{file.name}: missing required key 'period' in column (kind 'under').")
+    if doc["extraction"] not in ("tables", "document"):
+        raise ContractViolation(f"{file.name}: extraction must be 'tables' or 'document'.")
+    if not isinstance(doc["tables"], dict) or not doc["tables"]:
+        raise ContractViolation(f"{file.name}: tables must name at least one table.")
+    tables = {}
+    for number, spec in doc["tables"].items():
+        if not re.fullmatch(r"[1-9]\d*", str(number)):
+            raise ContractViolation(f"{file.name}: table {number!r} is not a positive table number.")
+        _keys(file, spec, "table", f"table {number}")
+        header = spec["header"]
+        if not (isinstance(header, list) and len(header) == 2 and all(isinstance(h, str) and h for h in header)):
+            raise ContractViolation(f"{file.name}: table {number} header must be [period text, unit text].")
+        tables[int(number)] = {**spec, "header": tuple(header)}
+    if not isinstance(doc["rows"], dict) or not doc["rows"]:
+        raise ContractViolation(f"{file.name}: rows must name at least one row.")
+    for key, spec in doc["rows"].items():
+        _keys(file, spec, "row", f"row {key}")
+        if spec["table"] not in tables:
+            raise ContractViolation(f"{file.name}: row {key} names table {spec['table']}, which the profile does not declare.")
+        if spec["sign"] not in ("+", "-") or not isinstance(spec["label"], str) or not spec["label"]:
+            raise ContractViolation(f"{file.name}: row {key} needs a label and a sign of '+' or '-'.")
+    definitions = {}
+    for name, spec in doc["definitions"].items():
+        _keys(file, spec, "definition", f"definition {name}")
+        out = {**spec, "terms": _terms(file, spec["terms"], doc["rows"], f"definition {name}")}
+        if spec["reconcile"] is not None and spec["reconcile"] not in doc["rows"]:
+            raise ContractViolation(f"{file.name}: definition {name} reconciles to {spec['reconcile']!r}, which is not a row.")
+        if "tolerance" in spec:
+            _tolerance_declared(file, name, spec["tolerance"])
+        if "show" in spec:
+            if not all(isinstance(s, list) and len(s) == 2 and s[0] in doc["rows"] for s in spec["show"]):
+                raise ContractViolation(f"{file.name}: definition {name} show must list [row key, name] pairs.")
+            out["show"] = [tuple(s) for s in spec["show"]]
+        if "verify" in spec:
+            _keys(file, spec["verify"], "verify", f"definition {name} verify")
+            if spec["verify"]["target"] not in doc["rows"]:
+                raise ContractViolation(f"{file.name}: definition {name} verify target is not a row.")
+            out["verify"] = {**spec["verify"], "terms": _terms(file, spec["verify"]["terms"], doc["rows"], f"definition {name} verify")}
+        definitions[name] = out
+    if doc["default"] not in definitions:
+        raise ContractViolation(f"{file.name}: default {doc['default']!r} is not one of the definitions.")
+    refused = doc.get("refused", {})
+    if not isinstance(refused, dict) or not all(isinstance(v, str) for v in refused.values()):
+        raise ContractViolation(f"{file.name}: refused must map a definition name to a method rule id.")
+    return {**doc, "tables": tables, "definitions": definitions, "refused": refused}
+
+
+def _tolerance_declared(file: Path, name: str, raw) -> None:
+    try:
+        value = Decimal(str(raw))
+    except InvalidOperation as exc:
+        raise ContractViolation(f"{file.name}: definition {name} tolerance {raw!r} is not a number.") from exc
+    if isinstance(raw, bool) or not value.is_finite() or value < 0:
+        raise ContractViolation(f"{file.name}: definition {name} tolerance {raw!r} must be zero or a positive number.")
+
+
+def load_house_rules(file: Path) -> dict:
+    try:
+        doc = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ContractViolation(f"{file.name}: could not be read as JSON ({exc}).") from exc
+    _keys(file, doc, "rules", "the rules file")
+    _version(file, doc)
+    for rule_id, rule in doc["rules"].items():
+        _keys(file, rule, "rule", f"rule {rule_id}")
+        if rule["id"] != rule_id or not isinstance(rule["illustrative"], bool):
+            raise ContractViolation(f"{file.name}: rule {rule_id} must carry its own id and an illustrative flag.")
+    return doc["rules"]
+
+
+def load_profiles(directory: Path = PROFILES_DIR) -> tuple[dict, dict]:
+    """({company: profile}, {rule id: rule}) from every JSON file in the directory.
+
+    Every *.json file is an issuer except the rules file; anything else in the
+    directory is refused, so a half-renamed file cannot sit there unread. A method rule
+    a profile refuses by must exist, and a house_rule a definition names must too."""
+    if not directory.is_dir():
+        raise ContractViolation(f"Profile directory {directory} does not exist.")
+    rules = load_house_rules(directory / HOUSE_RULES_FILE)
+    profiles = {}
+    for file in sorted(directory.iterdir()):
+        if file.name == HOUSE_RULES_FILE or file.name.startswith("."):
+            continue
+        if file.suffix != ".json":
+            raise ContractViolation(f"{file.name}: only .json profile files belong in {directory.name}/.")
+        prof = load_profile(file)
+        for name, rule_id in prof["refused"].items():
+            if rule_id not in rules:
+                raise ContractViolation(f"{file.name}: refused {name} names method rule {rule_id!r}, which {HOUSE_RULES_FILE} does not declare.")
+        for name, spec in prof["definitions"].items():
+            if spec.get("house_rule") and spec["house_rule"] not in rules:
+                raise ContractViolation(f"{file.name}: definition {name} names method rule {spec['house_rule']!r}, which {HOUSE_RULES_FILE} does not declare.")
+        profiles[prof["company"]] = prof
+    return profiles, rules
+
+
+PROFILES, HOUSE_RULES = load_profiles()
 #: NVIDIA's rows and definitions, by name, for code that still speaks of them.
 ROWS = {key: spec["label"] for key, spec in PROFILES["NVIDIA"]["rows"].items() if not spec.get("reconciles")}
 DEFINITIONS = {key: spec["label"] for key, spec in PROFILES["NVIDIA"]["definitions"].items()}
@@ -171,7 +220,7 @@ def report(report_id: str) -> dict:
     for item in catalog():
         if item["source_id"] == report_id:
             return item
-    raise ContractViolation("Choose one of the seven published reports in the catalog.")
+    raise ContractViolation(f"Choose one of the {len(catalog())} published reports in the catalog.")
 
 
 def profile(item: dict) -> dict:
@@ -367,9 +416,25 @@ class Document(Tables):
 
 
 _NUMBER_CELL = r"\$?\s?\(?\d[\d,]*(?:\.\d+)?\)?"
+#: A label footnote the way filings print one: "(1)", "(12)". It has the shape of a small
+#: negative figure, so position has to decide, and where position cannot, code refuses.
+_FOOTNOTE = r"\(\d{1,2}\)"
+_DASHES = ("—", "–", "-")
+_CURRENCY = ("$", "€", "£")
 
 
-def _signed(cell: str) -> Decimal:
+def _footnote(cell: str) -> bool:
+    return re.fullmatch(_FOOTNOTE, cell.strip()) is not None
+
+
+def _signed(cell: str, *, located: bool = False) -> Decimal:
+    """The figure a source cell carries, negative when the source shows parentheses.
+
+    A cell shaped like a footnote marker, "(1)", is refused unless the caller located the
+    cell by its column (`located`), where nothing but a figure can stand. A split
+    parenthesis, "(1,757" with ")" in the next cell, is a figure and keeps its sign."""
+    if not located and _footnote(cell):
+        raise ContractViolation(f"Source cell {cell!r} is shaped like a footnote marker, not a figure; refused rather than guessed.")
     negative = "(" in cell
     return -Decimal(cell.strip("$() ").replace(",", "")) if negative else Decimal(cell.strip("$() ").replace(",", ""))
 
@@ -381,16 +446,33 @@ def _only_row(rows: list, label: str) -> tuple:
     return matches[0]
 
 
-def _current_cell(rows: list, label: str) -> dict:
-    """NVIDIA's layout: the first numeric cell after the label is the current quarter."""
+def _current_cell(rows: list, label: str, blank_is_zero: bool = False) -> dict:
+    """NVIDIA's layout: the first figure cell after the label is the current quarter.
+
+    Only spacer cells (empty, or a lone currency sign) are stepped over. The first cell
+    with content decides: a figure is returned; a printed dash is nil only for a row that
+    declares `blank_is_zero`, since a dash in the current column would otherwise hand
+    the comparative column over as current; a footnote marker or any other text refuses,
+    because guessing past it would do the same."""
     row_no, row = _only_row(rows, label)
     start = row.index(label) + 1
+    column_note = "first numeric column; current quarter (three months)"
     for column, cell in enumerate(row[start:], start):
-        if re.fullmatch(r"\(?\d[\d,]*(?:\.\d+)?\)?", cell):
-            return {"signed_value": _signed(cell),
-                    "row": label, "row_number": row_no + 1, "html_cell": column + 1,
-                    "column": "first numeric column; current quarter (three months)",
-                    "source_row": " | ".join(row)}
+        text = cell.strip()
+        if not text or text in _CURRENCY:
+            continue
+        where = {"row": label, "row_number": row_no + 1, "html_cell": column + 1, "source_row": " | ".join(row)}
+        if text in _DASHES:
+            if blank_is_zero:
+                return {"signed_value": Decimal(0), "column": column_note + "; printed as a dash, read as nil because the row declares it", **where}
+            raise ContractViolation(f"The current-period cell for {label} is printed as a dash; the row does not declare a dash "
+                                    "as nil, so no figure was read.")
+        if _footnote(text):
+            raise ContractViolation(f"The cell after the label {label} reads {text!r}, the shape of a footnote marker; "
+                                    "refused rather than read as a figure.")
+        if re.fullmatch(r"\(?\d[\d,]*(?:\.\d+)?\)?", text):
+            return {"signed_value": _signed(text), "column": column_note, **where}
+        raise ContractViolation(f"The current-period cell for {label} is not a number: {text[:40]!r}.")
     raise ContractViolation(f"No numeric source cell found for {label}.")
 
 
@@ -423,14 +505,16 @@ def _cell_under(rows: list, spans: list, label: str, period: str, year: str, bla
              for text, a, b, _n in cells if a <= ys < b]
     for text, a, _b, number in _cover(row, spans[row_no]):
         if ys <= a < ye:
-            if blank_is_zero and text in ("—", "–", "-"):
-                value = Decimal(0)  # the filing prints a dash for nil; only rows declared so may read it as zero
+            dash = False
+            if blank_is_zero and text in _DASHES:
+                value, dash = Decimal(0), True  # the filing prints a dash for nil; only rows declared so may read it as zero
             elif not re.fullmatch(_NUMBER_CELL, text):
                 raise ContractViolation(f"The {year} cell for {label} is not a number.")
             else:
-                value = _signed(text)
+                value = _signed(text, located=True)
             return {"signed_value": value, "row": label, "row_number": row_no + 1, "html_cell": number,
-                    "column": f"under '{period}' / {year}" + (f", marked {' '.join(notes)}" if notes else ""),
+                    "column": f"under '{period}' / {year}" + (f", marked {' '.join(notes)}" if notes else "")
+                    + ("; printed as a dash, read as nil because the row declares it" if dash else ""),
                     "source_row": " | ".join(c for c in row if c)}
     raise ContractViolation(f"No source cell for {label} under '{period}' {year}.")
 
@@ -470,7 +554,7 @@ def source_cells(item: dict, raw: bytes) -> dict:
             if row_spec["table"] != table_no:
                 continue
             if column["kind"] == "first":
-                cell = _current_cell(rows, row_spec["label"])
+                cell = _current_cell(rows, row_spec["label"], blank_is_zero=row_spec.get("blank_is_zero", False))
             else:
                 cell = _cell_under(rows, spans, row_spec["label"], column["period"], year,
                                    blank_is_zero=row_spec.get("blank_is_zero", False))
@@ -514,6 +598,31 @@ def retrieved_rows(found: dict, row_labels: dict | None = None) -> list[dict]:
 def formula(spec: dict) -> str:
     return " ".join(f"{sign} {key}" if i else (key if sign == "+" else f"-{key}")
                     for i, (sign, key) in enumerate(spec["terms"]))
+
+
+def _tolerance(spec: dict) -> Decimal:
+    """The rounding a definition declares, in the table's units; nothing unless it says so.
+
+    Issuers round each component on its own, so a total recomputed from rounded parts can
+    sit one unit off the figure they print. A profile declares how far is still the same
+    figure (1 for whole millions); the default is exact, and a negative or malformed
+    declaration is refused rather than read as zero."""
+    raw = spec.get("tolerance", 0)
+    try:
+        value = Decimal(str(raw))
+    except InvalidOperation as exc:
+        raise ContractViolation(f"The definition's tolerance {raw!r} is not a number.") from exc
+    if not value.is_finite() or value < 0:
+        raise ContractViolation(f"The definition's tolerance {raw!r} must be zero or a positive number.")
+    return value
+
+
+def _within(computed: Decimal, reported: Decimal, tolerance: Decimal, refusal: str) -> Decimal:
+    """computed minus reported, when that is within the tolerance; otherwise the refusal, with the numbers."""
+    difference = computed - reported
+    if abs(difference) > tolerance:
+        raise ContractViolation(f"{refusal} (difference {difference}, declared tolerance {tolerance}); no verified answer was produced.")
+    return difference
 
 
 def check_and_compute(item: dict, definition: str, candidate: dict, found: dict, cells: dict) -> dict:
@@ -564,13 +673,19 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
     result = Decimal(0)
     for sign, key in spec["terms"]:
         result = result + amounts[key] if sign == "+" else result - amounts[key]
-    reconciled = None
+    reconciled, tolerance, reconciliation = None, _tolerance(spec), spec["reconciliation"]
     if spec["reconcile"]:
         target = cells.get(spec["reconcile"]) or {}
-        if "value" not in target or result != Decimal(target["value"]):
+        if "value" not in target:
             raise ContractViolation(f"Calculated {definition} does not reconcile to the figure the issuer reports in the same "
                                     "filing; no verified answer was produced.")
-        reconciled = {"key": spec["reconcile"], "label": prof["rows"][spec["reconcile"]]["label"], **target}
+        difference = _within(result, Decimal(target["value"]), tolerance,
+                             f"Calculated {definition} does not reconcile to the figure the issuer reports in the same filing")
+        reconciled = {"key": spec["reconcile"], "label": prof["rows"][spec["reconcile"]]["label"],
+                      **{k: v for k, v in target.items() if k not in ("difference", "tolerance")},
+                      "difference": str(difference), "tolerance": str(tolerance)}
+        if difference:
+            reconciliation += f" (within the declared rounding tolerance of {tolerance}; difference {difference})"
     if spec.get("verify"):
         # The issuer's own figure, recomputed by code from its own bridge. The target and any
         # term the model proposed were already checked against their cells above; the other
@@ -586,17 +701,20 @@ def check_and_compute(item: dict, definition: str, candidate: dict, found: dict,
             total = total + value if sign == "+" else total - value
             bridge.append({"key": key, "sign": sign, "label": prof["rows"][key]["label"], "amount": str(value),
                            **{k: v for k, v in (cells.get(key) or {}).items() if k in ("value", "table", "row_number", "html_cell", "column")}})
-        if total != amounts[ver["target"]]:
-            raise ContractViolation(f"{item['company']}'s {prof['rows'][ver['target']]['label']} does not recompute from its own "
-                                    "bridge in the same filing; no verified answer was produced.")
+        difference = _within(total, amounts[ver["target"]], tolerance,
+                             f"{item['company']}'s {prof['rows'][ver['target']]['label']} does not recompute from its own bridge in the same filing")
         reconciled = {"key": ver["target"], "label": ver["label"], "value": str(total),
-                      "table": cells[ver["target"]].get("table"), "bridge": bridge}
+                      "table": cells[ver["target"]].get("table"), "bridge": bridge,
+                      "difference": str(difference), "tolerance": str(tolerance)}
+        if difference:
+            reconciliation += f" (within the declared rounding tolerance of {tolerance}; difference {difference})"
     out = {"report_id": item["source_id"], "company": item["company"], "period": item["report_period"],
            "period_end": item["period_end"], "definition": definition, "metric": spec["label"],
            "amount": str(result), "currency": "USD", "unit": "million", "inputs": checked,
-           "formula": formula(spec), "reconciled": reconciled, "reconciliation": spec["reconciliation"],
+           "formula": formula(spec), "reconciled": reconciled, "reconciliation": reconciliation,
            "checks": ["Original report SHA-256", "Period and source column", "USD millions",
-                      "Verbatim retrieved quotes", "Exact archived source cells", "Decimal arithmetic"],
+                      "Verbatim retrieved quotes", "Exact archived source cells", "Decimal arithmetic"]
+                     + ([f"Reconciled within the declared rounding tolerance of {tolerance}"] if reconciled and tolerance else []),
            "source_sha256": item["sha256"], "source_url": item["url"], "retrieval": found}
     if "reported_fcf" in cells:  # NVIDIA's issuer figure, by the name the proof page knows
         out["reported_fcf"] = cells["reported_fcf"]["value"]
@@ -832,9 +950,9 @@ class ReportAnalyze(Plugin):
            "flow (FCF) or cash generation, for one quarter or compared across quarters")
     ask_label = "Source-checked figure"
     steps = (
-        {"name": "Method rule", "by": "Kernel", "kind": "check", "where": "ReportAnalyze.plan(), HOUSE_RULES",
-         "rule": "The fund's method rules are constants in code. M-1 (illustrative): stock compensation is a cost, "
-                 "never added back. A request that breaks a rule is refused before anything runs."},
+        {"name": "Method rule", "by": "Kernel", "kind": "check", "where": "ReportAnalyze.plan(), profiles/house_rules.json",
+         "rule": "The fund's method rules are declared in a data file code reads, never by a model. M-1 (illustrative): "
+                 "stock compensation is a cost, never added back. A request that breaks a rule is refused before anything runs."},
         {"name": "Retrieve", "by": "Google Vertex RAG", "kind": "retrieve", "where": "retrieve()",
          "rule": "Searches only this filing's indexed files. A source outside the allowlist refuses the run."},
         {"name": "Propose", "by": "NVIDIA Nemotron", "kind": "model", "where": "check_and_compute(), input contract",
@@ -896,7 +1014,7 @@ def replay(value: dict, attack: str = "") -> dict:
     cells = {i["metric"]: {k: i[k] for k in _CELL_KEYS if k in i} for i in value["inputs"]}
     if value.get("reconciled"):
         rec = value["reconciled"]
-        cells.setdefault(rec["key"], {k: v for k, v in rec.items() if k not in ("key", "label", "bridge")})
+        cells.setdefault(rec["key"], {k: v for k, v in rec.items() if k not in ("key", "label", "bridge", "difference", "tolerance")})
         for part in rec.get("bridge") or []:
             cells.setdefault(part["key"], {"value": part.get("value", part["amount"])})
     if value.get("reported_fcf") is not None:

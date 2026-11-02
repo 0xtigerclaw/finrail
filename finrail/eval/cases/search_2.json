@@ -1,0 +1,43 @@
+{
+ "schema": "finrail.eval.cases/1",
+ "name": "search-2",
+ "description": "Two finance.reports.search smoke cases, both drafts: the format and the runner support search; no expected quotes are documented.",
+ "cases": [
+  {
+   "id": "nvda-q2-fy2027-search-compute",
+   "title": "NVIDIA Q2 FY2027 search: compute commitments",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.search",
+   "params": {
+    "query": "What does the filing say about compute commitments?"
+   },
+   "expect": {
+    "outcome": "passed"
+   },
+   "tags": [
+    "search",
+    "nvidia"
+   ],
+   "draft": true,
+   "source": "No documented expected quotes; the stub's search excerpt is synthetic prose. The case exercises the quote-picking seam (sentence IDs checked by code), not the filing."
+  },
+  {
+   "id": "anth-s1-2026-search-compute",
+   "title": "Anthropic S-1 search: compute commitments",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.search",
+   "params": {
+    "query": "What does the filing say about compute commitments?"
+   },
+   "expect": {
+    "outcome": "passed"
+   },
+   "tags": [
+    "search",
+    "anthropic"
+   ],
+   "draft": true,
+   "source": "No documented expected quotes; the stub's search excerpt is synthetic prose. The case exercises the quote-picking seam (sentence IDs checked by code), not the filing."
+  }
+ ]
+}

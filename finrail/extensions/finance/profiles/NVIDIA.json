@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "company": "NVIDIA",
+  "notes": [
+    "The first numeric cell after the label is the current quarter; the comparative follows. The header's date row is checked separately against source_date_label."
+  ],
+  "period": "quarter",
+  "default": "issuer_fcf",
+  "extraction": "tables",
+  "column": {
+    "kind": "first",
+    "note": "first numeric column; current quarter (three months)"
+  },
+  "tables": {
+    "5": {
+      "header": [
+        "Three Months Ended",
+        "millions"
+      ],
+      "note": "Condensed consolidated statements of cash flows"
+    },
+    "6": {
+      "header": [
+        "Three Months Ended",
+        "$ in millions"
+      ],
+      "note": "Free cash flow reconciliation"
+    }
+  },
+  "rows": {
+    "operating_cash_flow": {
+      "table": 5,
+      "label": "Net cash provided by operating activities",
+      "sign": "+"
+    },
+    "cash_purchases": {
+      "table": 5,
+      "label": "Purchases related to property and equipment and intangible assets",
+      "sign": "-"
+    },
+    "principal_payments": {
+      "table": 5,
+      "label": "Principal payments on property and equipment and intangible assets",
+      "sign": "-"
+    },
+    "reported_fcf": {
+      "table": 6,
+      "label": "Free cash flow",
+      "sign": "+",
+      "reconciles": true
+    }
+  },
+  "definitions": {
+    "issuer_fcf": {
+      "label": "NVIDIA free cash flow",
+      "terms": [
+        [
+          "+",
+          "operating_cash_flow"
+        ],
+        [
+          "-",
+          "cash_purchases"
+        ],
+        [
+          "-",
+          "principal_payments"
+        ]
+      ],
+      "reconcile": "reported_fcf",
+      "reconciliation": "Matches issuer-reported FCF"
+    },
+    "simple_fcf": {
+      "label": "Simple free cash flow (excludes related principal payments)",
+      "terms": [
+        [
+          "+",
+          "operating_cash_flow"
+        ],
+        [
+          "-",
+          "cash_purchases"
+        ]
+      ],
+      "reconcile": null,
+      "reconciliation": "Different definition: related principal payments excluded"
+    }
+  },
+  "refused": {},
+  "query": "Three Months Ended cash flows: Net cash provided by operating activities; Purchases related to property and equipment and intangible assets; Principal payments on property and equipment and intangible assets.",
+  "model_note": "Use ONLY the first numeric/current-quarter column under Three Months Ended, never the year-to-date or comparative column."
+}

@@ -1,0 +1,15 @@
+{
+  "source_id": "NBIS-Q1-2026",
+  "company": "Nebius",
+  "format": "pdf",
+  "catalog_sha256": "72d293b8d9c16dd33c6a12864a03dac391bbd52430d0619d69cae2951b83c7b9",
+  "catalog_match": true,
+  "original": {
+    "url": "https://assets.nebius.com/assets/6fc0ea6c-0884-4a1f-bed8-1f797eb9628f/Financial%20results_Q1%202026.pdf",
+    "retrieved_at": "2026-10-30T18:59:00+00:00",
+    "sha256": "72d293b8d9c16dd33c6a12864a03dac391bbd52430d0619d69cae2951b83c7b9",
+    "bytes": 530621
+  },
+  "note": "PDF; retrieval-only today: no statement profile, no tables. Nothing from the PDF is committed; this sidecar records that the issuer's bytes matched the catalog on 2026-10-30.",
+  "retrieval_only": true
+}

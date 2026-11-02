@@ -37,6 +37,7 @@ USAGE = """finrail — a deterministic dispatcher over pluggable capabilities.
   finrail approve <id> [<id> ...] | drop <id> [reason=...]    act on a proposal
                                        (drop --all clears pending)
   finrail kill <id>                   stop a background run
+  finrail ledger verify|migrate       check every log's hash chain; chain a v1 state dir
 
   finrail capabilities [kind]         what exists    (-h2 <cap> for real parameters)
   finrail rules [capability]          every rule, from the one place they are declared
@@ -1026,6 +1027,9 @@ def main(argv: list = None) -> int:
                 "finrail kill <run-id>   (see: finrail status)")), as_json)
         elif cmd == "_job":
             dispatch_core.run_job(_need(rest, 0, "a run id", "finrail _job <run-id>"))
+        elif cmd == "ledger":
+            from . import ledger as _ledger
+            return _ledger.cli(rest, as_json)
 
         # ── acting ───────────────────────────────────────────────────────────
         elif cmd in ("do", "dispatch", "get"):

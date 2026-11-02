@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "company": "Anthropic",
+  "edgar_cik": "0002130357",
+  "notes": [
+    "Table numbers are positions in the hash-checked S-1 HTML. The unit line sits in the caption above the F-page tables, so captions are checked as well as headers.",
+    "The model selects the two rows the house figure is computed from (house_operating_income); code reads the rest of Anthropic's bridge (table 61) to recompute Anthropic's own figure first.",
+    "The dash on the settlement row is read as nil only because that row declares blank_is_zero."
+  ],
+  "period": "six months",
+  "default": "revenue",
+  "extraction": "document",
+  "column": {
+    "kind": "under",
+    "period": "Six Months Ended June 30,",
+    "note": "column under 'Six Months Ended June 30,' and the period-end year; not the comparative six months or a fiscal year"
+  },
+  "tables": {
+    "61": {
+      "header": [
+        "Six Months Ended June 30,",
+        "millions"
+      ],
+      "note": "Anthropic's own Adjusted Operating Income reconciliation"
+    },
+    "109": {
+      "header": [
+        "Six Months Ended June 30,",
+        "millions"
+      ],
+      "note": "Consolidated Statements of Operations"
+    },
+    "114": {
+      "header": [
+        "Six Months Ended June 30,",
+        "millions"
+      ],
+      "note": "Consolidated Statements of Cash Flows"
+    },
+    "72": {
+      "header": [
+        "Six Months Ended June 30,",
+        "millions"
+      ],
+      "note": "MD&A cash-flow summary"
+    },
+    "120": {
+      "header": [
+        "Six Months Ended June 30,",
+        "millions"
+      ],
+      "note": "Revenue disaggregation note"
+    }
+  },
+  "rows": {
+    "revenue": {
+      "table": 109,
+      "label": "Revenue",
+      "sign": "+"
+    },
+    "net_loss": {
+      "table": 109,
+      "label": "Net loss",
+      "sign": "-"
+    },
+    "operating_cash_flow": {
+      "table": 114,
+      "label": "Net cash provided by (used in) operating activities",
+      "sign": "+"
+    },
+    "cash_purchases": {
+      "table": 114,
+      "label": "Purchases of property and equipment",
+      "sign": "-"
+    },
+    "revenue_total": {
+      "table": 120,
+      "label": "Total",
+      "sign": "+",
+      "reconciles": true
+    },
+    "cash_flow_net_loss": {
+      "table": 114,
+      "label": "Net loss",
+      "sign": "-",
+      "reconciles": true
+    },
+    "summary_operating_cash_flow": {
+      "table": 72,
+      "label": "Operating activities",
+      "sign": "+",
+      "reconciles": true
+    },
+    "adjusted_operating_income": {
+      "table": 61,
+      "label": "Adjusted Operating Income (Loss)",
+      "sign": "+"
+    },
+    "stock_comp": {
+      "table": 61,
+      "label": "Stock-based compensation expense",
+      "sign": "+"
+    },
+    "aoi_operating_loss": {
+      "table": 61,
+      "label": "Operating loss",
+      "sign": "-",
+      "reconciles": true
+    },
+    "aoi_charitable": {
+      "table": 61,
+      "label": "Non-cash charitable contributions (1)",
+      "sign": "+",
+      "reconciles": true
+    },
+    "aoi_settlement": {
+      "table": 61,
+      "label": "Bartz settlement (2)",
+      "sign": "+",
+      "reconciles": true,
+      "blank_is_zero": true
+    },
+    "fv_convertibles": {
+      "table": 109,
+      "label": "Change in fair value of convertible notes, derivative liabilities, and SAFEs",
+      "sign": "-",
+      "reconciles": true
+    }
+  },
+  "definitions": {
+    "revenue": {
+      "label": "Revenue, six months ended 30 June 2026",
+      "terms": [
+        [
+          "+",
+          "revenue"
+        ]
+      ],
+      "reconcile": "revenue_total",
+      "reconciliation": "Matches the total of the S-1's revenue disaggregation note"
+    },
+    "net_loss": {
+      "label": "Net loss, six months ended 30 June 2026",
+      "terms": [
+        [
+          "+",
+          "net_loss"
+        ]
+      ],
+      "reconcile": "cash_flow_net_loss",
+      "reconciliation": "Matches the net loss the S-1's cash flow statement starts from"
+    },
+    "operating_cash_flow": {
+      "label": "Operating cash flow, six months ended 30 June 2026",
+      "terms": [
+        [
+          "+",
+          "operating_cash_flow"
+        ]
+      ],
+      "reconcile": "summary_operating_cash_flow",
+      "reconciliation": "Matches the S-1's MD&A cash flow summary"
+    },
+    "capex": {
+      "label": "Capital expenditure (purchases of property and equipment), six months ended 30 June 2026",
+      "terms": [
+        [
+          "+",
+          "cash_purchases"
+        ]
+      ],
+      "reconcile": null,
+      "reconciliation": "Single archived cell; the S-1 totals it nowhere else"
+    },
+    "simple_fcf": {
+      "label": "Simple free cash flow (operating cash flow minus purchases of property and equipment; Anthropic does not define free cash flow)",
+      "terms": [
+        [
+          "+",
+          "operating_cash_flow"
+        ],
+        [
+          "-",
+          "cash_purchases"
+        ]
+      ],
+      "reconcile": null,
+      "reconciliation": "Different definition: Anthropic reports no free cash flow, so there is no issuer figure to match"
+    },
+    "house_operating_income": {
+      "label": "Operating result under our method, six months ended 30 June 2026 (method rule M-1: stock compensation is a cost)",
+      "terms": [
+        [
+          "+",
+          "adjusted_operating_income"
+        ],
+        [
+          "-",
+          "stock_comp"
+        ]
+      ],
+      "reconcile": null,
+      "house_rule": "M-1",
+      "show": [
+        [
+          "revenue",
+          "Revenue"
+        ],
+        [
+          "net_loss",
+          "Net loss"
+        ],
+        [
+          "fv_convertibles",
+          "of which, non-cash charge on convertible notes"
+        ],
+        [
+          "aoi_operating_loss",
+          "Operating loss"
+        ],
+        [
+          "adjusted_operating_income",
+          "Anthropic's adjusted operating income"
+        ]
+      ],
+      "verify": {
+        "target": "adjusted_operating_income",
+        "label": "Anthropic's Adjusted Operating Income, recomputed from its own bridge",
+        "terms": [
+          [
+            "-",
+            "aoi_operating_loss"
+          ],
+          [
+            "+",
+            "stock_comp"
+          ],
+          [
+            "+",
+            "aoi_charitable"
+          ],
+          [
+            "+",
+            "aoi_settlement"
+          ]
+        ]
+      },
+      "reconciliation": "Anthropic's adjusted figure recomputes exactly from its own bridge; our figure differs from it only by stock compensation, which method rule M-1 never adds back",
+      "query": "Adjusted Operating Income (Loss) reconciliation, Six Months Ended June 30, 2026: Operating loss; Stock-based compensation expense; Non-cash charitable contributions; Adjusted Operating Income (Loss)."
+    }
+  },
+  "refused": {
+    "adjusted_operating_income": "M-1"
+  },
+  "query": "Consolidated Statements of Operations and Consolidated Statements of Cash Flows, Six Months Ended June 30, 2026: Revenue; Net loss; Net cash provided by (used in) operating activities; Purchases of property and equipment.",
+  "model_note": "Use ONLY the last column, Six Months Ended June 30, 2026, never a fiscal year column or the six months ended June 30, 2025 comparative."
+}

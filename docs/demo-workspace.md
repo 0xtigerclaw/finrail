@@ -16,6 +16,6 @@ For an optional live demonstration, use the Data room's example buttons. They fi
 
 ## Operation
 
-Set `FINRAIL_DEMO_ENTITY=04123456` to pre-confirm the Northwind synthetic identity under the existing demo operator mechanism. Set `FINRAIL_DEMO_POST_LIMIT=25` to bound mutating console actions per process. The seed does not consume that allowance.
+Set `FINRAIL_DEMO_ENTITY=04123456` to pre-confirm the Northwind synthetic identity under the existing demo operator mechanism. Set `FINRAIL_DAILY_POST_CAP=25` to bound model-backed console actions per instance per day (see [operations.md](operations.md)). The seed does not consume that allowance.
 
 A restart with fresh ephemeral state recreates the examples. Refreshing the same state does not duplicate them or restore a proposal that was discarded. To run against real or persistent state, leave `FINRAIL_DEMO_WORKSPACE` unset; this opt-in seeder is intended only for the public synthetic demo.

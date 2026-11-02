@@ -1,0 +1,189 @@
+{
+ "schema": "finrail.eval.summary/1",
+ "engine": "nebius",
+ "model": "nvidia/nemotron-3-super-120b-a12b",
+ "label": "Nemotron 3 Super",
+ "runs_per_case": 10,
+ "cases": 7,
+ "cases_name": "model-comparison-7",
+ "price_model": "",
+ "max_tokens": "8192",
+ "at": "2026-10-30",
+ "git": "47e23a8",
+ "provenance": {
+  "kind": "transcribed",
+  "note": "Transcribed from docs/model-comparison.md (measured 30 October 2026 on main at 47e23a8 with a harness kept outside the repo). Not re-run with finrail.eval; retrieval was captured once and shared by every arm.",
+  "source": "docs/model-comparison.md"
+ },
+ "calls": 70,
+ "met": 67,
+ "pass_rate": 0.9571,
+ "wilson_95": [
+  0.8814,
+  0.9853
+ ],
+ "checks": {
+  "answer_calls": 70,
+  "answer_passed": 67,
+  "answer_refused": 3,
+  "adversarial_calls": 0,
+  "adversarial_refused": 0
+ },
+ "outcomes": {
+  "passed": 67,
+  "refused": 3,
+  "cut_off": 0,
+  "schema_invalid": 0,
+  "engine_error": 0,
+  "failed": 0,
+  "wrong_figure": 0,
+  "error": 0
+ },
+ "latency_s": {
+  "median": 5.3,
+  "p90": 9.6,
+  "mean": null
+ },
+ "tokens": {
+  "input_mean": 1469,
+  "output_mean": 1050
+ },
+ "cost_usd": {
+  "total_list": 0.0973,
+  "per_call_list": 0.00139,
+  "per_checked_answer_list": 0.00145,
+  "total_ledger": null
+ },
+ "by_case": {
+  "nvda-q1-fy2027-fcf": {
+   "title": "NVIDIA Q1 FY2027 free cash flow",
+   "runs": 10,
+   "met": 10,
+   "passed": 10,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "48554"
+   },
+   "outcomes": {
+    "passed": 10
+   },
+   "median_s": 6.3,
+   "amounts": [
+    "48554"
+   ]
+  },
+  "nvda-q2-fy2027-fcf": {
+   "title": "NVIDIA Q2 FY2027 free cash flow",
+   "runs": 10,
+   "met": 10,
+   "passed": 10,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "21341"
+   },
+   "outcomes": {
+    "passed": 10
+   },
+   "median_s": 6.3,
+   "amounts": [
+    "21341"
+   ]
+  },
+  "anth-s1-revenue": {
+   "title": "Anthropic S-1 revenue",
+   "runs": 10,
+   "met": 10,
+   "passed": 10,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "16286"
+   },
+   "outcomes": {
+    "passed": 10
+   },
+   "median_s": 8.3,
+   "amounts": [
+    "16286"
+   ]
+  },
+  "anth-s1-net-loss": {
+   "title": "Anthropic S-1 net loss",
+   "runs": 10,
+   "met": 8,
+   "passed": 8,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "80748"
+   },
+   "outcomes": {
+    "passed": 8,
+    "refused": 2
+   },
+   "median_s": 5.2,
+   "amounts": [
+    "80748"
+   ]
+  },
+  "anth-s1-operating-cash-flow": {
+   "title": "Anthropic S-1 operating cash flow",
+   "runs": 10,
+   "met": 10,
+   "passed": 10,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "3929"
+   },
+   "outcomes": {
+    "passed": 10
+   },
+   "median_s": 3.4,
+   "amounts": [
+    "3929"
+   ]
+  },
+  "anth-s1-capex": {
+   "title": "Anthropic S-1 capex",
+   "runs": 10,
+   "met": 9,
+   "passed": 9,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "482"
+   },
+   "outcomes": {
+    "passed": 9,
+    "refused": 1
+   },
+   "median_s": 4.2,
+   "amounts": [
+    "482"
+   ]
+  },
+  "anth-s1-house-operating-income": {
+   "title": "Anthropic S-1 method-rule operating result (M-1)",
+   "runs": 10,
+   "met": 10,
+   "passed": 10,
+   "draft": false,
+   "expect": {
+    "outcome": "figure",
+    "amount": "-567"
+   },
+   "outcomes": {
+    "passed": 10
+   },
+   "median_s": 5.0,
+   "amounts": [
+    "-567"
+   ]
+  }
+ },
+ "drafts": [],
+ "no_live_run": false
+}

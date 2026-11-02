@@ -1,0 +1,249 @@
+{
+ "schema": "finrail.eval.stub-answers/1",
+ "note": "Recorded answers for the stub engine: what a well-behaved model returns for each report and definition over the stub's synthetic filings (row IDs E1:L1.. follow the profile's row order). Token counts are the Nemotron 3 means from docs/model-comparison.md so a stub run can be priced with --prices. A case id may be added as a key to override the answer for that case alone ({\"empty\": true} is a reply cut off with no content).",
+ "usage": {
+  "input_tokens": 1469,
+  "output_tokens": 1050
+ },
+ "answers": {
+  "NVDA-Q1-FY2027:issuer_fcf": {
+   "reply": {
+    "report_id": "NVDA-Q1-FY2027",
+    "period_end": "2026-04-26",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "issuer_fcf",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "50344",
+      "row_id": "E1:L1"
+     },
+     {
+      "metric": "cash_purchases",
+      "value": "1757",
+      "row_id": "E1:L2"
+     },
+     {
+      "metric": "principal_payments",
+      "value": "33",
+      "row_id": "E1:L3"
+     }
+    ]
+   }
+  },
+  "NVDA-Q1-FY2027:simple_fcf": {
+   "reply": {
+    "report_id": "NVDA-Q1-FY2027",
+    "period_end": "2026-04-26",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "simple_fcf",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "50344",
+      "row_id": "E1:L1"
+     },
+     {
+      "metric": "cash_purchases",
+      "value": "1757",
+      "row_id": "E1:L2"
+     }
+    ]
+   }
+  },
+  "NVDA-Q2-FY2027:issuer_fcf": {
+   "reply": {
+    "report_id": "NVDA-Q2-FY2027",
+    "period_end": "2026-07-26",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "issuer_fcf",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "24077",
+      "row_id": "E1:L1"
+     },
+     {
+      "metric": "cash_purchases",
+      "value": "2677",
+      "row_id": "E1:L2"
+     },
+     {
+      "metric": "principal_payments",
+      "value": "59",
+      "row_id": "E1:L3"
+     }
+    ]
+   }
+  },
+  "NVDA-Q2-FY2027:simple_fcf": {
+   "reply": {
+    "report_id": "NVDA-Q2-FY2027",
+    "period_end": "2026-07-26",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "simple_fcf",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "24077",
+      "row_id": "E1:L1"
+     },
+     {
+      "metric": "cash_purchases",
+      "value": "2677",
+      "row_id": "E1:L2"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:revenue": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "revenue",
+    "inputs": [
+     {
+      "metric": "revenue",
+      "value": "16286",
+      "row_id": "E1:L1"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:net_loss": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "net_loss",
+    "inputs": [
+     {
+      "metric": "net_loss",
+      "value": "80748",
+      "row_id": "E1:L2"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:operating_cash_flow": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "operating_cash_flow",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "3929",
+      "row_id": "E1:L3"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:capex": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "capex",
+    "inputs": [
+     {
+      "metric": "cash_purchases",
+      "value": "482",
+      "row_id": "E1:L4"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:simple_fcf": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "simple_fcf",
+    "inputs": [
+     {
+      "metric": "operating_cash_flow",
+      "value": "3929",
+      "row_id": "E1:L3"
+     },
+     {
+      "metric": "cash_purchases",
+      "value": "482",
+      "row_id": "E1:L4"
+     }
+    ]
+   }
+  },
+  "ANTH-S1-2026:house_operating_income": {
+   "reply": {
+    "report_id": "ANTH-S1-2026",
+    "period_end": "2026-06-30",
+    "currency": "USD",
+    "unit": "million",
+    "definition": "house_operating_income",
+    "inputs": [
+     {
+      "metric": "adjusted_operating_income",
+      "value": "1618",
+      "row_id": "E1:L5"
+     },
+     {
+      "metric": "stock_comp",
+      "value": "2185",
+      "row_id": "E1:L6"
+     }
+    ]
+   }
+  },
+  "NVDA-Q1-FY2027:search": {
+   "reply": {
+    "sentence_ids": [
+     "E1.S1",
+     "E1.S2"
+    ],
+    "lead_in": "What the filing says about its compute commitments"
+   },
+   "usage": {
+    "input_tokens": 900,
+    "output_tokens": 60
+   }
+  },
+  "NVDA-Q2-FY2027:search": {
+   "reply": {
+    "sentence_ids": [
+     "E1.S1",
+     "E1.S2"
+    ],
+    "lead_in": "What the filing says about its compute commitments"
+   },
+   "usage": {
+    "input_tokens": 900,
+    "output_tokens": 60
+   }
+  },
+  "ANTH-S1-2026:search": {
+   "reply": {
+    "sentence_ids": [
+     "E1.S1",
+     "E1.S2"
+    ],
+    "lead_in": "What the filing says about its compute commitments"
+   },
+   "usage": {
+    "input_tokens": 900,
+    "output_tokens": 60
+   }
+  }
+ }
+}

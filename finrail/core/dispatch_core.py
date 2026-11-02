@@ -302,6 +302,13 @@ def _refuse_unapproved(rid: str, rec: dict) -> None:
             f"run {rid}: its proposal changed after it was approved (approved sha256 "
             f"{str(rec.get('approved_sha256') or 'none')[:12]}, now {now[:12]}). Nothing "
             f"was executed. To see it: finrail view {rid}")
+    # And against the chain, which an edit to the run file does not reach.
+    chained = tracker.chained_approval_digest(rec) or tracker.chained_proposal_digest(rec)
+    if chained and now != chained:
+        raise ContractViolation(
+            f"run {rid}: its proposal is not the one the event log holds (logged sha256 "
+            f"{chained[:12]}, now {now[:12]}). Nothing was executed. To see it: "
+            f"finrail view {rid}")
 
 
 def run_job(rid: str) -> dict:
@@ -638,6 +645,8 @@ def _approve(rid: str, actor: str = "", verdict: str = "approved",
     digest = _approvable_digest(rid, rec, expect)
     tracker.update(rid, verdict=verdict, approved_sha256=digest,
                    **({"approved_by": actor} if actor else {}))
+    # The approval in the chain too: the worker and the auditor read it from there.
+    tracker.record_approval(rec, digest, verdict, actor)
     return {"_claimed": True, "cap": cap, "rec": rec}
 
 
@@ -662,6 +671,14 @@ def _approvable_digest(rid: str, rec: dict, expect: str) -> str:
                 f"run {rid}: this is not the proposal you reviewed (you approved sha256 "
                 f"{expect}, it is {now[:12]}). Nothing was approved. To see it: "
                 f"finrail view {rid}")
+    # The hash in the run file can be rewritten with the proposal; the one the event
+    # chain took when the run was made cannot be, not without breaking the chain.
+    chained = tracker.chained_proposal_digest(rec)
+    if chained and now != chained:
+        raise ContractViolation(
+            f"run {rid}: its proposal changed after it was proposed (the event log "
+            f"recorded sha256 {chained[:12]}, the run file now holds {now[:12]}). "
+            f"Nothing was approved. To see it: finrail view {rid}")
     return now
 
 

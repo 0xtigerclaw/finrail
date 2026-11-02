@@ -57,10 +57,12 @@ it is never presented as NVIDIA's FCF. The two issuer-defined results are $48,55
 $21,341m. They are evaluator/reference results here, not extraction-model inputs.
 Checks establish traceability to the published figures, not an audit of the issuer.
 
-Statement layouts are declared per issuer in `public_reports.PROFILES`: which archived
+Statement layouts are declared per issuer in a profile file under
+`finrail/extensions/finance/profiles/` (see "Profile files" below): which archived
 table holds each statement, the exact row label and sign of each figure, how the
 current-period column is found, and which definitions may be computed and what each
-must reconcile to. NVIDIA's profile is the original logic; Anthropic's is described below.
+must reconcile to, within what rounding. NVIDIA's profile is the original logic;
+Anthropic's is described below.
 
 Unsupported metrics, unknown sources, missing inputs, mismatched units, wrong columns,
 altered source bytes, failed services and empty retrieval fail explicitly. There is
@@ -95,17 +97,19 @@ never be taken for it; the column is marked unaudited in the filing):
 
 ### House rule HR-1 and the stock-compensation reconciliation
 
-House rules are the fund's standing method, declared as constants in
-`public_reports.HOUSE_RULES` and listed on the Rules page. There is one, and it is
-**illustrative** until the fund supplies its own: *HR-1, stock-based compensation is an
-operating cost and is never added back.* Every output that uses it says so.
+House rules are the fund's standing method, declared in
+`finrail/extensions/finance/profiles/house_rules.json` and listed on the Rules page.
+There is one, and it is **illustrative** until the fund supplies its own: *HR-1,
+stock-based compensation is an operating cost and is never added back.* Every output
+that uses it says so.
 
 For the six months ended 30 June 2026 Anthropic reports Adjusted Operating Income of
 $1,618m. Code first recomputes that figure from Anthropic's own bridge (−693 + 2,185 +
 126 + 0 = 1,618), then applies HR-1: the house operating result is 1,618 − 2,185 =
 −$567m. The $2,185m gap is stock compensation and nothing else. Asking for the
 add-back (`definition=adjusted_operating_income`) is refused by the plan before any
-retrieval or model call, with the rule's text; changing a rule is a code change.
+retrieval or model call, with the rule's text; changing a rule is a change to the rules
+file that a person reviews.
 
 The unit line sits in the caption above each F-page statement, so the caption is checked
 with the header. Table numbers are positions in the hash-checked file and are stable.
@@ -180,7 +184,86 @@ GET requests inspect its existing result without replaying a paid request. Keep 
 existing max-one-instance and CPU-always-on Cloud Run settings for this demo.
 The budget limits actions per instance, not total project billing across restarts.
 
-## Re-ingestion
+## Profile files
+
+`finrail/extensions/finance/profiles/` holds one JSON file per issuer, named for the
+company (`NVIDIA.json`, `Anthropic.json`), and `house_rules.json`. `public_reports`
+reads the directory at import; `PROFILES` and `HOUSE_RULES` are the result, with the
+shapes the checker always read (table numbers as integers, terms as sign and row pairs).
+Nothing in a profile is a figure: every value comes from the hash-checked archived cell
+at run time.
+
+Each profile carries `version` (this code reads 1) and `company` (must equal the file
+name), then:
+
+| key | what it declares |
+|---|---|
+| `period`, `default`, `extraction` | the period word for the console, the definition used when none is asked for, and `tables` (an earnings release: its tables) or `document` (a filing: every line and table in order) |
+| `column` | `kind: first` (the first figure cell after the label is current; needs `note`) or `kind: under` (the cell by column span under the header `period` and the period-end year) |
+| `tables` | table number to `header: [period text, unit text]`, both of which must appear in the table's header rows or caption; `note` is free text |
+| `rows` | row key to `table`, exact `label`, `sign` (`+` or `-`, the sign the source shows); `reconciles: true` marks a row only code reads; `blank_is_zero: true` lets a printed dash read as nil on that row alone |
+| `definitions` | name to `label`, `terms` (list of `[sign, row]`), `reconcile` (a row key or null), `reconciliation` (the sentence shown); optional `tolerance` (rounding allowed between the recomputed total and the issuer's figure, in the table's units, default 0), `house_rule`, `show`, `verify` (the issuer's own bridge, recomputed first), `query` |
+| `refused` | definition name to the method rule that refuses it before anything runs |
+| `query`, `model_note` | the retrieval query and the one column instruction the model is given |
+| `edgar_cik`, `notes` | optional: the issuer's CIK, so an accession number resolves without a URL; free text for the reader |
+
+The loader refuses an unknown key, a missing required key, a row a definition names
+that no table carries, a method rule a profile names that the rules file lacks, a
+version this code does not read, or a stray file in the directory, naming the file and
+the key, so a typo cannot become a silent default. `tests/test_profiles.py` holds the
+cases. A new issuer is a new file; no Python changes.
+
+Reconciliation is exact unless a definition declares `tolerance`. Issuers round each
+component on its own, so a total recomputed from rounded parts can sit one unit off the
+printed figure; `tolerance: 1` on a whole-millions table says that is still the same
+figure. The result's `reconciled` block always records `difference` and `tolerance`
+(an exact match says difference 0), a non-zero difference is named in the
+reconciliation sentence and the checks list, and outside the tolerance the run is
+refused with both numbers.
+
+## Ingestion command
+
+`finance.reports.ingest` brings one HTML filing into the catalog in a single run:
+
+```sh
+finrail do finance.reports.ingest source=0001628280-26-067168 company=Anthropic \
+  report_id=ANTH-S1A-2026 report_period="S-1/A, six months ended 2026-06-30" period_end=2026-06-30
+```
+
+```sh
+finrail do finance.reports.ingest source="https://investor.nvidia.com/.../default.aspx" company=NVIDIA \
+  report_id=NVDA-Q3-FY2027 report_period="Q3 FY2027" period_end=2026-10-25 "source_date_label=October 25,"
+```
+
+`source` is an EDGAR accession number (resolved through the profile's `edgar_cik` to the
+one primary document in the filing's folder; two candidates refuse and name them) or a
+direct `https` URL. A profile whose column kind is `first` needs `source_date_label`,
+the date header the current column must show. `published_at`, `source_type`,
+`audit_status` and `prefix` (the archive object prefix, default today's date and the
+report ID) are optional.
+
+What one run does, in order: download (the SEC asks clients to name themselves; set
+`FINRAIL_EDGAR_USER_AGENT` to your organisation and contact email), SHA-256, archive the
+original bytes and the profile's extraction under `<FINRAIL_STATE>/reports/<report_id>/`,
+check that the profile reads every declared cell (a filing it cannot read is still
+archived and the result says why), write the catalog entry to `reports.json` with the
+hash and the source URL, then, when `FINRAIL_REPORTS_BUCKET`, `FINRAIL_RAG_CORPUS` and
+a Google token (`FINRAIL_GCP_ACCESS_TOKEN` or workload identity) are all present, upload
+the original and the extraction (an object that already exists is accepted only if its
+bytes are these bytes), start the managed import, poll it to completion and bind the one
+ACTIVE RAG file whose URI is the extraction. Without credentials the local steps still
+run and the result lists each cloud step it skipped; run the command again with
+credentials to index, and the archived bytes are reused.
+
+The downloaded bytes are a document: hashed, written and parsed for their tables, never
+executed and never read as instructions. The command asks for approval
+(`confirm`), and a person's own terminal call is that approval; from inside an agent it
+waits for one. After the run, the archived file is re-read and its hash compared with
+the catalog entry before the run is called done. `tests/test_ingest.py` exercises the
+local path with a small HTML filing and a stubbed fetch, and the cloud sequence against
+a stubbed Google; the live bucket and corpus path has not been run from this command.
+
+## Re-ingestion of the original bundle
 
 `scripts/ingest_public_reports.py` accepts the curated source bundle containing
 `sources.json`, `raw/` and PDF `working/*.txt`. It verifies approved fingerprints,

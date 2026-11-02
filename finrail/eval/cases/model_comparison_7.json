@@ -1,0 +1,155 @@
+{
+ "schema": "finrail.eval.cases/1",
+ "name": "model-comparison-7",
+ "description": "The seven finance.reports.analyze tasks of docs/model-comparison.md (measured 30 October 2026). Every expected amount is the checked amount that document prints.",
+ "cases": [
+  {
+   "id": "nvda-q1-fy2027-fcf",
+   "title": "NVIDIA Q1 FY2027 free cash flow",
+   "report_id": "NVDA-Q1-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "48554"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 48,554"
+  },
+  {
+   "id": "nvda-q2-fy2027-fcf",
+   "title": "NVIDIA Q2 FY2027 free cash flow",
+   "report_id": "NVDA-Q2-FY2027",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "issuer_fcf"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "21341"
+   },
+   "tags": [
+    "analyze",
+    "nvidia",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 21,341; README worked example"
+  },
+  {
+   "id": "anth-s1-revenue",
+   "title": "Anthropic S-1 revenue",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "revenue"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "16286"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 16,286"
+  },
+  {
+   "id": "anth-s1-net-loss",
+   "title": "Anthropic S-1 net loss",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "net_loss"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "80748"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 80,748"
+  },
+  {
+   "id": "anth-s1-operating-cash-flow",
+   "title": "Anthropic S-1 operating cash flow",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "operating_cash_flow"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "3929"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 3,929"
+  },
+  {
+   "id": "anth-s1-capex",
+   "title": "Anthropic S-1 capex",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "capex"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "482"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "seven"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: 482"
+  },
+  {
+   "id": "anth-s1-house-operating-income",
+   "title": "Anthropic S-1 method-rule operating result (M-1)",
+   "report_id": "ANTH-S1-2026",
+   "capability": "finance.reports.analyze",
+   "params": {
+    "definition": "house_operating_income"
+   },
+   "expect": {
+    "outcome": "figure",
+    "amount": "-567"
+   },
+   "tags": [
+    "analyze",
+    "anthropic",
+    "passing",
+    "seven",
+    "house-rule"
+   ],
+   "draft": false,
+   "source": "docs/model-comparison.md, By task table: -567; docs/public-reports.md HR-1 arithmetic"
+  }
+ ]
+}

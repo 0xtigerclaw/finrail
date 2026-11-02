@@ -80,6 +80,9 @@ TRANSITIONS = {PENDING: (RUNNING, FAILED), RUNNING: (DONE, FAILED),
 DISCARDABLE = (PENDING, FAILED)      # never DONE (the record) or RUNNING (in flight)
 
 DIR_KEY = "_dir"                     # where this record lives, pinned at creation
+#: Records written from now on say so; a record without it is schema 1 and still reads.
+SCHEMA = 2
+HISTORY_SUFFIX = ".history.jsonl"    # `runs/<id>.history.jsonl`: every prior version
 
 
 def _now() -> str:
@@ -237,7 +240,7 @@ def save(capability: str, task, proposal, status: str = PENDING,
             f"plain data so a background worker can pick it up.")
     rid = uuid.uuid4().hex[:8]
     from . import agents as _agents
-    rec = {"id": rid, "capability": capability, "kind": kind, "task": task,
+    rec = {"schema": SCHEMA, "id": rid, "capability": capability, "kind": kind, "task": task,
            "proposal": proposal, "proposal_sha256": proposal_digest(proposal),
            "status": status, "errors": list(errors or []),
            "result": None, "source": source, "created": _now(),
@@ -446,7 +449,7 @@ def drop(rid: str, verdict: str = "dropped", reason: str = "", by: str = "") -> 
                 "dropped_by": str(by or "").strip() or _door_actor() or actor_default()}
     _verdict(rec, verdict, said)
     _preserve({**rec, **said}, verdict)
-    _path_of(rec).unlink(missing_ok=True)
+    _retire(rec, verdict, said)
     _event(rec, "run_dropped", {"status": rec.get("status"),
                                 **({"reason": said["drop_reason"],
                                     "by": said["dropped_by"]} if said else {})})
@@ -502,7 +505,8 @@ def drop_pending() -> list:
             # weighing it as a rejection of each proposal would teach the wrong thing.
             _verdict(rec, "cleared")
             _preserve(rec, "cleared")
-            _path_of(rec).unlink(missing_ok=True)
+            _retire(rec, "cleared")
+            _event(rec, "run_dropped", {"status": rec.get("status"), "verdict": "cleared"})
             gone.append(rec)
     return gone
 
@@ -730,7 +734,133 @@ def _write(rec: dict) -> None:
     ensure()
     d = pathlib.Path(rec[DIR_KEY]) if DIR_KEY in rec else runs()
     d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{rec['id']}.json"
+    # APPEND-ONLY: the version about to be replaced goes to the run's history first, as
+    # a chained line, so no earlier state of a record is ever lost to an overwrite and an
+    # edit to the history is seen (`finrail ledger verify`). The caller holds the record
+    # lock (`update`), so the version read here is the one the write replaces.
+    _keep_version(path, "update")
     # Atomic: a detached worker rewrites its record while the console reads it, and an
     # in-place write left an empty file in between, which the console showed as 404.
-    atomic.write_text(d / f"{rec['id']}.json", json.dumps(rec, indent=2, default=str))
+    atomic.write_text(path, json.dumps(rec, indent=2, default=str))
     _index(rec, d)
+
+
+# ── history: every version a record ever had ─────────────────────────────────
+def history_path(rid: str, d: pathlib.Path = None) -> pathlib.Path:
+    """`runs/<id>.history.jsonl`, beside the record (in its pinned directory)."""
+    if d is None:
+        d = _find(rid).parent
+    return pathlib.Path(d) / f"{rid}{HISTORY_SUFFIX}"
+
+
+def _keep_version(path: pathlib.Path, reason: str, record: dict = None) -> int:
+    """Append one chained line holding a version of the record to its history, and
+    return its seq (0 when there was nothing to keep). `record` is the version to keep;
+    without it, the file at `path` as it is now, before it is replaced or removed."""
+    from . import events
+    if record is None:
+        try:
+            text = path.read_text()
+        except FileNotFoundError:
+            return 0
+        try:
+            record = json.loads(text)
+        except ValueError:
+            record = {"unparsed": text}        # kept as it was, never guessed at
+    rid = str(record.get("id") or path.name.removesuffix(".json"))
+    hist = history_path(rid, path.parent)
+    return events.append_chained(hist, lambda seq: {
+        "seq": seq, "at": _now(), "run": rid, "reason": reason, "record": record})
+
+
+def _retire(rec: dict, verdict: str, said: dict = None) -> None:
+    """Move a record to its history with the verdict, in place of deleting it: the
+    current file goes, the history keeps every version and the judgement."""
+    path = _path_of(rec)
+    final = {**rec, **(said or {}), "verdict": verdict, "retired": _now()}
+    _keep_version(path, verdict, final)
+    path.unlink(missing_ok=True)
+    _index({**rec, "status": verdict}, path.parent)
+
+
+def history(rid: str) -> list:
+    """Every version of a run in order, oldest first: [{"seq", "at", "reason",
+    "record"}, ...]. `reason` is `update` for a version replaced by a later one, or the
+    verdict (`dropped`, `cleared`) for the record's final state. Empty when the run was
+    never changed and never dropped."""
+    from . import events
+    out = []
+    for d in _search_roots():
+        hist = history_path(rid, d)
+        if hist.is_file():
+            with open(hist, "rb") as fh:
+                out = events._parse(hist, fh)
+            break
+    return out
+
+
+def histories() -> list:
+    """Every history file this install holds, for `finrail ledger verify`."""
+    out = []
+    for d in _search_roots():
+        if d.is_dir():
+            out.extend(sorted(d.glob(f"*{HISTORY_SUFFIX}")))
+    return out
+
+
+# ── the chain's own account of a proposal ────────────────────────────────────
+def _run_events(rec: dict, kind: str) -> list:
+    """This run's events of one kind, from its conversation's log. The run's own
+    `thread` field is tried first; a record whose thread was edited away still has its
+    events somewhere, so every log is searched before answering "none"."""
+    from . import events
+    rid = str(rec.get("id") or "")
+    if not rid or not events.enabled():
+        return []
+    found = []
+    first = events.thread_of_run(rec)
+    for thread in [first] + [t for t in events.threads() if t != first]:
+        found = [ev for ev in events.read(thread, kinds=(kind,)) if ev.get("run") == rid]
+        if found:
+            # The log this run lives in has to be intact for its account to count.
+            report = events.verify_file(events._file(thread))
+            if not report["ok"]:
+                b = report["break"]
+                raise ContractViolation(
+                    f"the event log {thread} is broken at line {b['line']}: "
+                    f"{b['reason']}. Refused. To check every log: finrail ledger verify")
+            break
+    return found
+
+
+def chained_proposal_digest(rec: dict):
+    """The proposal's digest as the event log recorded it when the run was made, or
+    None when the log has no account of it (events off, or a run made before the
+    log). An edit to the run file, even one that rewrote `proposal_sha256` beside it,
+    does not reach the log: the two disagree and `dispatch_core` refuses."""
+    made = _run_events(rec, "run")
+    if not made:
+        return None
+    data = made[0].get("data") or {}
+    if isinstance(data.get("proposal"), (dict, list)):
+        return proposal_digest(data["proposal"])
+    return str(data.get("proposal_sha256") or "") or None
+
+
+def chained_approval_digest(rec: dict):
+    """The digest the chained approval event carries, or None when none was logged."""
+    approved = _run_events(rec, "approval")
+    if not approved:
+        return None
+    return str((approved[-1].get("data") or {}).get("proposal_sha256") or "") or None
+
+
+def record_approval(rec: dict, digest: str, verdict: str, by: str = "") -> int:
+    """The approval as an event in the chain: which proposal (by hash), what verdict,
+    who. The worker checks the proposal it is handed against this, not only against
+    the run file beside it."""
+    from . import events
+    return events.append(events.thread_of_run(rec), "approval",
+                         {"proposal_sha256": digest, "verdict": verdict, "by": by or ""},
+                         run=rec.get("id") or "")

@@ -749,6 +749,7 @@ class MemoRelease(Plugin):
 
 
 from .public_reports import ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, ReportMultiple
+from .ingest import ReportIngest
 from .ask import FinanceRoute
 from .claims import WebClaims
 
@@ -756,5 +757,5 @@ COMMANDS = [ScreenCandidates, ScreenEntity, ScreenRun, ScreenFixture,
             ScreenArchive,
             DataroomSearch, DataroomRecord, DataroomPropose,
             ComputeMetric, ComputeScenario, MemoDraft, MemoRelease,
-            ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, ReportMultiple,
+            ReportCatalog, ReportSearch, ReportAnalyze, ReportChallenge, ReportCorpus, ReportRecord, ReportMultiple, ReportIngest,
             WebClaims, FinanceRoute]
