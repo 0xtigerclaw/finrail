@@ -6,9 +6,9 @@
 
 Finrail is built for one domain: finance, where a number is acted on and a fluent wrong number is the most expensive kind. Its design descends from DeepSeek Harness. Every request flows through one deterministic dispatcher. A language model is a function that code calls, with typed inputs and a checked return. The interface is a plugin over that dispatcher, with no authority of its own.
 
-**Live demo:** https://finrail-demo-nwoyni5r7q-el.a.run.app
+**Try it:** https://finrail-demo-nwoyni5r7q-el.a.run.app
 
-**Demo 2:** https://youtu.be/VomYJNrci-w
+**Demo Video:** https://youtu.be/VomYJNrci-w
 
 **Built with:** Sol 6.1, Claude Opus 5.5, NVIDIA Nemotron and GLM-5.3 on Nebius Token Factory. See [How it was built](#how-it-was-built).
 
