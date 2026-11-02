@@ -22,9 +22,9 @@ Two real filings show how easily that happens.
 
 | Line, six months to 30 June 2026 | Amount |
 | --- | ---: |
-| Net loss | −$80,748m |
-| Operating loss | −$693m |
-| Adjusted operating income, as Anthropic presents it | +$1,618m |
+| Net loss | −$80.7bn |
+| Operating loss | −$0.7bn |
+| Adjusted operating income, as Anthropic presents it | +$1.6bn |
 
 A model that chooses one of these for an investment memo has made a methodological decision on the fund's behalf, without saying so.
 
@@ -32,12 +32,12 @@ A model that chooses one of these for an investment memo has made a methodologic
 
 | Line, three months to 26 July 2026 | Amount |
 | --- | ---: |
-| Net cash provided by operating activities | $24,077m |
-| Purchases related to property and equipment and intangible assets | −$2,677m |
+| Net cash provided by operating activities | $24.1bn |
+| Purchases related to property and equipment and intangible assets | −$2.7bn |
 | Principal payments on property and equipment and intangible assets | −$59m |
-| **Free cash flow, as NVIDIA reports it** | **$21,341m** |
+| **Free cash flow, as NVIDIA reports it** | **$21.3bn** |
 
-A model asked for free cash flow that returns $24,077m has quoted a real figure from the filing. It is the operating cash flow line, and it overstates free cash flow by $2,736m. Nothing about the number looks wrong. Only a check against the source, line by line, catches it.
+A model asked for free cash flow that returns $24.1bn has quoted a real figure from the filing. It is the operating cash flow line, and it overstates free cash flow by $2.7bn. Nothing about the number looks wrong. Only a check against the source, line by line, catches it.
 
 Underneath both examples sits a harder problem: parsing. When models read dense financial tables, multi-column statements and charts, they still misread rows, take the figure from the wrong column, and produce numbers that look right but are not in the source. We have seen this repeatedly, with capable models. A fund or family office that wants to rely on AI-native infrastructure cannot accept that error rate. It needs precise guardrails, and code that verifies every detail of every figure: the source document, the row, the column, the period, the units and the arithmetic.
 
@@ -51,7 +51,7 @@ Finrail separates the work into three kinds of step and assigns each to the part
 | **Judgement** | A model, called as a function | None, by design. Its output is a proposal that code verifies. |
 | **Approval** | A named person | A gate. Nothing is recorded without it, and no browser can pass it. |
 
-Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under method rule M-1 (stock compensation is a cost) the same archived cells give **−$567m**, and the $2,185m difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24,077m as NVIDIA's free cash flow is refused and names the line it actually came from.
+Judgement is permitted to be wrong because it sits between code that cannot be skipped and an approval that cannot be forged. Which profit line belongs in the memo is the fund's method, and the method is code: under method rule M-1 (stock compensation is a cost) the same archived cells give **−$0.6bn**, and the $2.2bn difference from Anthropic's figure is reconciled to the dollar. A request to add stock compensation back is refused before anything runs. A request to record $24.1bn as NVIDIA's free cash flow is refused and names the line it actually came from.
 
 ## Inspired from DeepSeek Harness Architecture
 
@@ -122,7 +122,7 @@ Purple is judgement, blue is code, green is a person, red is a refusal.
 Each answer offers the next question as a chip, so the story clicks through:
 
 1. "Did Anthropic make money, according to its S-1?" Three true lines, each with its table and row.
-2. "Under our method, what was Anthropic's operating result in its S-1?" −$567m, with the workpaper.
+2. "Under our method, what was Anthropic's operating result in its S-1?" −$0.6bn, with the workpaper.
 3. "What does the web say about Anthropic's profit?" Tavily finds press sentences. Jev names the line and period of each. Code gives every verdict: matches, loosely rounded, wrong line, or another period.
 4. "Add back stock compensation the way Anthropic does." Refused by M-1.
 5. On the workpaper, "Swap in a figure from another column." Refused by the checker.
@@ -135,7 +135,7 @@ The Rules page renders every capability's declared steps from the live registry.
 
 ![The Ask page: three true profit lines from Anthropic's S-1, each with its table and row, and the harness trace beside the answer](docs/img/ask.png)
 
-**A figure under the fund's method.** −$567m under rule M-1, with the $2,185m gap to Anthropic's adjusted figure explained. The trace on the right shows each step and the rule that holds it.
+**A figure under the fund's method.** −$0.6bn under rule M-1, with the $2.2bn gap to Anthropic's adjusted figure explained. The trace on the right shows each step and the rule that holds it.
 
 ![Ask page: Anthropic's operating result under method rule M-1, minus 567 million dollars, with the harness trace](docs/img/method.png)
 
@@ -172,7 +172,7 @@ The rules do not depend on a model behaving. These tests feed the checker the wr
 pytest tests/test_record.py tests/test_anthropic_s1.py::test_tamper_replays_are_refused_by_the_checker tests/test_public_reports.py -k "refused or waits"
 ```
 
-They include the case above: $24,077m stated as free cash flow is refused and named as the operating cash flow line. Stated as operating cash flow, the same figure passes and waits for a person.
+They include the case above: $24.1bn stated as free cash flow is refused and named as the operating cash flow line. Stated as operating cash flow, the same figure passes and waits for a person.
 
 ## Quickstart
 
